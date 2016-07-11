@@ -1,0 +1,1426 @@
+<?xml version="1.0" ?>
+
+<!-- Changes to Korolov Shipping
+
+	* Ensure assistant director names are unique (unless more than 12 required) with korNextDirector
+	* korFrigateDestroyed now grants bonus XP for destroying Charon frigates
+	* New dockscreen for promotions: dsKorolovPromotion
+	* Moved traffic control to separate global: korTrafficControl
+	* Freighter types no longer hardcoded -use typFind in: korFreighterTypes
+	* Korolov mission data moved to new type: unidKorolovEscort
+	* Korolov rank now starts at zero (new pilot) to allow first mission to be easier than rest of apprentice missions
+	* Updated globals to access unidKorolovEscort
+		korComputePlayerLevel
+		korEscortRecord
+	* Moved missions to new module using MissionType
+	* New helper functions for mission module:
+		korGetPlayerLevel
+		korGiveReward
+		korEscortMissionCompleted
+	* Obsolete globals:
+		korMsgWelcome
+		korMissionSuccess
+		korMissionFailure
+		korInitialize
+		korMissionStrongholdSuccess
+-->
+<TranscendenceModule>
+<!-- BEHAVIORS -->
+
+	<!-- Korolov Escort
+		Adds basic communications to Korolov Freighters
+
+	-->
+	<ShipClass UNID="&evKorolovFreighterBehavior;"
+			class=				"(korolov freighter behavior)"
+			virtual=			"true"
+
+			attributes=			"behaviorClass"
+			>
+
+		<Communications>
+			<Message name="Status" key="S">
+				<OnShow>
+					(objGetData gSource 'korolovPlayerEscort)
+				</OnShow>
+				<Invoke>
+					(block (
+						(armorDamage (objGetVisibleDamage gSource))
+						(shieldLevel (objGetShieldLevel gSource))
+						)
+						(objSendMessage gSender gSource
+							(switch
+								(and (= armorDamage 0) (or (= shieldLevel 100) (= shieldLevel -1)))
+									(objTranslate gSource 'Status100Percent "\"No damage\"")
+
+								(eq armorDamage 0)
+									(cat "Shields down to " shieldLevel "%")
+
+								(cat "Armor is " armorDamage "% damaged")
+								)
+							)
+						)
+				</Invoke>
+			</Message>
+		</Communications>
+
+		<Events>
+			<OnCreate>
+				(block (
+					; If aBaseObj is not defined then look for a korolovShipping station
+					(homeObj (if aBaseObj aBaseObj (sysFindObject Nil "TN +korolovShipping;")))
+					)
+					(objSetData gSource 'korolov_traffic True)
+					(objSetData gSource 'home (objGetID homeObj))
+					(shpOrder gSource 'dock homeObj)
+					(sysAddObjRecurringTimerEvent 60 gSource "OnBehavior")
+					)
+			</OnCreate>
+
+			<OnBehavior>
+				(switch
+					(not (objGetData gSource 'korolovPlayerEscort))
+						Nil
+
+					(geq (objGetData gSource 'nextMsg) (unvGetTick))
+						Nil
+
+					(geq (objGetDistance gSource gPlayerShip) 100)
+						(block Nil
+							(objSendMessage gPlayerShip gSource "Form Up!")
+							(objSetData gSource "nextMsg" (add (unvGetTick) 300))
+							)
+					)
+			</OnBehavior>
+
+			<OrderTraffic>
+				(block (
+					(homeObj (objGetObjByID (objGetData gSource 'home)))
+					(theEscort (random (sysFindObject homeObj "sHZ O:guard;")))
+					(dest (objGetObjRefData gSource 'korolovDest))
+					(altDest (random (sysFindObject homeObj "TAF +populated; -occupation; -uncharted;")))
+					)
+					(switch
+						; If we have a preset destination then use that
+						dest
+							Nil
+
+						; We leave the system: 30% of the time; or home base is too crowded; or there is no where else to go
+						(or (leq (random 1 100) 30) (not altDest) (= (objGetOpenDockingPortCount homeObj) 0))
+							(setq dest (random (sysFindObject homeObj "G -uncharted;")))
+
+						; The rest of the time, we dock at a station and return
+						(setq dest altDest)
+						)
+
+					(if (objMatches dest Nil "G")
+						(block Nil
+							(shpCancelOrders gSource)
+							(shpOrder gSource 'gate dest)
+							(objSetObjRefData gSource 'korolovDest Nil)
+							)
+
+						(block Nil
+							(shpCancelOrders gSource)
+							(shpOrder gSource 'dock dest)
+							(shpOrder gSource 'wait Nil (random 5 12))
+							(shpOrder gSource 'dock homeObj)
+							(objSetObjRefData gSource 'korolovDest Nil)
+							)
+						)
+
+					; Send an escort too
+					(if theEscort
+						(block Nil
+							(shpCancelOrders theEscort)
+							(shpOrder theEscort 'escort gSource)
+							(objSetData theEscort 'korolovEscort True)
+							)
+						; If we have no escorts, then we need some
+						(objSetData homeObj 'needEscorts True)
+						)
+					)
+			</OrderTraffic>
+		</Events>
+	</ShipClass>
+
+
+<!-- OVERRIDES -->
+
+	<ShipClassOverride UNID="&scWolfenVolkov;">
+		<Language>
+			<Text id="Intro">
+				(if (= (objGetProperty gPlayerShip 'characterClass) &unidPilgrimClass;)
+					(cat
+						"As the crowd breaks up, a tall man in a faded flight suit walks up to you:\n\n"
+						"\"My name is Volkov. You are going to the Core, is true? "
+						"I also want to go and I would fly with you, if you're willing.\""
+						)
+					(cat
+						"As the crowd breaks up, a tall man in a faded flight suit walks up to you:\n\n"
+						"\"My name is Volkov. You are leaving the system, is true? "
+						"I also want to go and I would fly with you, if you're willing.\""
+						)
+					)
+			</Text>
+			<Text id="AcceptReply">
+				(cat
+					"Volkov nods his head, more in relief than in joy.\n\n"
+					"\"Good. I will see you out there!\""
+					)
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					"Volkov grimaces in disappointment and a profound grief fills his eyes. "
+					"He begins to plead, but then turns away in resignation. As he walks away he "
+					"whispers to himself: \"Helena...\" And then he is gone."
+					)
+			</Text>
+		</Language>
+	</ShipClassOverride>
+
+	<!-- Korolov freighter overrides
+		Korolov level now stored in type unidKorolovEscort
+		EI100 and EI200 now accept level 0 (new member)
+	-->
+	<ShipClassOverride UNID="&scEI100;">
+		<StaticData>
+			<korolovContainerPrice>
+				(@
+					(list
+						; New pilot: 1500 - 4000 credits
+						; 15,000 - 40,000 cargo value
+						(multiply 100 (random 15 40))
+
+						; Apprentices: 1500 - 4000 credits
+						; 15,000 - 40,000 cargo value
+						(multiply 100 (random 15 40))
+
+						; Journeymen: 2500 - 5000 credits
+						; 25,000 - 50,000 cargo value
+						(multiply 100 (random 25 50))
+
+						; Masters: 3000 - 5000 credits
+						; 30,000 - 50,000 cargo value
+						(multiply 100 (random 30 50))
+
+						5000 ; legends don't escort, but add anyway
+						)
+					(korGetPlayerLevel)
+					)
+			</korolovContainerPrice>
+
+			<korolovEscortRate>200</korolovEscortRate>
+
+			<korolovMinLevel>0</korolovMinLevel>
+		</StaticData>
+	</ShipClassOverride>
+
+	<ShipClassOverride UNID="&scEI200;">
+		<StaticData>
+			<korolovContainerPrice>
+				(@
+					(list
+						; New pilot: 800 - 2000 credits
+						; 16,000 - 40,000 cargo value
+						(multiply 100 (random 8 20))
+
+						; Apprentices: 1500 - 4000 credits
+						; 30,000 - 80,000 cargo value
+						(multiply 100 (random 15 40))
+
+						; Journeymen: 1500 - 5000 credits
+						; 30,000 - 100,000 cargo value
+						(multiply 100 (random 15 50))
+
+						; Masters: 3000 - 5000 credits
+						; 60,000 - 100,000 cargo value
+						(multiply 100 (random 30 50))
+
+						5000 ; legends don't escort, but add anyway
+						)
+					(korGetPlayerLevel)
+					)
+			</korolovContainerPrice>
+
+			<korolovEscortRate>150</korolovEscortRate>
+
+			<korolovMinLevel>0</korolovMinLevel>
+		</StaticData>
+	</ShipClassOverride>
+
+	<ShipClassOverride UNID="&scEI7000;">
+		<StaticData>
+			<korolovContainerPrice>
+				(@
+					(list
+						0 ; new pilots cannot escort
+						0 ; apprentices cannot escort
+
+						; Journeymen: 2000 - 4000 credits
+						; 160,000 - 320,000 cargo value
+						(multiply 100 (add (random 10 20) (random 10 20)))
+
+						; Masters: 4000 - 10000 credits
+						; 320,000 - 800,000 cargo value
+						(multiply 100 (add (random 20 50) (random 20 50)))
+
+						5000 ; legends don't escort, but add anyway
+						)
+					(korGetPlayerLevel)
+					)
+			</korolovContainerPrice>
+
+			<korolovEscortRate>50</korolovEscortRate>
+
+			<korolovMinLevel>2</korolovMinLevel>
+		</StaticData>
+	</ShipClassOverride>
+
+	<ShipClassOverride UNID="&scAntaresI;">
+		<StaticData>
+			<korolovContainerPrice>
+				(@
+					(list
+						0 ; new pilots cannot escort
+						0 ; apprentices cannot escort
+						0 ; journeymen cannot escort
+
+						; Masters: 30 - 150 credits per container
+						; 36,000 - 180,000 cargo value
+						(multiply 5 (add (random 2 10) (random 2 10) (random 2 10)))
+
+						150 ; legends don't escort, but add anyway
+						)
+					(korGetPlayerLevel)
+					)
+			</korolovContainerPrice>
+
+			<korolovEscortRate>350</korolovEscortRate>
+
+			<korolovMinLevel>3</korolovMinLevel>
+		</StaticData>
+	</ShipClassOverride>
+
+	<ShipClassOverride UNID="&scAntaresII;">
+		<StaticData>
+			<korolovContainerPrice>
+				(@
+					(list
+						0 ; new pilots cannot escort
+						0 ; apprentices cannot escort
+
+						; Journeymen: 60 - 240 credits per container
+						; 72,000 - 288,000
+						(multiply 2 (add (random 10 40) (random 10 40) (random 10 40)))
+
+						; Masters: 200 - 400 credits per container
+						; 240,000 - 480,000
+						(multiply 2 (add (random 30 60) (random 30 60) (random 40 80)))
+
+						400 ; legends don't escort, but add anyway
+						)
+					(korGetPlayerLevel)
+					)
+			</korolovContainerPrice>
+
+			<korolovEscortRate>100</korolovEscortRate>
+
+			<korolovMinLevel>2</korolovMinLevel>
+		</StaticData>
+	</ShipClassOverride>
+
+	<ShipClassOverride UNID="&scAntaresV;">
+		<StaticData>
+			<korolovContainerPrice>
+				(item
+					(list
+						0 ; new pilots cannot escort
+						0 ; apprentices cannot escort
+
+						; Journeymen: 40 - 160 credits
+						; 80,000 - 320,000 cargo value
+						(multiply 10 (add (random 1 4) (random 1 4) (random 1 4) (random 1 4)))
+
+						; Masters: 160 - 400 credits
+						; 320,000 - 800,000 cargo value
+						(add (multiply 10 (add (random 4 10) (random 4 10))) (multiply 10 (add (random 4 10) (random 4 10))))
+
+						400 ; legends don't escort, but add anyway
+						)
+					(korGetPlayerLevel)
+					)
+			</korolovContainerPrice>
+
+			<korolovEscortRate>50</korolovEscortRate>
+
+			<korolovMinLevel>2</korolovMinLevel>
+		</StaticData>
+	</ShipClassOverride>
+
+
+	<!-- Korolov Escort
+
+	Type holds all global data associated with Korolov Escort missions (moved from station type)
+
+	GLOBAL DATA
+
+	level:				Player's level:
+							Nil	= Not yet initialized
+							-1	= Blacklisted
+							1	= Apprentice
+							2	= Journeyman
+							3	= Master
+							4	= Legend
+
+	record{shipUNID}:	Escort record for given freighter
+							({successful} {unsuccessful})
+
+	recordStrongholds:	Number of Charon primary strongholds destroyed
+
+	xp:					Number of experience points.
+	-->
+	<Type UNID="&unidKorolovEscort;">
+		<StaticData>
+			<assistantDirectorTable>
+				(	; last name
+					("Ash" )
+					("Burke" )
+					("Czerniawski" )
+					("Gordievsky" )
+					("Jones" )
+					("Leung" )
+					("Price" )
+					("Penkovsky" )
+					("Reagan" )
+					("Sheppard" )
+					("Sorge" )
+					("Valerii" )
+					)
+			</assistantDirectorTable>
+		</StaticData>
+
+		<Events>
+			<GetGlobalAchievements>
+				(block (theList)
+					(if (typGetData &unidKorolovEscort; 'level)
+						(block (
+							(successList (plyGetKeyEventStat gPlayer 'missionSuccess Nil "* +korolov;"))
+							(failureList (plyGetKeyEventStat gPlayer 'missionFailure Nil "* +korolov;"))
+							)
+
+							(setq theList (list
+								(list
+									"Korolov rank"
+									(typTranslate &unidKorolovEscort; 'PlayerRank)
+									)
+
+								(list
+									"Korolov shipping missions"
+									(rpgMissionAchievementString (count successList) (count failureList))
+									"missions &amp; activities"
+									)
+								))
+							)
+						)
+
+					theList
+					)
+			</GetGlobalAchievements>
+		</Events>
+
+		<Language>
+			<Text id="PlayerRank">
+				(block (
+					(level (korGetPlayerLevel))
+					)
+					(switch
+						(not level) "No rank"
+						(= level -1) "Blacklisted"
+						(= level 0) "None"
+						(= level 1) "Apprentice"
+						(= level 2) "Journeyman"
+						(= level 3) "Master"
+						(= level 4) "Legend"
+						(cat "ERROR: Korolov level: " level)
+						)
+					)
+			</Text>
+			<Text id="SuccessDebrief">
+				(block (
+					(level (korGetPlayerLevel))
+					(xp (typGetData &unidKorolovEscort; 'xp))
+					)
+					(switch
+						; Describe a bit the process after the player's first mission
+						(= (count (msnFind "r +korolov;")) 1)
+							(typTranslate &unidKorolovEscort; "SuccessDebrief:FirstMission" gData)
+
+						; At the next level
+						(and (eq level 1) (geq xp 300))
+							(typTranslate &unidKorolovEscort; "SuccessDebrief:Apprentice:3" gData)
+
+						; If we're about to become a journeyman, tell the player
+						(and (eq level 1) (geq xp 225))
+							(typTranslate &unidKorolovEscort; "SuccessDebrief:Apprentice:2" gData)
+
+						; At level 1, describe the things to look forward to
+						(eq level 1)
+							(typTranslate &unidKorolovEscort; "SuccessDebrief:Apprentice:1" gData)
+
+						; If the player has destroyed 3 frigates, try deploying the Kronosaurus
+						(geq (typGetGlobalData &scCharonFrigateRaider; 'totalDestroyed) 3)
+							(if (chrDeployKronosaurus)
+								(typTranslate &unidKorolovEscort; "SuccessDebrief:Kronosaurus" gData)
+								(typTranslate &unidKorolovEscort; "SuccessDebrief:Default" gData)
+								)
+
+						; Standard text
+						(typTranslate &unidKorolovEscort; "SuccessDebrief:Default" gData)
+						)
+					)
+			</Text>
+			<Text id="SuccessDebrief:FirstMission">
+				(cat
+					"\"Excellent work, captain! You seem to have the aptitude to handle these missions. "
+					"Everytime you successfully escort a freighter you will earn money and increase your skills."
+					"\n\n\"We've deposited " (@ gData 'reward) " in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:Apprentice:1">
+				(cat
+					"\"Excellent work, captain! Your skills are improving rapidly. "
+					(random
+						'(	"During your apprenticeship you will escort small freighters such as the EI100. When you become a Journeyman, you will be rated to escort larger freighters with more valuable cargo."
+							"But here is some advice: Remember that pirates seek out the most valuable cargo; pirates will send out larger and more powerful attacks against expensive cargos. Always be vigilant."
+							"But don't get cocky; escorting a fast EI200 or EI100 is much easier than protecting a slow and defenseless Antares-class."
+							"But don't lower your guard; the pirates will keep coming&#x97;at least until we wipe out their primary stronghold in the system."
+							"After a few more successful missions you will be ready for a promotion to Journeyman&#x97;and ready for a greater challenge!"
+							)
+						)
+					"\n\n\"We've deposited " (@ gData 'reward) " in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:Apprentice:2">
+				(cat
+					"\"Excellent work, captain! Your apprenticeship is almost complete. "
+					"If you can successfully complete the next escort mission, "
+					"we will be confident in your skills and promote you."
+					"\n\n\"We've deposited " (@ gData 'reward) " in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:Apprentice:3">
+				(cat
+					"\"Excellent work, captain! I knew from the beginning that you had the skills to succeed."
+					"\n\n\"We've deposited " (@ gData 'reward) " in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:Kronosaurus">
+				(cat
+					"\"Your skills are truly impressive! But the news that you've destroyed several Charon frigates has alarmed the pirates. "
+					"They're sending the Kronosaurus after you! It is the deadliest frigate in the Charon fleet and it will not stop until you are destroyed."
+					"\n\n\"We've deposited " (@ gData 'reward) " in your account. You better spend them wisely!\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:Default">
+				(cat
+					"\"Well done, captain! You've shown skill and bravery in facing those pirates.\n\n"
+					"\"We've deposited " (@ gData 'reward) " in your account.\""
+					)
+			</Text>
+		</Language>
+	</Type>
+
+	<!-- Korolov Shipping
+
+	EXTRA DATA
+	assistantDirector:	Last name of the assistant director overseeing this station
+	charonStronghold:	Primary Charon base in the system
+	-->
+
+	<StationType UNID="&stKorolovShipping;"
+			name=				"Korolov Shipping"
+			sovereign=			"&svCorporate;"
+			dockScreen=			"Dispatch"
+			abandonedScreen=	"&dsAbandonedStation;"
+			dockingPorts=		"10"
+			canAttack=			"true"
+
+			multiHull=			"true"
+			armorID=			"&itPlasteelPlate;"
+			hitPoints=			"250"
+			repairRate=			"2"
+			shipRepairRate=		"3"
+			explosionType=		"&vtThermoExplosion1;"
+			ejectaType=			"&vtWreckEjecta;"
+
+			attributes=			"corporate, corporateCustoms, corporateDecon, envAir, envEarth, envFire, envWater, friendly, generic, human, majorStation, korolovShipping, populated"
+
+			noArticle=			"true"
+			>
+
+		<!-- Encounter Info -->
+		<Encounter
+				levelFrequency=		"ccc-- ----- ----- ----- -----"
+				locationCriteria=		"+planetary"
+				unique=			"inSystem"
+				enemyExclusionRadius=	"50"
+				/>
+
+
+		<Image			imageID="&rsStations1;" imageX="256" imageY="0" imageWidth="224" imageHeight="224"/>
+
+		<Trade currency="credit" max="100000" replenish="5000">
+			<Sell	criteria="rNU L:1-5; -Illegal; -NotForSale; -notStandard;"	priceAdj="110"	inventoryAdj="100" noDescription="true"/>
+
+			<Refuel			criteria="f +BasicFuel; L:1-5;" priceAdj="90"/>
+			<RepairArmor	criteria="a L:1-8;" priceAdj="100"/>
+			<ReplaceArmor	criteria="a L:1-8;" priceAdj="100"/>
+			<InstallDevice	criteria="d L:1-6;" priceAdj="100"/>
+			<RemoveDevice	criteria="d L:1-6;" priceAdj="100"/>
+		</Trade>
+
+		<Ships>
+			<Ship					count="1d2" class="&scRoninC;" orders="guard"/>
+			<Table count="1d4+1">
+				<Ship chance="20" 	count="1" class="&scEI100;" eventHandler="&evKorolovFreighterBehavior;"/>
+				<Ship chance="20" 	count="1" class="&scEI200;" eventHandler="&evKorolovFreighterBehavior;"/>
+				<Ship chance="15" 	count="1" class="&scEI7000;" eventHandler="&evKorolovFreighterBehavior;"/>
+				<Ship chance="15" 	count="1" class="&scAntaresI;" eventHandler="&evKorolovFreighterBehavior;"/>
+				<Ship chance="15" 	count="1" class="&scAntaresII;" eventHandler="&evKorolovFreighterBehavior;"/>
+				<Ship chance="15" 	count="1" class="&scAntaresV;" eventHandler="&evKorolovFreighterBehavior;"/>
+			</Table>
+		</Ships>
+
+		<Satellites>
+			<Orbitals count="1d4" distance="2d8+6" angle="random">
+				<Station type="&stSealedCargoContainer;"/>
+			</Orbitals>
+		</Satellites>
+
+		<StaticData>
+			<freighterData>
+				(	; class			description
+					(&scAntaresI;	"The Antares I design is more than a hundred years old, built originally by the massive Polyarny Shipyards orbiting Ceres. Slow and unencumbered by armor, the Antares I can haul 30 kilotons of cargo, but only the most skilled pilots can protect it from pirate attack. Only Masters in the Korolov Shipping Corporation are rated to escort the Antares I class.")
+					(&scAntaresII;	"While sacrificing none of its cargo capacity, the Antares II has a top speed 50% higher than its predecessor. Escort pilots must have the rank of Journeyman or Master to defend the Antares II class.")
+					(&scAntaresV;	"The Antares V is basically a stretched version of the earlier II series. It has larger cargo capacity and upgraded weapons. Escort pilots must have the rank of Journeyman or Master to escort the Antares V class.")
+					(&scEI100;		"The EI100 class freighter was designed for fast interplanetary transportation. Early in its history, it even carried passengers, but today it carries light commodities. Because of the relatively low value of its cargo, the EI100 is often escorted by Apprentice pilots.")
+					(&scEI200;		"The EI200 class freighter is a larger and faster version of the 100 series. It has double the cargo capacity and upgraded armor and weapons. It is designed to transport small quantities of high-value cargo. The EI200 is so well defended that even Apprentices are allowed to escort them.")
+					(&scEI7000;		"The 7000 is the most powerful member of the EI freighter series. With a cargo capacity of 2 kilotons and heavy armor and weapons, the EI7000 is ideal for high-value cargos. Only Journeymen and Masters are rated to escort the EI7000 class.")
+					)
+			</freighterData>
+
+			<pirateData>
+				(	; class			description
+					(&scCorsair;	"The backbone of the Charon Pirate fleet consists of these fast and deadly gunships. Piloted by young and somewhat inexperienced pirates, they are nonetheless dangerous in large numbers.")
+					(&scViking;		"The Viking-class gunship is powerful and well-armored. It is slower than a Corsair, but more than fast enough to chase down a freighter.")
+					(&scCorsair-II;	"More than an upgrade, the Corsair-II sports shields and a missile launcher.")
+					(&scViking-II;	"The Viking-II is an upgraded version with shields and dual turbolasers.")
+					(&scDrake;		"The Drake is the pirates' mobile battering ram. Heavily armored and loaded with missiles, the Drake will pummel you to pieces from long range.")
+					(&scCharonFrigateRaider;	"The sight of these frigates brings fear to most freighter pilots. Fast, silent, and loaded with hurt, a Charon frigate can destroy a small fleet of escort ships. Do not challenge these ships unless you know what you're doing.")
+					)
+			</pirateData>
+		</StaticData>
+
+		<Events>
+			<OnCreate>
+				(block (charonStronghold)
+					; Register a recurring event
+					(sysAddObjRecurringTimerEvent 240 gSource "OnTrafficControl")
+
+					; Every station is overseen by a different AD
+					(objSetData gSource 'assistantDirector (korNextDirector))
+
+					; Allow a finite number of escort missions from each station
+					(objSetData gSource 'remainingMissions (add 3 (modulo (objGetDestiny gSource) 7)))
+
+					; Find the primary Charon stronghold in the system
+					(setq charonStronghold (chrGetPrimaryStronghold gSource))
+					(objSetObjRefData gSource 'charonStronghold charonStronghold)
+					)
+			</OnCreate>
+
+			<OnDestroy>
+				(intCorporateOnDestroy)
+			</OnDestroy>
+
+			<OnTrafficControl>
+				(korTrafficControl gSource)
+			</OnTrafficControl>
+		</Events>
+
+		<DockScreens>
+			<Dispatch>
+				<Panes>
+					<Default>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'descWelcome)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionEscortFreighter" default="1">
+								(rpgMissionAssignment {
+									missionCriteria: "n +korolov;"
+									noMissionTextID: 'descNoMissions
+									})
+							</Action>
+
+							<Action id="actionSituationScreen">
+								(if (typGetData &unidKorolovEscort; 'level)
+									(scrShowScreen gScreen "SituationBoard")
+									(scrShowScreen gScreen &dsRPGMessage; {
+										desc: (scrTranslate gScreen 'descNoServiceRecord)
+										})
+									)
+							</Action>
+
+							<Action id="actionDockServices">
+								(if (typGetData &unidKorolovEscort; 'level)
+									(rpgDockServices gPlayerShip {
+										checkMilitaryID: True
+										})
+									(scrShowScreen gScreen &dsRPGMessage; {
+										desc: (scrTranslate gScreen 'descNoDockServicesAccess)
+										})
+									)
+							</Action>
+
+							<Action id="actionUndock" cancel="1">
+								<Exit/>
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</Dispatch>
+
+			<SituationBoard
+				name=		"Situation Screen"
+				backgroundID=	"none"
+				>
+				<Display>
+					<Image left="207" top="69" width="152" height="150" transparent="true">
+						(resCreateImageDesc &rsKorolovLogo; 0 0 152 150)
+					</Image>
+
+					<Text left="11" top="234" width="546" height="32" font="SubTitle" color="131, 137, 130" align="center">
+						"Korolov Shipping Corporation"
+					</Text>
+
+					<Text left="11" top="266" width="546" height="32" font="LargeBold"  color="131, 137, 130" align="center">
+						"Situation Screen Interface"
+					</Text>
+				</Display>
+
+				<Panes>
+					<Default
+						desc=	"Select an option:">
+
+						<Actions>
+							<Action id="actionRecord">
+								(scrShowScreen gScreen "ServiceRecord")
+							</Action>
+
+							<Action id="actionFreighterData">
+								(block Nil
+									(setq gDataSet "freighterData")
+									(setq gFormat 'freighter)
+									(scrShowScreen gScreen "ShipData")
+									)
+							</Action>
+
+							<Action id="actionEnemyData">
+								(block Nil
+									(setq gDataSet "pirateData")
+									(setq gFormat 'warship)
+									(scrShowScreen gScreen "ShipData")
+									)
+							</Action>
+
+							<Action id="actionDone" cancel="1">
+								(scrShowScreen gScreen "Dispatch")
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</SituationBoard>
+
+			<ServiceRecord
+				name=			"Situation Screen"
+				backgroundID=	"none"
+				>
+				<Display>
+					<Text left="140" top="24" right="-24" height="28" font="SubTitle" color="255,210,152">
+						(plyComposeString gPlayer "%name%")
+					</Text>
+
+					<Image left="12" top="24" width="120" height="120" transparent="true">
+						(block (
+							(level (korGetPlayerLevel))
+							)
+
+							(if (gr level 0)
+								(resCreateImageDesc
+									&rsKorolovInsignia;
+									(multiply 120 (subtract level 1))
+									0
+									120
+									120
+									)
+								Nil
+								)
+							)
+					</Image>
+
+					<Text left="140" top="52" right="-24" height="32" font="Large" color="200,206,199">
+						(item
+							'(
+								"Dishonorably discharged"	; -1 blacklisted
+								"New pilot in the Korolov Shipping Corporation"				; 0
+								"Apprentice in the Korolov Shipping Corporation"				; 1
+								"Journeyman in the Korolov Shipping Corporation"				; 2
+								"Master in the Korolov Shipping Corporation"					; 3
+								"Legend in the Korolov Shipping Corporation"					; 4
+								)
+							(add (typGetData &unidKorolovEscort; 'level) 1)
+							)
+					</Text>
+
+					<Text left="140" top="84" right="-24" height="18" font="MediumBold" color="255,210,152">
+						"Service Record:"
+					</Text>
+
+					<Text left="140" top="102" right="280" bottom="-120" font="LargeBold" color="200,206,199">
+						(cat
+							"EI100\n"
+							"EI200\n\n"
+
+							"EI7000\n"
+							"Antares II\n"
+							"Antares V\n\n"
+
+							"Antares I\n"
+							)
+					</Text>
+
+					<Text left="280" top="102" right="-24" bottom="270" font="Large" color="149,153,148">
+						(cat
+							(korEscortRecord &scEI100;) "\n"
+							(korEscortRecord &scEI200;) "\n\n"
+
+							(korEscortRecord &scEI7000;) "\n"
+							(korEscortRecord &scAntaresII;) "\n"
+							(korEscortRecord &scAntaresV;) "\n\n"
+
+							(korEscortRecord &scAntaresI;) "\n"
+							)
+					</Text>
+
+					<Text left="140" top="270" right="-24" height="18" font="MediumBold" color="255,210,152">
+						(block (showText)
+							(setq showText (gr (typGetData &unidKorolovEscort; 'recordStrongholds) 0))
+							(if showText "Commendations:" "")
+							)
+					</Text>
+
+					<Text left="140" top="286" right="-24" bottom="-12" font="Large" color="149,153,148">
+						(block (
+							(strongholdsDestroyed (typGetData &unidKorolovEscort; 'recordStrongholds))
+							)
+
+							(cat
+								(switch
+									(not strongholdsDestroyed)
+										""
+
+									(= strongholdsDestroyed 0)
+										""
+
+									(= strongholdsDestroyed 1)
+										"Korolov Sign of Distinction for destroying a Charon stronghold.\n"
+
+									(cat
+										"Korolov Sign of Honor for destroying "
+										(strNumber strongholdsDestroyed)
+										" Charon strongholds.\n"
+										)
+									)
+								)
+							)
+					</Text>
+				</Display>
+
+				<Panes>
+					<Default>
+						<OnPaneInit>
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionDone" cancel="1" default="1">
+								(scrShowScreen gScreen "SituationBoard")
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</ServiceRecord>
+
+			<ShipData
+				name=			"Situation Screen"
+				backgroundID=	"none"
+				>
+				<OnScreenInit>
+					(block Nil
+						(setq gCursor 0)
+						(setq gSelect (item (typGetStaticData &stKorolovShipping; gDataSet) 0))
+						)
+				</OnScreenInit>
+
+				<Display>
+					<Image left="12" right="-44" top="62" height="100" align="center" valign="center" transparent="true">
+						(shpGetImageDesc (item gSelect 0) 0)
+					</Image>
+
+					<Text left="12" right="-44" top="150" height="40" align="center" font="SubTitle" color="255,210,152">
+						(shpGetClassName (item gSelect 0) 1)
+					</Text>
+
+					<Text left="12" width="250" top="190" bottom="-140" align="right" font="MediumBold" color="200,206,199">
+						(switch
+							(= gFormat 'freighter)
+								(cat
+									"cargo space:\n"
+									"max speed:\n"
+									"armor:\n"
+									"shields:\n"
+									"weapon:\n"
+									"manufacturer:\n"
+									)
+
+							(= gFormat 'warship)
+								(cat
+									"max speed:\n"
+									"armor:\n"
+									"shields:\n"
+									"weapon:\n"
+									"launcher:\n"
+									)
+							)
+					</Text>
+
+					<Text right="-44" width="250" top="190" bottom="-140" align="left" font="Medium" color="200,206,199">
+						(block (
+							(classUNID (@ gSelect 0))
+							(armor (typGetProperty classUNID 'primaryArmor))
+							(shield (typGetProperty classUNID 'shield))
+							(weapon (typGetProperty classUNID 'primaryWeapon))
+							(launcher (typGetProperty classUNID 'launcher))
+							)
+							(switch
+								(= gFormat 'freighter)
+									(cat
+										(typGetProperty classUNID "cargoSpace") " tons\n"
+										(typGetProperty classUNID "maxSpeed") "% lightspeed\n"
+										(if armor (strCapitalize armor) "None") "\n"
+										(if shield (strCapitalize shield) "None") "\n"
+										(if weapon (strCapitalize weapon) "None") "\n"
+										(typGetProperty classUNID "manufacturer") "\n"
+										)
+
+								(= gFormat 'warship)
+									(cat
+										(typGetProperty classUNID "maxSpeed") "% lightspeed\n"
+										(if armor (strCapitalize armor) "None") "\n"
+										(if shield (strCapitalize shield) "None") "\n"
+										(if weapon (strCapitalize weapon) "None") "\n"
+										(if launcher (strCapitalize launcher) "None") "\n"
+										)
+								)
+							)
+					</Text>
+
+					<Text left="52" right="-84" bottom="-32" height="120" align="center" font="Large" color="200,206,199">
+						(item gSelect 1)
+					</Text>
+				</Display>
+
+				<Panes>
+					<Default
+							desc=	"Select an option:"
+							>
+						<OnPaneInit>
+							(block (shipData)
+								(setq shipData (typGetStaticData &stKorolovShipping; gDataSet))
+								(scrEnableAction gScreen 'actionNext (ls (add gCursor 1) (count shipData)))
+								(scrEnableAction gScreen 'actionPrev (gr gCursor 0))
+								)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionNext" default="1" nextKey="1">
+								(block Nil
+									(setq gCursor (add gCursor 1))
+									(setq gSelect (item (typGetStaticData &stKorolovShipping; gDataSet) gCursor))
+									(scrShowPane gScreen "Default")
+									)
+							</Action>
+
+							<Action id="actionPrev" prevKey="1">
+								(block Nil
+									(setq gCursor (subtract gCursor 1))
+									(setq gSelect (item (typGetStaticData &stKorolovShipping; gDataSet) gCursor))
+									(scrShowPane gScreen "Default")
+									)
+							</Action>
+
+							<Action id="actionDone" cancel="1">
+								(scrShowScreen gScreen "SituationBoard")
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</ShipData>
+
+		</DockScreens>
+
+		<Language>
+			<Text id="actionEscortFreighter">"[E]scort Freighter"</Text>
+			<Text id="actionSituationScreen">"[S]ituation Screen"</Text>
+			<Text id="actionRecord">"[S]ervice Record"</Text>
+			<Text id="actionFreighterData">"[F]reighter Data"</Text>
+			<Text id="actionEnemyData">"[E]nemy Intelligence"</Text>
+			<Text id="actionContinue">"[C]ontinue"</Text>
+			<Text id="actionDockServices">"[D]ock Services"</Text>
+			<Text id="actionDone">"[D]one"</Text>
+			<Text id="actionUndock">"[U]ndock"</Text>
+			<Text id="actionNext">"[N]ext Ship"</Text>
+			<Text id="actionPrev">"[P]revious Ship"</Text>
+
+			<Text id="descNoServiceRecord">"You have no service record with the Korolov Shipping Corporation."</Text>
+
+			<Text id="descNoDockServicesAccess">"The dock services area is restricted to members only."</Text>
+
+			<Text id="descWelcome">
+				(cat
+					"You are in the main hall of a Korolov Shipping Company station. "
+					(block (
+						(level (korGetPlayerLevel))
+						)
+						(switch
+							(= level -1) ; Blacklisted
+								"Conversations stop as you enter the room. Whispered condemnations make it clear that you are not welcome among the freighter crews and captains."
+							(= level 1) ; Apprentice
+								"The walls are decorated with holopanes honoring the men and women who have died defending Korolov freighters.\n\nDo you wish to hire yourself out as a freighter escort?"
+							(= level 2) ; Journeyman
+								"The freighter captains welcome you as you enter.\n\nDo you wish to hire yourself out as a freighter escort?"
+							(= level 3) ; Master
+								"The more experienced escort captains welcome you as you enter; you are treated with deference and respect.\n\nDo you wish to hire yourself out as a freighter escort?"
+							(= level 4) ; Legend
+								"Murmured excitement ripples across the hall as you enter; everyone crowds around to greet you."
+							; Default
+							"The walls are decorated with holopanes honoring the men and women who have died defending Korolov freighters.\n\nDo you wish to hire yourself out as a freighter escort?"
+							)
+						)
+					)
+			</Text>
+
+			<Text id="descNoMissions">
+				(block (
+					(level (korGetPlayerLevel))
+					)
+					(switch
+						; Too many failures
+						(= level -1)
+							"\"Sorry, captain, but your escort record is terrible. No freighter wants to be defended by you.\""
+
+						; Already a legend
+						(= level 4)
+							"\"Sorry but Director Hammil doesn't want to take a risk with your life. The other shipping companies don't have a legendary pilot like you!\""
+
+						; If the main stronghold is destroyed, no need for escorts
+						(objIsAbandoned (objGetObjRefData gSource 'charonStronghold))
+							"\"Sorry but there is no need for your escort skills now that the Charon base in the system has been destroyed. I bet other systems could use your help, though.\""
+
+						; If we failed to destroy stronghold, we stop missions
+						(objGetData gSource 'charonDominates)
+							"\"Sorry, all freighters are grounded. The Charon stronghold in this system is too strong.\""
+
+						; If the Charon Fortress is destroyed, no missions
+						(= (typGetGlobalData &stCharonPirateFortress; 'status) 'destroyed)
+							"\"Sorry but there is no need for your escort skills now that the Fortress of the Charon Pirates has been destroyed.\""
+
+						"Sorry, there are no missions currently available."
+						)
+					)
+			</Text>
+
+            <Text id="core.mapDescMain">
+                "Hires freighter escorts"
+            </Text>
+		</Language>
+	</StationType>
+
+
+	<DockScreen UNID="&dsKorolovPromotion;"
+			nestedScreen=		"true"
+			inherit=			"&dsDockScreenBase;"
+			>
+		<Panes>
+			<Default>
+				<OnPaneInit>
+					(scrSetDescTranslate gScreen (cat "Promotion:" (korGetPlayerLevel)))
+				</OnPaneInit>
+
+				<Actions>
+					<Action id="actionContinue" default="1" cancel="1">
+						(block (
+							(level (korGetPlayerLevel))
+							(roll (random 1 100))
+							reward
+							)
+							(switch
+								(= 2 level)
+									(switch
+										(and (leq roll 60)
+												(= (objGetEquipmentStatus gPlayerShip 'SRSEnhancer) 'notInstalled)
+												)
+											(setq reward (itmCreate &itEnhanceSRSROM; 1))
+										(and (leq roll 90)
+												(= (objGetEquipmentStatus gPlayerShip 'TargetingComputer) 'notInstalled)
+												)
+											(setq reward (itmCreate &itTargetingComputerROM; 1))
+
+										(setq reward (itmCreate &itEnhanceShieldsROM; 1))
+										)
+
+								(= 3 level)
+									(setq reward (itmCreate &itClass5Deflector; 1))
+								)
+							(if reward (objAddItem gPlayerShip reward))
+							(scrExitScreen gScreen)
+
+							(if (and (= 4 level) (not (typGetGlobalData &scWolfenVolkov; 'status)))
+								(scrShowScreen gScreen &dsWingmanEncounter; {wingman: &scWolfenVolkov;})
+								)
+							)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+
+		<Language>
+			<Text id="Promotion:1">
+				(cat "\"Korolov Shipping needs more pilots with your skills and determination. "
+					"Please come back to us, or any other Korolov station, if you want to earn a bit of money.\""
+					)
+			</Text>
+			<Text id="Promotion:2">
+				(cat "\"After reviewing your record, I have recommended to "
+					"Assistant Director " (objGetData gSource "assistantDirector")
+					" that you be granted the rights and responsibilities of a Journeyman"
+					" of the Korolov Shipping Corporation. Congratulations!"
+					"\n\nTo aid you in your missions, please accept this ROM biosoft.\""
+					)
+			</Text>
+			<Text id="Promotion:3">
+				(cat "Assistant Director " (objGetData gSource "assistantDirector")
+					" talks to you after the mission:"
+					" \"You are one of our best pilots, and I'm happy to tell you that"
+					" the executive board has promoted you to the rank of Master. Congratulations!"
+					"\n\n\"To commemorate this occasion, I want to give you this vintage deflector shield generator."
+					" May it help you in times of need.\""
+					)
+			</Text>
+			<Text id="Promotion:4">
+				(cat "A crowd gathers around you as you leave the debriefing; everyone reaches towards you in congratulations.\n\n"
+					"\"Congratulations! You've broken the record! "
+					"You've escorted " (strNumber (count (msnFind "r +korolov; +escort; +property:isSuccess;")))
+					" freighters without losing a single one! No one has accomplished that feat before!\""
+					)
+			</Text>
+		</Language>
+	</DockScreen>
+
+
+
+<!-- GLOBALS -->
+
+	<Globals>
+		(block Nil
+			; Korolov Traffic Control
+			; EXTRA DATA
+			; needEscorts:		TRUE if we launch a freighter without escorts.
+			(setq korTrafficControl (lambda (homeObj)
+				(block (
+					(dockedFreighters (sysFindObject homeObj "sHZ O:docked; D:korolov_traffic;"))
+					(freighterCount (count (sysFindObject homeObj "s D:korolov_traffic;")))
+					(freightersInFlight (- freighterCount (count dockedFreighters)))
+					(escorts (sysFindObject homeObj "sHZ O:guard;"))
+					(escortsInFlight (filter (sysFindObject homeObj "s D:korolovEscort;") escort (objGetData escort 'korolovEscort)))
+					(escortCount (+ (count escorts) (count escortsInFlight)))
+					(portsLeft (gr (objGetOpenDockingPortCount homeObj) 0))
+					)
+
+					; Check that no one is escorting a docked freighter
+					(enum dockedFreighters theFreighter
+						(enum (sysFindObject theFreighter "sZ O:escort") theEscort
+							(block Nil
+								; We send excess escorts away below so skip check on docking ports
+								(shpCancelOrders theEscort)
+								(shpOrder theEscort 'guard homeObj)
+								(objSetData theEscort 'korolovEscort Nil)
+								)
+							)
+						)
+
+					; Exclude freighters being escorted by the player
+					(setq dockedFreighters (filter dockedFreighters theFreighter
+						(not (objGetData theFreighter 'korolovPlayerEscort))
+						))
+
+					; If we don't have enough escorts, then we better get some more
+					(if (and portsLeft
+							(or
+								(and (ls escortCount 3) (= (random 1 5) 1))
+								(and (objGetData homeObj 'needEscorts) (= (random 1 3) 1))
+								)
+							)
+						(block (newShip)
+							(setq newShip
+								(sysCreateShip
+									(random '(&scRoninB; &scRoninB; &scRoninC; &scRoninC; &scRoninC; &scWolfen; &scCenturion;))
+									(objGetNearestStargate homeObj)
+									&svCorporate;
+									)
+								)
+							(shpOrder newShip 'guard homeObj)
+							(objSetData homeObj 'needEscorts Nil)
+							)
+						)
+
+					; If we don't have enough freighters, then we ask for some
+					(if (and portsLeft
+							(or (ls freighterCount 2)
+								(and (ls freighterCount 3) (= (random 1 3) 1))
+								(and (ls freighterCount 6) (= (random 1 17) 1)))
+							)
+						(sysCreateShip
+							(random (append (korFreighterTypes 1) (korFreighterTypes)))
+							(objGetNearestStargate homeObj)
+							&svCorporate;
+							&evKorolovFreighterBehavior;
+							)
+						)
+
+					; Send out a freighter to a random station
+					(switch
+						; If we have no ports left, then send some escorts away
+						(and (not portsLeft) escorts)
+							(block (theCount)
+								(setq theCount (max 1 (subtract (count escorts) 5)))
+								(for i 1 theCount
+									(block (theEscort)
+										(setq theEscort (item escorts (subtract i 1)))
+										(shpCancelOrders theEscort)
+										(shpOrder theEscort 'gate)
+										)
+									)
+								)
+
+						; Must have freighters
+						(not dockedFreighters)
+							Nil
+
+						; If failed to destroy charon stronghold then we hold
+						(and (objGetData homeObj 'charonDominates) portsLeft)
+							Nil
+
+						; If we're in the middle of attack stronghold, then we hold
+						(and (msnFind gSource "aS +unid:&msKorolovKillStronghold;;") portsLeft)
+							Nil
+
+						; If the player is docked, then we don't do anything
+						(and (objIsDockedAt gPlayerShip homeObj) portsLeft)
+							Nil
+
+						; If we're under attack, then we don't do anything
+						(objIsUnderAttack homeObj)
+							Nil
+
+						; If we don't have enough freighters, then don't worry
+						(and (ls (count dockedFreighters) 3) portsLeft)
+							Nil
+
+						; Random interval
+						(and (gr (random 1 6) 1) portsLeft)
+							Nil
+
+						; Otherwise, send out a random freighter
+						(objFireEvent (random dockedFreighters) 'OrderTraffic)
+						)
+					)
+				))
+
+			; Return the next assistant director
+			(setq korNextDirector (lambda ()
+				(block (
+					(directors (typGetGlobalData &unidKorolovEscort; 'nextAssistantDirector))
+					)
+					; If this is the first call, or more than 12 stations, then shuffle the table
+					(if (not directors)
+						(setq directors (shuffle (typGetStaticData &unidKorolovEscort; 'assistantDirectorTable)))
+						)
+					(typSetGlobalData &unidKorolovEscort; 'nextAssistantDirector (subset directors 1))
+					(@ (@ directors 0) 0)
+					)
+				))
+
+			(setq korComputePlayerLevel (lambda ()
+				(block (
+					(xp (typGetData &unidKorolovEscort; 'xp))
+					(totalMissionsFailed (count (msnFind "r +korolov; +escort; +property:isFailure;")))
+					)
+					(switch
+						(ls xp 0)						-1
+						(ls xp 300)						1
+						(ls xp 1500)					2
+						(ls xp 3000)					3
+						(gr totalMissionsFailed 0)		3
+														4
+						)
+					)
+				))
+
+			(setq korGetPlayerLevel (lambda ()
+				(block (playerLevel)
+					(if (setq playerLevel (typGetData &unidKorolovEscort; 'level))
+						playerLevel
+						0
+						)
+					)
+				))
+
+			(setq korGiveReward (lambda (missionObj amount)
+				(block (oldRank newRank)
+					(rpgMissionRewardPayment (msnGetData missionObj 'reward))
+					(typIncData &unidKorolovEscort; 'xp (msnGetData missionObj 'missionXP))
+
+					; Check to see if we've been promoted
+					(setq oldRank (korGetPlayerLevel))
+					(setq newRank (korComputePlayerLevel))
+					(if (not (= oldRank newRank))
+						(block Nil
+
+							;	dsRPGMission checks for a well-known data member in the mission
+							;	object to see if it should navigate to an additional screen.
+							(if missionObj
+								(msnSetData missionObj 'rewardNextScreen &dsKorolovPromotion;)
+								)
+
+							;	Set the new rank
+							(typSetData &unidKorolovEscort; 'level newRank)
+							)
+						)
+					)
+				))
+
+			(setq korEscortMissionCompleted (lambda (missionObj reason data)
+				(block (
+					(recordID (cat "record" (msnGetData missionObj 'escortType)))
+					(transRecord (typGetData &unidKorolovEscort; recordID))
+					(totalMissionsSuccess (count (msnFind "r +korolov; +escort; +property:isSuccess;")))
+					(totalMissionsFailed (count (msnFind "r +korolov; +escort; +property:isFailure;")))
+					(xpBonus Nil)
+					)
+					; Decrease the number of missions available at the source station
+					(objIncData (objGetObjByID (msnGetProperty missionObj 'ownerID)) 'remainingMissions -1)
+
+					(if (not transRecord) (setq transRecord (list 0 0)))
+					(switch
+						(= reason 'success)
+							(block Nil
+								(lnkReplace transRecord 0 (+ (@ transRecord 0) 1))
+								(if (and (= totalMissionsSuccess 10) (= totalMissionsFailed 0))
+									(setq xpBonus 1500)
+									)
+								)
+
+						(and (= reason 'failure) (msnGetData missionObj 'playerDestroyedFreighter))
+							(block Nil
+								(lnkReplace transRecord 1 (+ (@ transRecord 1) 1))
+								(typSetData &unidKorolovEscort; 'level -1)
+								(typSetData &unidKorolovEscort; 'xp -1)
+								)
+
+						(= reason 'failure)
+							(block Nil
+								(lnkReplace transRecord 1 (+ (@ transRecord 1) 1))
+								(setq xpBonus
+									(switch
+										(= totalMissionsFailed 0) 0
+										(= totalMissionsFailed 1) -50
+										(= totalMissionsFailed 2) -100
+										-200
+										)
+									)
+								)
+						)
+
+					(if xpBonus (typIncData &unidKorolovEscort; 'xp xpBonus))
+					(typSetData &unidKorolovEscort; recordID transRecord)
+					)
+				))
+
+			(setq korEscortRecord (lambda (shipClass)
+				(block (
+					(transRecord (typGetData &unidKorolovEscort; (cat "record" shipClass)))
+					(successes (@ transRecord 0))
+					(failures (@ transRecord 1))
+					(totalMissions (+ successes failures))
+					)
+					(switch
+						(and transRecord (= failures 0))
+							(cat successes " successful " (if (gr successes 1) "missions" "mission"))
+
+						(and transRecord (= successes 0))
+							(cat failures " failed " (if (gr failures 1) "missions" "mission"))
+
+						(and transRecord (!= totalMissions 0))
+							(cat successes " out of " totalMissions " successful missions (" (divide (multiply 100 successes) totalMissions) "%)")
+
+						(gr (typGetStaticData shipClass "korolovMinLevel") (korGetPlayerLevel))
+							"Not rated to escort this class"
+
+						"No missions completed"
+						)
+					)
+				))
+
+			; Return a list of ShipClasses to use as Korolov freighters
+			(setq korFreighterTypes (lambda (maxLev)
+				(block (
+					(lev (if maxLev maxLev 999))
+					)
+					(filter
+						(typFind "s +freighter +commonwealth")
+						typ
+						(and
+							(typGetStaticData typ 'korolovMinLevel)
+							(geq lev (typGetStaticData typ 'korolovMinLevel))
+							)
+						)
+					)
+				))
+
+			(setq korFrigateDestroyed (lambda ()
+				(if (gr (typGetData &unidKorolovEscort; 'xp) 0)
+					(typIncData
+						&unidKorolovEscort;
+						'xp
+						(@ '(0 500 250 150) (typGetGlobalData &scCharonFrigateRaider; "totalDestroyed"))
+						)
+					)
+				))
+
+			)
+	</Globals>
+
+</TranscendenceModule>

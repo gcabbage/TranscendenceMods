@@ -1,0 +1,310 @@
+<?xml version="1.0" ?>
+
+<TranscendenceModule>
+
+	<!-- Mission: Delivery =====================================================
+
+	Player has to deliver cargo to target station
+	Easier than escort mission, so less XP given.
+
+	EXTRA DATA
+	
+	reward:		Reward (in credits) for completing mission
+	destID:		ID of destination (station or gate)
+	missionXP:	XP awarded for completing mission
+	cargoValue:	Value of cargo
+
+	state:		One of the following:
+		Nil:
+		playerDead:	Failed due to player death
+		targetDead:	Failed due to target destroyed
+		delivered:	Success
+		late:		Failed due to late delivery
+		lost:		Failed due to lost cargo
+
+	======================================================================== -->
+
+	<MissionType UNID="&msKorolovDelivery;"
+			name=			"Korolov delivery"
+			attributes=		"korolov, deliveryMission"
+
+			level=			"1-3"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(playerLevel (korGetPlayerLevel))
+					destList destObj fitCount
+					)
+					; Get the list of all stations that we might visit.
+					(setq destList
+						(filter
+							(sysFindObject aOwnerObj "TAF +populated; -occupation; -uncharted;")
+							theDest
+							; The minimum travel distance depends on the player's level
+							(geq (objGetDistance aOwnerObj theDest) (@ '(250 250 400 500 600) playerLevel))
+							)
+						)
+
+					; Find out how many crates the player can carry
+					(setq fitCount (objGetFitCount gPlayerShip (itmCreate &itKorolovShippingContainer; 2)))
+
+					(switch
+						; Finite number of missions per station
+						(ls (objGetData aOwnerObj 'remainingMissions) 1)
+							(msnDestroy gSource)
+
+						; Only offer if the player has enough cargo space
+						(ls fitCount 1)
+							(msnDestroy gSource)
+
+						; Only offer to levels 2-3
+						(not (find '(2 3) playerLevel))
+							(msnDestroy gSource)
+
+						; No missions once the stronghold is destroyed
+						(objIsAbandoned (objGetObjRefData aOwnerObj 'charonStronghold))
+							(msnDestroy gSource)
+
+						; Pick a random destination. If we can't find one there is no mission
+						(not (setq destObj (random destList)))
+							(msnDestroy gSource)
+
+						; Otherwise setup mission
+						(block (
+							(pricePerContainer (* 10000 (random 5 10)))
+							(cargoValue (* pricePerContainer fitCount))
+							cargo escortFee
+							)
+
+							(setq cargo
+								(itmSetProperty
+									(itmCreate &itKorolovShippingContainer; fitCount)
+									'charges
+									(/ pricePerContainer 25)
+									)
+								)
+							; Compute the fee that we will pay based on the value of the cargo
+							(setq escortFee (/ (* 50 cargoValue) 10000))
+
+							; Adjust the fee randomly and round down to the nearest 50
+							(setq escortFee
+								(intRoundDown
+									(/ (* escortFee (random 75 125)) 100)
+									50
+									)
+								)
+
+							; Mission expires after a certain time
+							(msnSetData gSource 'expiresOn
+								(add
+									(unvGetTick)
+									(multiply 2 (sysCalcTravelTime (objGetDistance aOwnerObj destObj) (shpGetMaxSpeed gPlayerShip)))
+									(random 400 1200)
+									)
+								)
+
+							; Mission settings
+							(msnSetData gSource 'destID (objGetID destObj))
+
+							(msnSetData gSource 'missionXP 50)
+							(msnSetData gSource 'cargo cargo)
+							(msnSetData gSource 'cargoValue cargoValue)
+							(msnSetData gSource 'reward escortFee)
+
+							(msnRegisterForEvents gSource destObj)
+							(msnRegisterForEvents gSource gPlayerShip)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnDeclined>
+				(msnDestroy gSource)
+			</OnDeclined>
+
+			<OnAccepted>
+				(block Nil
+					(objAddItem gPlayerShip (msnGetData gSource 'cargo))
+
+					; Order the pirates
+					(chrRaidTransport
+						gPlayerShip
+						(objGetObjByID (msnGetProperty gSource 'ownerID))
+						(objGetObjByID (msnGetData gSource 'destID))
+						(msnGetData gSource 'cargoValue)
+						)
+					)
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'destID)) 'dock)
+			</OnSetPlayerTarget>
+
+			<OnCompleted>
+				(block Nil
+					(msnSetData gSource 'state gData)
+					(switch
+						; Penalty if player was late
+						(= gData 'late)
+							(typIncData &unidKorolovEscort; 'xp -50)
+						; Blacklist if player lost / stole cargo
+						(= gData 'lost)
+							(block Nil
+								(typSetData &unidKorolovEscort; 'level -1)
+								(typSetData &unidKorolovEscort; 'xp -1)
+								)
+						)
+					)
+			</OnCompleted>
+
+			<OnReward>
+				(korGiveReward gSource)
+			</OnReward>
+
+			<OnObjDestroyed>
+				(switch
+					(= aObjDestroyed gPlayerShip)
+						(block Nil
+							; Remove any shipping containers from the player ship
+							(enum
+								(objGetItems gPlayerShip "* +unid:&itKorolovShippingContainer;;")
+								theItem
+								(objRemoveItem gPlayerShip theItem)
+								)
+							(msnFailure gSource 'playerDead)
+							)
+
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'destID))
+						(msnFailure gSource 'targetDead)
+					)
+			</OnObjDestroyed>
+
+			<OnDeliveryMissionCompleted>
+				(switch
+					; If the player has the cargo and time left then mission succeeds
+					(and
+						(objHasItem gPlayerShip (msnGetData gSource 'cargo))
+						(gr (msnGetData gSource 'expiresOn) (unvGetTick))
+						)
+						(block Nil
+							(objRemoveItem gPlayerShip (msnGetData gSource 'cargo))
+							(msnSuccess gSource 'delivered)
+							(msnTranslate gSource 'DeliverCargo)
+							)
+					; If the player delivers the cargo late then no reward
+					(objHasItem gPlayerShip (msnGetData gSource 'cargo))
+						(block Nil
+							(objRemoveItem gPlayerShip (msnGetData gSource 'cargo))
+							(msnFailure gSource 'late)
+							(msnTranslate gSource 'LateCargo)
+							)
+					; Otherwise failure
+					(block Nil
+						(msnFailure gSource 'lost)
+						(msnTranslate gSource 'LostCargo)
+						)
+					)
+			</OnDeliveryMissionCompleted>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				"Deliver Korolov Cargo"
+			</Text>
+
+			<Text id="Summary">
+				(block (
+					(dest (objGetObjByID (msnGetData gSource 'destID)))
+					)
+					(cat
+						"Your mission is to deliver " (itmGetName (msnGetData gSource 'cargo) 0x08)
+						" to " (objGetName dest 4) ".\n\n"
+
+						"System: " (sysGetName) "\n"
+						"Payment: " (fmtCurrency 'credit (msnGetData gSource 'reward)) "\n"
+						)
+					)
+			</Text>
+
+			<Text id="Intro">
+				(cat
+					"The command center is filled with noise as freighter captains try to find "
+					"the best escort for thier missions. A manager walks over to you: "
+					"\"Hello %name%. We have a job for you and your ship, if you're interested.\""
+					)
+			</Text>
+
+			<Text id="Briefing">
+				(block (
+					(dest (objGetObjByID (msnGetData gSource 'destID)))
+					(cargoValue (intRoundUp (msnGetData gSource 'cargoValue) 1000))
+					)
+					(cat
+						"\"We have " (itmGetName (msnGetData gSource 'cargo) 0x04)
+						" that arrived late and missed the last scheduled freighter to " (objGetName dest 4)
+						". They're flagged as urgent so we need someone to deliver them. We can pay "
+						(fmtCurrency 'credit (msnGetData gSource 'reward)) " if you can take them now."
+						"\n\nDo you wish to accept this assignment?\""
+						)
+					)
+			</Text>
+
+			<Text id="AcceptReply">
+				"\"Great! Keep that cargo safe. Good luck!\""
+			</Text>
+
+			<Text id="DeclineReply">
+				"\"Guess you don�t like missions where the pirates are shooting at you?\""
+			</Text>
+
+			<Text id="InProgress">
+				"\"What are you doing here? That cargo needs to be delivered right now!\""
+			</Text>
+			<Text id="FailureDebrief">
+				(block (
+					(dest (objGetObjByID (msnGetData gSource 'destID)))
+					)
+					(switch
+						(= (msnGetData gSource 'state) 'playerDead)
+							"\"Welcome back %name%. It's a shame you failed on your last mission, but that at least you had insurance!\""
+						(= (msnGetData gSource 'state) 'targetDead)
+							(cat "\"It's a shame about "  (objGetName dest 4)". But with the station gone the contract is void.\"" )
+						(= (msnGetData gSource 'state) 'late)
+							"\"That's a shame. We really needed to get that cargo there on time. You let us down.\""
+						(= (msnGetData gSource 'state) 'lost)
+							"\"What is wrong with you? Either you lost the cargo through incompetence or you're guilty of theft. You will never work for us again.\""
+						)
+					)
+			</Text>
+			<Text id="SuccessDebrief">
+				(cat
+					"\"Good work, captain.\n\n"
+					"We've deposited " (msnGetData gSource 'reward) " in your account.\""
+					)
+			</Text>
+			<Text id="DeliverCargo">
+				(cat
+					"The dockmaskter greets you as you leave your ship: "
+					"\"Welcome to " (objGetName (objGetObjByID (msnGetData gSource 'destID)) 4)
+					". According to the manifest you're just delivering, so I'll have the cargo"
+					" transferred off your ship immediately.\""
+					)
+			</Text>
+			<Text id="LateCargo">
+				(cat
+					"The dockmaskter meets you as you leave your ship: "
+					"\"You're late! What happened to that famous Korolov scheduling?\""
+					)
+			</Text>
+			<Text id="LostCargo">
+				(cat
+					"The dockmaskter meets you as you leave your ship: "
+					"\"Where is the cargo you were supposed to be bringing? Next time we won't bother using Korolov!\""
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+</TranscendenceModule>

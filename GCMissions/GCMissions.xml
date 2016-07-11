@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDE0000">
+
+	<!ENTITY unidAttrDesc					"0xDDDE0001">
+	<!ENTITY itNamedDataROM					"0xDDDE0010">
+	<!ENTITY itEscapeCapsule				"0xDDDE0011">
+	<!ENTITY stEscapeCapsule				"0xDDDE0012">
+	<!ENTITY scEscapeCapsule				"0xDDDE0013">
+	<!ENTITY itMiningThumper				"0xDDDE0014">
+	<!ENTITY scMiningThumper				"0xDDDE0015">
+	<!ENTITY vtThumperExplosion				"0xDDDE0016">
+	<!ENTITY ovThumperOre					"0xDDDE0017">
+
+	<!ENTITY msCommConSupply				"0xDDDE0021">
+	<!ENTITY msCommConThreat				"0xDDDE0022">
+	<!ENTITY msCommConRescue				"0xDDDE0023">
+	<!ENTITY evCommConRescueBehavior		"0xDDDE0024">
+
+	<!ENTITY unidCorpBioSec					"0xDDDE0101">
+	<!ENTITY scCorpBioSec					"0xDDDE0102">
+	<!ENTITY dsCorpBioSec					"0xDDDE0103">
+	<!ENTITY msCorpMedicalAid				"0xDDDE0104">
+	<!ENTITY msCorpBioSecInvestigate1		"0xDDDE0105">
+	<!ENTITY tbCorpBioSecInvestigate1Ship	"0xDDDE0106">
+	<!ENTITY msCorpBioSecInvestigate2		"0xDDDE0107">
+	<!ENTITY msCorpBioSecInvestigate3		"0xDDDE0108">
+	<!ENTITY msCorpBioSecQuarantine			"0xDDDE0109">
+	<!ENTITY tbCorpBioSecQuarantineShip		"0xDDDE010A">
+	<!ENTITY evCorpBioSecQuarantine			"0xDDDE010B">
+	<!ENTITY msCorpBioSecSupplies1			"0xDDDE010C">
+	<!ENTITY msCorpBioSecInvestigate4		"0xDDDE010E">
+
+	<!ENTITY tbCorpPrivDataThieves			"0x008100E8">
+	<!ENTITY unidRumorFramework				"0xDDDEF100">
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"GC Missions and Rumors"
+		release=	"1"
+		version=	"0.1"
+		apiVersion=	"30"
+		credits=	"Giant Cabbage"
+		>
+
+	<Library unid="&unidRPGLibrary;"/>
+	<Library unid="&unidHumanSpaceLibrary;"/>
+	<Library unid="&unidRumorFramework;"/>
+
+	<Module filename="CCHabitatMissions.xml"/>
+	<Module filename="ChocBioSec.xml"/>
+	<Module filename="ChocBioSecMissions.xml"/>
+	<Module filename="CommonwealthContainerHabitat.xml"/>
+	<Module filename="Items.xml"/>
+
+</TranscendenceExtension>

@@ -1,0 +1,1104 @@
+<?xml version="1.0" ?>
+<!--
+	msCommConSupply
+	msCommConThreat
+	msCommConRescue
+-->
+
+<TranscendenceModule>
+
+	<!-- Mission: Supply Shortage ==============================================
+
+	Supply shortage at a Commonwealth container habitat.
+	Player will be informed of shortage, and price will double for duration of
+	mission (3-5 minutes). Supplies can be sold or donated to the station via
+	the standard dockscreen options.
+
+	EXTRA DATA
+
+	shortage:	Type of shortage at station
+	criteria:	Item criteria to match shortage
+	expiresOn:	Tick the mission expires
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCommConSupply;"
+			name=			"Supply Shortage"
+			attributes=		"commonwealth, commonwealthContainer"
+
+			level=			"1-4"
+			noDebrief=		"true"
+			noStats=		"true"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(shortage (random (list 'food 'fuel 'meds 'oxygen 'water)))
+					(criteria (typGetStaticData &stContainerHabitat; (cat shortage "Criteria")))
+					)
+					(switch
+						; Don't offer if we already have the required resource
+						(objGetItems aOwnerObj criteria)
+							(msnDestroy gSource)
+
+						(block Nil
+							(msnSetData gSource 'amountNeeded 10)
+							(msnSetData gSource 'shortage shortage)
+							(msnSetData gSource 'itmCriteria criteria)
+							(msnSetData gSource 'expiresOn (add (unvGetTick) (random 5400 9000)))
+							(msnAddRecurringTimerEvent gSource 60 'OnUpdate)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnDeclined>
+				; Refusing to help decreases relation
+				(objIncData (objGetObjByID (msnGetProperty gSource 'ownerID)) 'donationValue -100)
+			</OnDeclined>
+
+			<OnUpdate>
+				(block (amount
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					(timeLeft (- (msnGetData gSource 'expiresOn) (unvGetTick)))
+					(items (objGetItems stationObj (msnGetData gSource 'itmCriteria)))
+					)
+					(setq amount
+						(switch
+							(= (msnGetData gSource 'shortage) 'fuel)
+								(add (map items theItem (/ (* (itmGetCount theItem) (itmGetTypeData theItem)) 2500)))
+							(= (msnGetData gSource 'shortage) 'food)
+								(add (map items theItem (/ (* (itmGetCount theItem) (itmGetLevel theItem) (itmGetMass theItem)) 1000)))
+							(= (msnGetData gSource 'shortage) 'meds)
+								(add (map items theItem (/ (* (itmGetCount theItem) (itmGetActualPrice  theItem)) 25)))
+							(add (map items theItem (itmGetCount theItem)))
+						))
+					(switch
+						; Success if we have the full amount at any time
+						(geq amount (msnGetData gSource 'amountNeeded))
+							(msnSuccess gSource)
+
+						; Or if we have atleast 20% at the end of the mission
+						(and (ls timeLeft 0) (geq amount (* (msnGetData gSource 'amountNeeded) 0.2)))
+							(msnSuccess gSource)
+
+						; Otherwise fail when time runs out
+						(ls timeLeft 0)
+							(msnFailure gSource)
+						)
+					)
+			</OnUpdate>
+
+			<OnCompleted>
+				; If we failed to deliver anything then reduce relation
+				(if (= aReason 'failure)
+					(objIncData (objGetObjByID (msnGetProperty gSource 'ownerID)) 'donationValue -1000)
+					)
+			</OnCompleted>
+
+			<GetGlobalPlayerPriceAdj>
+				(block (
+					; Assuming that only one supply mission will be active at each station for now
+					(theMission (@ (msnFind gSource "aoS +unid:&msCommConSupply;") 0))
+					)
+					(switch
+						(not theMission)
+							Nil
+
+						(itmMatches gItem (msnGetData theMission 'itmCriteria))
+							200
+
+						; Otherwise nothing
+						Nil
+						)
+					)
+			</GetGlobalPlayerPriceAdj>
+
+			<GetRumors>
+				(switch
+					(!= (msnGetProperty gSource 'nodeID) (sysGetNode))
+						Nil
+
+					(msnGetProperty gSource 'isCompleted)
+						Nil
+
+					(= (objGetID (@ gData 'stationObj)) (msnGetProperty gSource 'ownerID))
+						Nil
+
+					{desc:(msnTranslate gSource 'Rumor) priority:1}
+					)
+			</GetRumors>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				"Supply Shortage"
+			</Text>
+			<Text id="Summary">
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					(cat
+						(objGetName stationObj) " is running low on " (msnGetData gSource 'shortage) ".\n\n"
+
+						"System: " (sysGetName) "\n"
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(cat
+					"The station master nods:\n\n"
+					"\"Yes we could do with some help&#x97;we built this place from old shipping containers "
+					"and salvaged parts, but something s always springing a leak or breaking down and it's not "
+					"like we can go anywhere else.\""
+					)
+			</Text>
+			<Text id="Briefing">
+				(msnTranslate gSource (cat "Briefing:" (msnGetData gSource 'shortage)))
+			</Text>
+			<Text id="Briefing:food">
+				(cat
+					"\"We're running low on food and people are already going hungry. "
+					"Can you spare any to help us?\""
+					)
+			</Text>
+			<Text id="Briefing:fuel">
+				(cat
+					"\"We're running low on fuel and have barely enough left to keep the air from freezing. "
+					"Can you spare any to help us?\""
+					)
+			</Text>
+			<Text id="Briefing:meds">
+				(cat
+					"\"We're running low on medical supplies. "
+					"Can you spare any to help us?\""
+					)
+			</Text>
+			<Text id="Briefing:oxygen">
+				(cat
+					"\"Our carbon scrubber needs maintenance and we will need extra oxygen while it is being repaired. "
+					"Can you spare any to help us?\""
+					)
+			</Text>
+			<Text id="Briefing:water">
+				(cat
+					"\"Our water supplies are low. "
+					"Can you spare any to help us?\""
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Excellent.\""
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					"The station master frowns.\n\n"
+					"\"Why did you offer then?\""
+					)
+			</Text>
+			<Text id="InProgress">
+				"\"As I said before, we're in need of supplies.\""
+			</Text>
+			<Text id="Rumor">
+				(cat
+					"\"I hear that " (objGetName (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					" is running low on supplies. They're not big enough to interest the corporates, "
+					"but if you're trading they'll be glad to see you.\""
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+
+	<!-- Mission: Destroy Threat ===============================================
+
+	Basic destroy enemy station mission
+
+	EXTRA DATA
+
+	targetID:	Target to destroy
+	targetType:	Enemy sovereign
+	reward:		Reward for success
+	donate:		Amount we increase the donation counter on success
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCommConThreat;"
+			name=			"Destroy Threat to Container Habitat"
+			attributes=		"commonwealth, commonwealthContainer"
+
+			level=			"1-4"
+			failureAfterOutOfSystem="9000"
+			>
+		<Events>
+			<OnCreate>
+				(block (targetObj)
+					; Rumors say anarchists don't bother container habitat so exclude
+					; Would exclude Abbasid (no ships) but no attribute tag
+					(setq targetObj (sysFindObject aOwnerObj "TAENN:450 +populated; -uncharted; -anarchists;"))
+					(switch
+						(not targetObj)
+							(msnDestroy gSource)
+
+						(block Nil
+							(msnSetData gSource 'targetID (objGetID targetObj))
+							(msnSetData gSource 'targetType (typGetProperty (objGetSovereign targetObj) 'name))
+							(msnRegisterForEvents gSource targetObj)
+
+							(msnSetData gSource 'reward 0)
+							(msnSetData gSource 'donate (* (sysGetLevel) 500))
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+			</OnSetPlayerTarget>
+
+			<OnObjDestroyed>
+				(switch
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(msnSuccess gSource)
+					)
+			</OnObjDestroyed>
+
+			<OnGetNextScreen>
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					; Can't do this in on complete as failure is triggered on out-of-system too long
+					(if (= aScreenType 'FailureFollowUp)
+						(objIncData stationObj 'donationValue (- (msnGetData gSource 'donate)))
+						)
+					Nil
+					)
+			</OnGetNextScreen>
+
+			<OnReward>
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					(rpgMissionRewardPayment (msnGetData gSource 'reward))
+					(objIncData stationObj 'donationValue (msnGetData gSource 'donate))
+					)
+			</OnReward>
+
+			<GetRumors>
+				(switch
+					(!= (msnGetProperty gSource 'nodeID) (sysGetNode))
+						Nil
+
+					(msnGetProperty gSource 'isCompleted)
+						Nil
+
+					(= (objGetID (@ gData 'stationObj)) (msnGetProperty gSource 'ownerID))
+						Nil
+
+					{desc:(msnTranslate gSource 'Rumor) priority:1}
+					)
+			</GetRumors>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				(block (
+					(targetObj (objGetObjByID (msnGetData gSource 'targetID)))
+					)
+					(cat "Destroy " (objGetName targetObj 0x04))
+					)
+			</Text>
+			<Text id="Summary">
+				(block (
+					(targetObj (objGetObjByID (msnGetData gSource 'targetID)))
+					)
+
+					(cat
+						"Destroy " (objGetName targetObj 0x04) ".\n\n"
+
+						"System: " (sysGetName) "\n"
+						"Payment: " (fmtCurrency 'credit (msnGetData gSource 'reward))
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(cat
+					"The station master nods in relief:\n\n"
+					"\"Yes, we could use your help, %brother%. The " (msnGetData gSource 'targetType)
+					" have been harassing us recently and we can't afford to hire "
+					"any mercenaries to deal with them.\""
+					)
+			</Text>
+			<Text id="Briefing">
+				(block (
+					(targetObj (objGetObjByID (msnGetData gSource 'targetID)))
+					)
+					(cat
+						"\"The attacks are coming from " (objGetName targetObj 0x04)
+						" nearby we need somone to go out there and destroy it.\""
+						)
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Thank you! I knew we could count on you. I've programmed the target into your ship's computer. Good luck!\""
+			</Text>
+			<Text id="DeclineReply">
+				"\"Ah, Hell! You're as bad as the mercenaries&#x97;only helping those who can afford it!\""
+			</Text>
+			<Text id="InProgress">
+				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
+			</Text>
+			<Text id="FailureDebrief">
+				 (cat
+					"\"What happened? You said you could handle this mission! While you were away the "
+					(msnGetData gSource 'targetType) " came back and attacked us again.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief">
+				"\"Excellent! We won't have to worry about them for a while. Thanks for your help!\""
+			</Text>
+			<Text id="SuccessMsg">
+				"Mission complete!"
+			</Text>
+			<Text id="Rumor">
+				(cat
+					"\"I hear that " (objGetName (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					" is being harassed by the " (msnGetData gSource 'targetType) "\""
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+
+	<!-- Mission: Rescue  ======================================================
+
+	Rescue missing technician
+
+	This mission is at both Container Habitats and normal (slum) Habitats. The
+	only difference being the reward (credits at the slum, donation points at
+	the container habitat)
+
+	EXTRA DATA
+
+	missingName:	Name of missing person
+	missingGenome:	Genome (humanMale or humanFemale)
+	transport:		The transport (currently independent)
+
+	destID:			The objID of the station where missing was last seen
+	baseID:			Copy of destID used after the delivery mission has completed
+
+	targetID:		ID of the ship which kidnapped the victim
+
+	reward:			Reward for success (zero for container habitat missions)
+	donate:			Amount we increase the donation counter on success
+
+	state:			One of the following:
+		Nil					Mission hadsn't started yet
+		'investigate		Player must go to destID
+		'search				Player must follow targetID
+		'rescue				Player must collect the escape capsule
+		'return				Player must return with the escape capsule
+
+	To Do
+	* Add more transport types (corporate, ??) with different text/behavior
+	* Add more reasons for technician being missing:
+		Special case for occupied station
+		Transport damaged by pirates (need help / repair)
+		Transport destroyed by pirates (pirates have escape pod)
+		Technician wanted to leave (option to force them back)
+	======================================================================== -->
+
+	<MissionType UNID="&msCommConRescue;"
+			name=			"Rescue Container Habitat technician"
+			attributes=		"commonwealth, commonwealthContainer, commonwealthHabitat, deliveryMission"
+
+			level=			"1-5"
+			failureAfterOutOfSystem="9000"
+			>
+
+		<StaticData>
+			<Data id="encounter:independent">
+				(
+					{	}
+					{	principalType: &scT31ArmedTransport; escortTypes: (&scZulu; &scZulu; &scZulu;) }
+					{	principalType: &scT31ArmedTransport; escortTypes: (&scZulu-II; &scZulu-II; &scZulu;) }
+					{	principalType: &scT55ArmedTransport; escortTypes: (&scOromo; &scZulu-II; &scZulu-II;) }
+					{	principalType: &scT55ArmedTransport; escortTypes: (&scOromo; &scZulu-II; &scZulu-II; &scZulu-II;) }
+					{	principalType: &scT55ArmedTransport; escortTypes: (&scOromo; &scOromo; &scZulu-II; &scZulu-II; &scZulu-II;) }
+				)
+			</Data>
+		</StaticData>
+
+		<Events>
+			<OnCreate>
+				(block (destObj)
+					(switch
+						(not (setq destObj (random (sysFindObject aOwnerObj "TAF R:200 +populated; -uncharted; -occupation; -property:playerBlacklisted;"))))
+							(msnDestroy gSource)
+
+						; Set up the mission
+						(block Nil
+							(msnSetData gSource 'missingGenome (random (list 'humanMale 'humanFemale)))
+							(msnSetData gSource 'missingName (msnTranslate gSource "missingName"))
+							(msnSetData gSource 'transport 'independent)
+
+							(msnSetData gSource 'destID (objGetID destObj))
+							; Need to keep a second copy as we need to clear destID for the deliveryMission
+							(msnSetData gSource 'baseID (objGetID destObj))
+
+							(msnRegisterForEvents gSource destObj)
+
+							(msnSetData gSource 'reward (+ 200 (* (sysGetLevel) 100)))
+							(msnSetData gSource 'donate (+ 1500 (* (sysGetLevel) 500)))
+
+							(if (= (objGetType aOwnerObj) &stContainerHabitat;)
+								(msnSetData gSource 'reward Nil)
+								)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnStarted>
+				(block (
+					(destObj (objGetObjByID (msnGetData gSource 'destID)))
+					(transport (msnGetData gSource 'transport))
+					; Encounter options based on level
+					(encounterEntry (@ (msnGetStaticData gSource (cat "encounter:" transport)) (sysGetLevel)))
+					targetObj
+					)
+
+					; Create the transport
+					(setq targetObj (sysCreateShip (@ encounterEntry 'principalType) destObj &svIndependentTrader; &evCommConRescueBehavior;))
+					(objSetData targetObj 'mission gSource)
+
+					; Create escorts
+					(enum (@ encounterEntry 'escortTypes) theType
+						(block (escortObj)
+							(setq escortObj (sysCreateShip theType destObj &svIndependentTrader;))
+							(shpOrder escortObj 'escort targetObj)
+							)
+						)
+
+					(msnSetData gSource 'targetID (objGetID targetObj))
+					(msnRegisterForEvents gSource targetObj)
+
+					; Add escape capsule
+					(objAddItem targetObj (itmSetData (itmCreate &itEscapeCapsule; 1) 'mission gSource))
+					)
+			</OnStarted>
+
+			<OnAccepted>
+				(block Nil
+					(msnRegisterForEvents gSource gPlayerShip)
+					(msnSetData gSource 'state 'investigate)
+					)
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(block (
+					(state (msnGetData gSource 'state))
+					)
+					(switch
+						(= state 'investigate)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'destID)) 'dock)
+
+						(= state 'search)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)) 'attack)
+
+						(= state 'rescue)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'escapeID)) 'dock)
+
+						(= state 'return)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetProperty gSource 'ownerID)) 'dock)
+
+						(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+						)
+					)
+			</OnSetPlayerTarget>
+
+			<OnDeliveryMissionCompleted>
+				(block Nil
+					(msnSetData gSource 'state 'search)
+					(msnSetPlayerTarget gSource)
+					; Clear destID so dockscreen doesn't show again
+					(msnSetData gSource 'destID Nil)
+					; Reset mission summary
+					(msnSetProperty gSource 'summary (msnTranslate gSource 'Summary))
+					; Return dock screen text
+					(msnTranslate gSource 'FirstLead)
+					)
+			</OnDeliveryMissionCompleted>
+
+			<OnObjDestroyed>
+				(switch
+					; Pod is destroyed before player docks with it
+					(and (= (objGetID aObjDestroyed) (msnGetData gSource 'escapeID))
+						(= (msnGetData gSource 'state) 'rescue))
+						(msnFailure gSource 'podDestroyed)
+
+					; Target freigher
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(switch
+							; Don't care about freighter after a certain point
+							(find '('rescue 'return) (msnGetData gSource 'state))
+								Nil
+
+							; Fail if the ship escapes
+							(= aDestroyReason 'enteredStargate)
+								(msnFailure gSource 'escaped)
+
+							; Otherwise pod should have ejected
+							(msnFireEvent gSource 'OnEjected)
+							)
+					)
+			</OnObjDestroyed>
+
+			<OnEjected>
+				; Called after the escape capsule has been ejected
+				; Should probably check that the capsule does actually exist
+				(block (
+					(escapeObj (sysFindObject aObjDestroyed "TN +unid:&stEscapeCapsule;;"))
+					)
+					(msnSetData gSource 'escapeID (objGetID escapeObj))
+					(msnRegisterForEvents gSource escapeObj)
+					(msnSetData gSource 'state 'rescue)
+					(msnSetPlayerTarget gSource)
+
+					; Reset mission summary
+					(msnSetProperty gSource 'summary (msnTranslate gSource 'Summary))
+					)
+			</OnEjected>
+
+			<OnObjDocked>
+				(switch
+					; Remember if we dock with the escape pod
+					(and (= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetData gSource 'escapeID))
+						)
+						(block Nil
+							(msnSetData gSource 'state 'return)
+							(msnSetPlayerTarget gSource)
+							; Reset mission summary
+							(msnSetProperty gSource 'summary (msnTranslate gSource 'Summary))
+							)
+
+					; If the player has returned with the required items the mission succeeds,
+					(and (= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						)
+						(block (
+							; Check if we have the correct escape capsule
+							(capsule (filter (objGetItems gPlayerShip "* +unid:&itEscapeCapsule;;")
+									theItem (= (itmGetData theItem 'mission) gSource)))
+							)
+							(switch
+								capsule
+									(block Nil
+										(enum capsule theItem (objRemoveItem gPlayerShip theItem))
+										(msnSuccess gSource)
+										)
+								; If the player has managed to lose the capsule then fail
+								(= (msnGetData gSource 'state) 'return)
+									(msnFailure gSource 'podLost)
+								)
+							)
+					)
+			</OnObjDocked>
+
+			<OnGetNextScreen>
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					; Can't do this in OnComplete as failure maybe triggered while out-of-system
+					(if (= aScreenType 'FailureFollowUp)
+						(objIncData stationObj 'donationValue (- (msnGetData gSource 'donate)))
+						)
+					Nil
+					)
+			</OnGetNextScreen>
+
+			<OnReward>
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					(rpgMissionRewardPayment (msnGetData gSource 'reward))
+					(objIncData stationObj 'donationValue (msnGetData gSource 'donate))
+					)
+			</OnReward>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				(cat "Find " (msnGetData gSource 'missingName))
+			</Text>
+			<Text id="Summary">
+				(block (
+					(state (msnGetData gSource 'state))
+					(station (objGetName (objGetObjByID (msnGetProperty gSource 'ownerID)) 0x04))
+					(g (msnGetData gSource 'missingGenome))
+					(missing (msnGetData gSource 'missingName))
+					(base (objGetName (objGetObjByID (msnGetData gSource 'baseID)) 0x04))
+					(target (objGetName (objGetObjByID (msnGetData gSource 'targetID)) 0x04))
+					)
+					(cat
+						missing ", a resident of " station ", is missing. "
+						(switch
+							(= state 'investigate)
+								(cat (strG g "He" "She") " was last seen at " base ", you should start your search there.")
+
+							(= state 'search)
+								(cat (strG g "He" "She") " was last seen boarding " target ", you should start your intercept them and investigate.")
+
+							(= state 'rescue)
+								(cat (strG g "He" "She") " was last seen boarding " target ", you should search for survivors.")
+
+							(= state 'return)
+								(cat "You have recovered " (strG g "his" "her") " escape capsule and should return it to " station ".")
+
+							"\n\n ERROR unknown state"
+							)
+						"\n\nSystem: " (sysGetName) "\n"
+						"Payment: " (fmtCurrency 'credit (msnGetData gSource 'reward))
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(block (
+					(g (msnGetData gSource 'missingGenome))
+					(missing (msnGetData gSource 'missingName))
+					(baseObj (objGetObjByID (msnGetData gSource 'baseID)))
+					)
+					(cat
+						"The station master nods in relief:\n\n"
+						"\"Yes, we could use your help, %brother%. We haven't heard from " missing
+						", one of our technicians, in a while. " (strG g "He" "She") " went to "
+						(objGetName baseObj 0x00) " where " (strG g "he" "she") " often works and "
+						"was due to return last week. The last " (strG g "his" "her") " family heard "
+						(strG g "he" "she") " had booked passage on a ship back here.\""
+						)
+					)
+			</Text>
+			<Text id="Briefing">
+				(cat
+					"\"I'd like you to go to " (objGetName (objGetObjByID (msnGetData gSource 'baseID)) 0x00)
+					" and find out what happened to " (msnGetData gSource 'missingName) "."
+					(if (msnGetData gSource 'reward)
+						(cat " If you succeed we'll pay you " (msnGetData gSource 'reward) " credits.")
+						)
+					"\""
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Thank you! I knew we could count on you. I've programmed the station into your ship's computer. Good luck!\""
+			</Text>
+			<Text id="DeclineReply">
+				"\"Ah, Hell! You're as bad as the mercenaries&#x97;only helping those who can afford it!\""
+			</Text>
+			<Text id="InProgress">
+				"\"Have you found out what happened to " (msnGetData gSource 'missingName) " yet?\""
+			</Text>
+			<Text id="FailureDebrief">
+				"Failure"
+			</Text>
+			<Text id="SuccessDebrief">
+				(cat
+					"\"Well done. Thanks for your help!"
+					(if (msnGetData gSource 'reward)
+						(cat " We've deposited " (msnGetData gSource 'reward) " credits to your account.")
+						)
+					"\""
+					)
+			</Text>
+
+			<Text id="missingName">
+				(random (list "Alice" "Bob" "Carol" "Dave" "Ellie" "Fred"))
+			</Text>
+
+			<Text id="FirstLead">
+				(block (
+					(g (msnGetData gSource 'missingGenome))
+					(missing (msnGetData gSource 'missingName))
+					(baseObj (objGetObjByID (msnGetData gSource 'baseID)))
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					(cat
+						"You are unable to find " missing " on " (objGetName baseObj 0x00)
+						", so you ask around to see if anyone knows what happened to " (strG g "him" "her")
+						". Apparently " (strG g "he" "she") " bought passage back to " (objGetName stationObj 0x00)
+						" on a transport; however, the transport changed its flight plan. You manage to persuade"
+						" the dock master to give you the transport's current location."
+						)
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+<!-- BEHAVIORS -->
+
+	<!-- Transport Behavior
+
+		DATA
+
+		mission:		Mission which assigned this event handler
+		waitCount:		How long the ship has waited for a free docking port at destination station
+		destID:			Current destination station
+
+		lastAttack:		Tick the player last attacked
+		numAttacks:		Number of times the player has attacked the transport
+
+		state:			Ship's current state
+			Nil 				= Ship just entered the system
+			'wander:dock		= Ship is enroute to dock at a station
+			'wander:wait		= Ship is enroute to orbit a station (no free docking ports)
+			'wander:free		= Ship is wandering system (no friendly stations)
+			'docked				= Ship is docked somewhere
+			'fight				= Fighting player
+			'surrender			= Offering surrender
+			'flee				= Fleeing system
+			'tothedeath			= Fight player to the death
+
+	-->
+
+	<ShipClass UNID="&evCommConRescueBehavior;"
+			class=				"(commonwealth traffic behavior)"
+			virtual=			"true"
+
+			attributes=			"behaviorClass"
+			>
+		<Communications>
+			<Message name="Communicate" key="C">
+				<OnShow>
+					; Allow communication when mission is in search state, player
+					; is close enough, and transport is not hostile / fleeing
+					(and (= (msnGetData (objGetData gSource 'mission) 'state) 'search)
+						(ls (objGetDistance gSource gPlayerShip) 120)
+						(not (find '('fight 'flee 'tothedeath) (objGetData gSource 'state)))
+						)
+				</OnShow>
+				<Invoke>
+					(block (
+						(state (objGetData gSource 'state))
+						(missionObj (objGetData gSource 'mission))
+						(name (msnGetData missionObj 'missingName))
+						(g (msnGetData missionObj 'missingGenome))
+						)
+						(switch
+							; If we have surrendered then comply with demands
+							(= state 'surrender)
+								(block Nil
+									(objSendMessage gSender gSource (objTranslate gSource 'msgGiveUp {name:name g:g}))
+									(sysAddObjTimerEvent 60 gSource 'OrderEjectCapsule)
+									)
+
+							; Otherwise send a generic response
+							(objSendMessage gSender gSource (objTranslate gSource 'comms {name:name g:g}))
+							)
+						)
+				</Invoke>
+			</Message>
+		</Communications>
+
+		<Events>
+			<OnCreate>
+				(block Nil
+					(objSetData gSource 'numAttacks 0)
+					(objSetData gSource 'state Nil)
+					)
+			</OnCreate>
+
+			<OnOrdersCompleted>
+				(block (newBehavior allDests allWrecks allLoot
+					(state (objGetData gSource 'state))
+					(dockedAt (shpGetDockObj gSource))
+					)
+
+					(if dockedAt
+						(switch
+							; If we were docked at an object that we just looted, then destroy the object
+							(and (objGetData dockedAt "0010300c_marked")
+								(ls (objGetProperty dockedAt 'mass) 2000)
+								(not (objGetProperty dockedAt 'immutable))
+								)
+								(objDestroy dockedAt gSource)
+							)
+						)
+
+					; Figure out what to do next
+					(switch
+						(= state "surrender")
+							(objFireEvent gSource 'OrderFlee)
+
+						; If we've just docked at destination then trade (wait a bit)
+						(= state "wander:dock")
+							(objFireEvent gSource 'OrderTrade)
+
+						; Check for wrecks in the area; if we find some, then loot them
+						(and	(leq (objGetDestiny gSource) 180)
+								(leq (random 1 100) 50)
+								; Compose a list of all wrecks in the area
+								(setq allWrecks (filter
+									(sysFindObject gSource "TK N:100; +shipwreck; -uncharted; -locked; -data:0010300c_marked;")
+									theObj
+									(not (objIsRadioactive theObj))
+									))
+								)
+							(block ((destObj (random allWrecks)))
+								(shpOrder gSource 'loot destObj)
+								(objSetData destObj "0010300c_marked" True)
+								(objSetData gSource 'state 'looting)
+								)
+
+						; If we're waiting for an open docking port at a station
+						(= state "wander:wait")
+							(block (
+								(destObj (objGetObjByID (objGetData gSource 'destID)))
+								)
+								(switch
+									; If there is an open docking port then dock
+									(gr (objGetOpenDockingPortCount destObj) 1)
+										(block Nil
+											(shpOrder gSource 'dock destObj)
+											(objSetData gSource 'state "wander:dock")
+											)
+
+									; If we haven't waited long enough then orbit again
+									(leq (objGetData gSource 'waitCount) 10)
+										(block Nil
+											(shpOrder gSource 'orbit destObj 3 5)
+											(objIncData gSource 'waitCount)
+											)
+
+									; Otherwise look for another destination
+									(objFireEvent gSource 'OrderWander)
+									)
+								)
+
+						; We have just docked at a station
+						(= state "docked")
+							(objFireEvent gSource 'OrderWander)
+
+						; Otherwise just start wandering
+						(objFireEvent gSource 'OrderWander)
+						)
+					)
+			</OnOrdersCompleted>
+
+			<OrderWander>
+				(block (
+					(dockedAt (shpGetDockObj gSource))
+					(allDests (sysFindObject gSource "TAF +populated; -occupation; -uncharted;"))
+					bestDest
+					)
+					(switch
+						; Select a friendly station we are not docked at with open docking ports
+						(setq bestDest (random (filter allDests theObj
+							(and (gr (objGetOpenDockingPortCount theObj) 1) (or (not dockedAt) (not (= dockedAt theObj))))
+							)))
+							(block Nil
+								(shpOrder gSource 'dock bestDest)
+								(objSetData gSource 'state "wander:dock")
+								(objSetData gSource 'destID (objGetID bestDest))
+								)
+
+						; Include stations without open docking ports
+						(setq bestDest (random (filter allDests theObj
+							(or (not dockedAt) (not (= dockedAt theObj)))
+							)))
+							(block Nil
+								(shpOrder gSource 'approach bestDest 3)
+								(shpOrder gSource 'orbit bestDest 3 5)
+								(objSetData gSource 'state "wander:wait")
+								(objSetData gSource 'waitCount 0)
+								(objSetData gSource 'destID (objGetID bestDest))
+								)
+
+						(block Nil
+							; Wander doesn't allow a time limit so ship will remain in this state until attacked
+							(shpOrder gSource 'wander)
+							(objSetData gSource 'state "wander:free")
+							(objSetData gSource 'destID Nil)
+							)
+						)
+					)
+			</OrderWander>
+
+			<OrderTrade>
+				(block (
+					(dockedAt (shpGetDockObj gSource))
+					)
+					;; If we're docked at an object, dump any loot that we found
+					;(if (and dockedAt (objHasAttribute dockedAt "populated"))
+					;	; Compose a list of all loot on board that the station might want to buy from us.
+					;	(block (
+					;		(allLoot (filter (objGetItems gSource "*~mf U") theItem (objGetBuyPrice dockedAt theItem)))
+					;		)
+					;		(enum allLoot theItem (objRemoveItem gSource theItem))
+					;		(enum allLoot theItem (objAddItem dockedAt theItem))
+					;		)
+					;	)
+					(shpOrder gSource 'wait (random 10 60))
+					(objSetData gSource 'state 'docked)
+					)
+			</OrderTrade>
+
+			<OrderAttackPlayer>
+				(block Nil
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'attack gPlayerShip)
+					(objSetData gSource 'state 'fight)
+					(objSendMessage gPlayerShip gSource (objTranslate gSource 'msgFight))
+					)
+			</OrderAttackPlayer>
+
+			<OrderOfferSurrender>
+				(block Nil
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'wait 30)
+					; Reset number of attacks
+					(objSetData gSource 'numAttacks 0)
+					(objSetData gSource 'state 'surrender)
+					(objSendMessage gPlayerShip gSource (objTranslate gSource 'msgSurrender))
+					)
+			</OrderOfferSurrender>
+
+			<OrderEjectCapsule>
+				(block (
+					(missionObj (objGetData gSource 'mission))
+					)
+					(objEnumItems gSource "* +unid:&itEscapeCapsule;;" theCapsule
+						; Make sure we have the right capsule
+						(if (= (itmGetData theCapsule 'mission) missionObj)
+							(objFireItemEvent gSource theCapsule 'Eject)
+							)
+						)
+					; Update the mission state
+					(msnFireEvent missionObj 'OnEjected)
+					; And flee
+					(objFireEvent gSource 'OrderFlee)
+					)
+			</OrderEjectCapsule>
+
+			<OrderRejectSurrender>
+				(switch
+					; If there is a nearby gate then make a run for it
+					(sysFindObject gSource "GN:240; -uncharted;")
+						(objFireEvent gSource 'OrderFlee)
+
+					; Otherwise just fight to the death
+					(block Nil
+						(shpCancelOrders gSource)
+						(shpOrder gSource 'attack gPlayerShip)
+						(objSetData gSource 'state 'tothedeath)
+						)
+					)
+			</OrderRejectSurrender>
+
+			<OrderFlee>
+				(block Nil
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'gate (sysFindObject gSource "GN -uncharted;"))
+					(objSetData gSource 'state 'flee)
+					)
+			</OrderFlee>
+
+			<OnAttacked>
+				(if (and gPlayerShip (= aOrderGiver gPlayerShip))
+					(block (
+						(lastAttack (objGetData gSource 'lastAttack))
+						(timeSinceLastAttack (- (unvGetTick) lastAttack))
+						(numEscorts (count (sysFindObject gSource "sFO:escort; N:120;")))
+						(state (objGetData gSource 'state))
+						)
+						(objIncData gSource 'numAttacks)
+						(objSetData gSource 'lastAttack (unvGetTick))
+
+						(switch
+							(or (= state 'flee) (= state 'tothedeath))
+								Nil
+
+							; Allow the player 10 shots to realise we offered to surrender
+							(and (= state 'surrender) (geq (objGetData gSource 'numAttacks) 10))
+								(objFireEvent gSource 'OrderRejectSurrender)
+
+							(= state 'surrender)
+								(objSendMessage gPlayerShip gSource (objTranslate gSource 'msgSurrender))
+
+							; Escorts dead and damaged, offer surrender
+							(and (= numEscorts 0) (geq (objGetVisibleDamage gSource) 50))
+								(objFireEvent gSource 'OrderOfferSurrender)
+
+							; If we're already fighting then do nothing
+							(= state 'fight)
+								Nil
+
+							; At five hits turn hostile.
+							(geq (objGetData gSource 'numAttacks) 5)
+								(objFireEvent gSource 'OrderAttackPlayer)
+
+							; If we're hit twice in less than 5 seconds fire warning shots
+							(leq timeSinceLastAttack 150)
+								(block Nil
+									(if (= state 'docked) (shpCancelOrders gSource))
+									(objSendMessage gPlayerShip gSource (objTranslate gSource 'msgAnnoyed))
+									(shpOrderImmediate gSource 'attack gPlayerShip 5)
+									)
+
+							; Otherwise just send watch your targets message
+							(objSendMessage gPlayerShip gSource (objTranslate gSource 'WatchYourTargets))
+							)
+						)
+					)
+			</OnAttacked>
+
+		</Events>
+		<Language>
+			<Text id="WatchYourTargets">
+				(random (list
+					"Keep your distance!"
+					"Watch your targets!"
+					"Watch your fire!"
+					))
+			</Text>
+			<Text id="msgAnnoyed">
+				(random (list
+					"That was a warning"
+					"Back off or we will destroy you!"
+					))
+			</Text>
+			<Text id="msgFight">
+				(random (list
+					"What the...!?"
+					"You are going to die!"
+					"You are dead!"
+					"Enough!"
+					"Kack!"
+					"Huh!?"
+					))
+			</Text>
+			<Text id="msgSurrender">
+				(random (list
+					"Cease fire! What do you want?"
+					"We surrender! Stop firing."
+					"We give up. Please don't kill us!"
+					))
+			</Text>
+			<Text id="msgGiveUp">
+				(random (list
+					"Alright, give us a minute."
+					(cat "OK, were getting ready to transfer " (strG (@ gData g) "him" "her") " off the ship")
+					))
+			</Text>
+
+			<Text id="comms">
+				(random (list
+					(cat "Sorry, " (@ gData 'name) " still owes us for passage." )
+					(cat (@ gData 'name) " is quite a good mechanic, so " (strG (@ gData g) "he" "she") "'s staying with us for now.")
+					(cat (@ gData 'name) " is part of my crew now and I'm not letting " (strG (@ gData g) "him" "her") " go")
+					))
+			</Text>
+		</Language>
+	</ShipClass>
+
+
+</TranscendenceModule>

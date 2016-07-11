@@ -1,0 +1,187 @@
+<?xml version="1.0" ?>
+<!--
+	Changes to core code:
+	* dsCommonwealthPub use new rumor framework, inherit from standard dock screens
+
+	To Do:
+	* All the pub rumors could be moved to events on the stations causing the rumors
+	-->
+
+<TranscendenceModule>
+
+	<DockScreen UNID="&dsCommonwealthPub;"
+		nestedScreen=	"true"
+		inherit=		"&dsDockScreenBase;"
+		>
+
+		<Panes>
+			<Default>
+				<OnPaneInit>
+					(scrSetDescTranslate gScreen 'descWelcome)
+				</OnPaneInit>
+
+				<Actions>
+					<Action id="actionBar" default="1">
+						(if (geq (plyGetCredits gPlayer) 5)
+							(block Nil
+								(plyCharge gPlayer 5)
+								(msfShowRumor {
+									rumorCriteria: 'pub
+									introTextID: 'descRumorIntro
+									noRumorTextID: 'descNoRumors
+									})
+								)
+							(scrShowPane gScreen "NoMoney")
+							)
+					</Action>
+
+					<Action id="actionLeave" cancel="1">
+						<Exit/>
+					</Action>
+				</Actions>
+			</Default>
+
+			<NoMoney>
+				<OnPaneInit>
+					(scrSetDescTranslate gScreen 'descNoMoney)
+				</OnPaneInit>
+
+				<Actions>
+					<Action id="actionLeave" default="1" cancel="1">
+						<Exit/>
+					</Action>
+				</Actions>
+			</NoMoney>
+
+		</Panes>
+		<Language>
+			<Text id="actionBar">"[S]it at the Bar"</Text>
+			<Text id="actionLeave">"[L]eave"</Text>
+
+			<Text id="descWelcome">
+				(cat
+					"You are in a large and crowded spacer bar."
+					)
+			</Text>
+			<Text id="descNoMoney">
+				(cat
+					"You hang around for a while, but you have no money to buy drinks."
+					)
+			</Text>
+
+			<Text id="descRumorIntro">""</Text>
+			<Text id="descNoRumors">"You spend 5 credits on drinks; everyone else around you seems to be having a good time."</Text>
+
+
+			<Text id="pubRumor1">
+				(cat "You listen to a refugee from " gData ": \"Centauri warlords took over our station last month. Whatever&#x97;I like this place better.\" You spend 5 credits and buy him a few drinks.")
+			</Text>
+
+			<Text id="pubRumor2">
+				"You spend 5 credits on drinks. A young stationer next to you comments that its a lot easier to get laudanum now that the Outlaw base is in the system."
+			</Text>
+
+			<Text id="pubRumor3">
+				(block (rank)
+					(if (isfunction korGetPlayerLevel)
+						(setq rank (korGetPlayerLevel))
+						(setq rank (typGetGlobalData &stKorolovShipping; "xp"))
+						)
+					(switch
+						(or (not rank) (eq rank 0))
+							"You spend 5 credits on drinks. You talk to a couple of freighter pilots who try to convince you to fly escort missions for Korolov Shipping."
+
+						(ls rank 0)
+							"A group of freighter pilots point in your direction, talking about how you blew your escort mission. You settle up a 5 credit tab and get ready to leave."
+
+						"A group of freighter pilots welcome you into their group. You tell various stories about your run-ins with the Charon pirates, but in the end you still get stuck with the 5 credit tab."
+						)
+					)
+			</Text>
+
+			<Text id="pubRumor4">
+				(cat "You talk to a corporate woman staying at the " gData ". She drones on about the excellent service. You spend 5 credits on drinks.")
+			</Text>
+
+			<Text id="pubRumor5">
+				"You spend 5 credits and listen to a nuclear technician: \"I just got paid ten kilocreds to install a radiation room at the Sapiens camp! Those flippers scare me&#x97;with all their talk about 'human purity' they seem a little short on the brain scale.\""
+			</Text>
+
+			<Text id="pubRumor6">
+				"A woman dressed in a fancy neolinen suit talks to you: \"Do you know how to get a contact at the black market station? You look like you might know.\" You spend 5 credits on drinks."
+			</Text>
+
+			<Text id="pubRumor7">
+				"An old man talks to you: \"I don't trust the corporate medlabs&#x97;they talk about drug shortages while they munch on oncokillers and antigens! I'm going to the Death Labs&#x97;what's the worst they can do? Kill me?\" You spend 5 credits to buy him a drink."
+			</Text>
+
+			<Text id="pubRumor8">
+				"You spend 5 credits while listening to a drunk woman: \"My sister-in-law was abducted by those filthy Sung. We finally got her released by buying her contract. I can't believe they allow slavery to exist. Hey, can you buy me a drink?\""
+			</Text>
+
+			<Text id="pubRumor9">
+				"You drink through 5 credits while talking to an attractive Sister: \"The Sisters of Domina believe in the power of transcendence, but we worship Domina because she brings life and beauty. Say, you're not a Penitent, are you? Good! The Penitents only care about power and death&#x97;Oracus controls them, you know.\""
+			</Text>
+
+			<Text id="pubRumor10">
+				"You spend 5 credits buying drinks for a mercenary. He talk about his encounters with the Xenophobes: \"The minute I see their green ships I turn tail&#x97;I'm not proud. And you shouldn't be either!\""
+			</Text>
+
+			<Text id="pubRumor11">
+				"A man dressed in an expensive suit talks to you: \"You look like you need some Tempus.\" You ignore him and spend 5 credits buying your own drinks."
+			</Text>
+
+			<Text id="pubRumor12">
+				(cat "You talk to a group of miners from " gData " who try to impress you with their knowledge of helium regolith market prices. You spend 5 credits on drinks.")
+			</Text>
+
+			<Text id="pubRumor13">
+				"A woman weeps softly as she tells her story: \"Our freighter strayed near an Abbasid outpost by mistake. They had no mercy&#x97;they just kept firing on us&#x97;the captain begged them to stop, but the blasts kept coming! Then our cabin got hit and my husband...\" She stares into space and says no more. You leave 5 credits for her drinks."
+			</Text>
+		</Language>
+
+		<StaticData>
+			<RumorTable>
+				(list
+					(1	&stCentauriOccupation;	10	'scan)
+					(2	&stOutlawBase;			11	Nil)
+					(3	&stKorolovShipping;		21	'scan)
+					(4	&stHotel;				24	'scan)
+					(5	&stTerroristCamp;		30	'scan)
+					(6	&stBlackMarketStation;	31	'scan)
+					(7	&stDrugCartelOutpost;	40	Nil)
+					(8	&stSungSlaveCamp;		41	Nil)
+					(9	&stPenitentShrine;		50	Nil)
+					(10	&stXenophobeFleet;		60	Nil)
+					(11 &stTempusLab;			23	'scan)
+					(12 &stMiningColony;		20	'scan)
+					(13 &stAbbasidOutpost;		22	'scan)
+					)
+			</RumorTable>
+		</StaticData>
+
+		<Events>
+			<GetGlobalRumors>
+				(switch
+					(!= (@ gData 'rumorCriteria) 'pub)
+						Nil
+
+					(map (typGetStaticData &dsCommonwealthPub; 'RumorTable) 'excludeNil story
+						(block (
+							(station (sysFindObject gPlayerShip (cat "tAMN +unid:" (@ story 1) ";")))
+							)
+							(if station
+								{
+									desc: (typTranslate &dsCommonwealthPub; (cat "pubRumor" (@ story 0)))
+									priority: (@ story 2)
+									code: (if (@ story 3) (lambda () (objSetKnown station)))
+									}
+								)
+							)
+						)
+					)
+			</GetGlobalRumors>
+		</Events>
+	</DockScreen>
+
+</TranscendenceModule>

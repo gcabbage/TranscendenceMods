@@ -1,0 +1,696 @@
+<?xml version="1.0" ?>
+
+<!-- Changes to charon pirates
+
+	chrCreateRaider:
+	* Attempts to create raider at nearest Charon base in preference to gate
+	* Creates raider from ShipTable rather than lisp table
+
+	New ShipTables tbPirateRaiderX based on EP NAU missions. For higher value cargos the
+	tables offset so -II ships and Barbaries will show up more. (thresholds are 100k and 500k)
+
+	Additional changes to evCharonRaiderBehavior:
+	* Wander AI based on EP NAU mission 3 (actively hunts for freighters)
+	* Will transfer loot to charon base (instead of just removing items from ship)
+	* Will repair armor when docking with Charon stronghold (note internal damage is not repaired)
+	* Will dump loot at a stronghold if damage > 20%
+	* Retreat to stronghold when heavily damaged
+	* loots wrecks when wandering
+
+	To do:
+	* If frigate loots better weapon/armor then install it at the Charon base
+	* add behavior for wrecks with too much cargo
+	* combine crates (increase value), throw out 'junk' etc.
+	* leave guards and return for more cargo
+
+	Merged into vanilla:
+	* Increased drake cargo space to 500
+	* chrGetPrimaryStronghold now uses stCharonPrimaryStronghold3
+	* chrDeployFrigateRaid: option to specify raidertype
+	* chrRaidTransport: use Drakes for lower value cargos
+	* evCharonRaiderBehavior plus fixes:
+		* Will return to wander state if player completes Korolov escort mission (i.e. freighter docks with origin station)
+		* If raiders are destroyed there is a chance for the frigate to attack directly.
+	* etPirateAmbush1: Added group tag so both entries are generated
+
+-->
+
+<TranscendenceModule>
+
+<!-- BEHAVIORS -->
+
+	<!-- Charon Frigate
+	status:
+		'wander	Wander AI based on NAU mission 3, can have substate of:
+			Nil
+			travelling
+			waitForPrey
+
+		'gotoAmbushMarker	= traveling to ambush marker
+		'waitForTransport		= waiting for transport to come in range
+		'waitForRaiders		= waiting for raiders to destroy transport
+		'attackTransport		= attacking transport directly
+		'dockWithWreck		= docking with transport
+		'dockWithBase		= dock with pirate base and dump loot
+		'leaveSystem		= leave the system
+		'patrol			= patroling
+		'ambush			= random encounter
+		'attackingEnemy		= attacking enemy
+
+	-->
+	<Type UNID="&evCharonRaiderBehavior;">
+		<Events>
+			<OnCreate>
+				(block Nil
+					; Call the base class
+					(typFireObjEvent (objGetType gSource) gSource 'OnCreate)
+
+					(objSetData gSource "raiderClassTable" &tbPirateRaider1;)
+					(objSetData gSource "raiderMinCount" (random '(2 3 3 3 3)))
+					(objSetData gSource "raiderMaxCount" (random '(4 5 5 5 5 6 6 8)))
+
+					; Create some raiders to accompany us
+					(for i 1 (objGetData gSource "raiderMaxCount")
+						(chrCreateRaider gSource gSource)
+						)
+
+					(sysAddObjRecurringTimerEvent 60 gSource "OnBehavior")
+					(objSetData gSource 'status 'wander)
+				)
+			</OnCreate>
+
+			<OrderAmbush>
+				; aBaseObj = base
+				(block Nil
+					; First we position ourselves in the path of the player
+					(setq theResult (intComputeRandomEncounterPosEx))
+					(setq thePos (@ theResult 0))
+					(objMoveTo gSource thePos)
+
+					; Move towards the player's path
+					(setq theCourse (@ theResult 1))
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'holdCourse theCourse 300)
+
+					(objSetObjRefData gSource 'targetBase aBaseObj)
+					(objSetData gSource 'status 'ambush)
+					)
+			</OrderAmbush>
+
+			<OrderPatrol>
+				; aBaseObj = base to patrol
+				(block Nil
+					(objAddSubordinate aBaseObj gSource)
+
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'patrol aBaseObj 20)
+
+					(objSetData gSOurce 'status 'patrol)
+					)
+			</OrderPatrol>
+
+			<OrderRaidTransport>
+				; aTargetObj = transport to raid
+				; aOriginObj = transport origin
+				; aDestObj = transport destination
+				; aCargoValue = value of cargo
+
+				(block (ambushPos)
+					; 30% of the time we pick a spot on the transports's path
+					; the rest of the time we pick a random spot near (but not on)
+					; the transport's path
+					(if (and (leq (random 1 100) 30) (geq aCargoValue 100000))
+						(setq ambushPos (sysGetNavPathPoint &svCorporate; aOriginObj aDestObj (random 40 60)))
+						(setq ambushPos (chrComputeAmbushPos aOriginObj aDestObj))
+						)
+
+					; Update our raider table based on cargo value
+					(switch
+						(leq aCargoValue 100000)
+							(objSetData gSource "raiderClassTable" &tbPirateRaider1;)
+						(leq aCargoValue 500000)
+							(objSetData gSource "raiderClassTable" &tbPirateRaider2;)
+						(objSetData gSource "raiderClassTable" &tbPirateRaider3;)
+						)
+
+					; Go to the ambush position
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'goToPos ambushPos)
+
+					; Set our state and remember the target
+					(objSetObjRefData gSource "target" aTargetObj)
+					(objRegisterForEvents gSource aTargetObj)
+
+					(objSetObjRefData gSource "start" aOriginObj)
+					(objSetObjRefData gSource "end" aDestObj)
+
+					(objSetData gSource 'cargoValue aCargoValue)
+					(objSetData gSource 'status 'gotoAmbushMarker)
+					(objSetData gSource 'substate Nil)
+					)
+			</OrderRaidTransport>
+
+			<OrderFlee>
+				(block (
+					(pirateBase (sysFindObject gSource "ANT:charonPirates; +majorStation;"))
+					(nearestEnemy (sysFindObject gSource "ANEX"))
+					)
+					; If there is a Charon stronghold in system, dock with it. Otherwise, we gate out
+					(if pirateBase
+						(block Nil
+							(objSetData gSource 'status 'dockWithBase)
+							(objSetData gSource 'substate Nil)
+							(objSetObjRefData gSource "targetBase" pirateBase)
+							(shpCancelOrders gSource)
+							(shpOrder gSource 'dock pirateBase)
+							(shpOrder gSource 'wait Nil (random 3 7))
+							)
+						(block Nil
+							(objSetData gSource 'status 'leaveSystem)
+							(objSetData gSource 'substate Nil)
+							(shpCancelOrders gSource)
+							(shpOrder gSource 'gate)
+							)
+						)
+
+					; Order the raiders to attack the nearest enemy
+					(chrCancelRaiderOrders gSource)
+					(chrOrderRaiders gSource "attack" nearestEnemy)
+					(chrOrderRaiders gSource "escort" gSource)
+					(dbgOutput "Charon raider: order flee")
+					)
+			</OrderFlee>
+
+			<OrderWander>
+				(block Nil
+					(objSetData gSource 'status 'wander)
+					(objSetData gSource 'substate Nil)
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'wander)
+
+					; Order the raiders to return
+					(chrCancelRaiderOrders gSource)
+					(chrOrderRaiders gSource "escort" gSource)
+					(dbgOutput "Charon raider: order wander")
+					)
+			</OrderWander>
+
+			<OrderLootWreck>
+				; aWreckObj = wreck to loot
+				(block Nil
+					(objSetData gSource 'status 'dockWithWreck)
+					(objSetData gSource 'substate 'loot)
+					(objSetObjRefData gSource 'targetToLoot aWreckObj)
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'dock aWreckObj)
+					(shpOrder gSource 'wait Nil (random 5 10))
+					(dbgOutput "Charon raider: order loot " (objGetName aWreckObj))
+					)
+			</OrderLootWreck>
+
+			<OnBehavior>
+				(block (
+					(status (objGetData gSource 'status))
+					(targetObj (objGetObjRefData gSource "target"))
+					)
+					(switch
+						; If we're close enough to the transport and we've got enough
+						; raiders, then send them out
+						(and	(= status 'waitForTransport)
+							(ls (objGetDistance gSource targetObj) 180)
+							(geq (objGetData gSource "raiderCount") 4)
+							)
+							(block Nil
+								(dbgOutput "Charon frigate launching raiders")
+								(chrCancelRaiderOrders gSource)
+								(chrOrderRaiders gSource "attack" targetObj)
+								(objSetData gSource 'status 'waitForRaiders)
+								)
+
+						(eq status 'wander)
+							(block (
+								(substate (objGetData gSource 'substate))
+								allWrecks
+								)
+								(setq allWrecks (filter (sysFindObject gSource "TKPN:120 +shipwreck; -uncharted; -locked;") theObj
+										(and
+											(not (objIsRadioactive theObj))
+											(not (objGetData theObj "00100101_marked"))
+											)
+										)
+									)
+								(switch
+									; If we're damaged then retreat
+									(gr (objGetVisibleDamage gSource) 50)
+										(objFireEvent gSource "OrderFlee")
+
+									; If we're busy then continue
+									(or (= substate 'loot) (= substate 'attackTransport))
+										(block Nil)
+
+									; If there is a wreck nearby then loot it.
+									(setq aWreckObj (random allWrecks))
+										(block Nil
+											(objFireEvent gSource "OrderLootWreck")
+											; Reset status back to wander
+											(objSetData gSource 'status 'wander)
+											)
+
+									; If there's a freighter in the area, then attack it.
+									(and	(setq targetObj (sysFindObject gSource "sAEPN +freighter;"))
+										(gr (shpGetMaxSpeed gSource) (shpGetMaxSpeed targetObj))
+										)
+									(block Nil
+										(objSetObjRefData gSource "target" targetObj)
+										(objRegisterForEvents gSource targetObj)
+										; Send raiders
+										(chrCancelRaiderOrders gSource)
+										(chrOrderRaiders gSource "attack" targetObj)
+										; and attack directly
+										(shpCancelOrders gSource)
+										(shpOrder gSource 'attack targetObj)
+										(objSetData gSource 'substate 'attackTransport)
+										(dbgOutput "Charon raider: wander : attack transport " (objGetName targetObj))
+										)
+
+									; If we're idle, then find a place to wait for prey
+									(not substate)
+										(block Nil
+											; If there is a populated station nearby then wait close to it
+											; for freigthers to attack. (But make sure the station is at least
+											; a certain distance away).
+											; Otherwise, wait by the nearest gate
+											(setq targetObj (@ (append
+												(sysFindObject gSource "TAEN +populated; R:150; -uncharted;")
+												(sysFindObject gSource "GN")
+												) 0 ))
+											(shpCancelOrders gSource)
+											(shpOrder gSource 'goToPos (sysVectorRandom targetObj 80 50))
+											(objSetData gSource 'substate 'traveling)
+											)
+
+									; If we're wandering (waiting for prey), we time out after a while
+									(= substate 'waitingForPrey)
+										(if (leq (random 1 100) 5)
+											(objSetData gSource 'substate Nil)
+											)
+									)
+								)
+
+						(= status 'ambush)
+							(block (theEnemy)
+								(if (setq theEnemy (sysFindObject gSource "sEPAN"))
+									(block Nil
+										(shpCancelOrders gSource)
+										(shpOrder gSource 'attack theEnemy)
+										(shpOrder gSource 'attackNearestEnemy)
+										(objSetData gSource 'status 'attackingEnemy)
+										)
+									)
+								)
+
+						; If we're actively attacking, then don't retreat unless critically damaged
+						(and (= status 'attackTransport)
+							(gr (objGetVisibleDamage gSource) 90)
+							)
+							(objFireEvent gSource "OrderFlee")
+
+						; Otherwise retreat if badly damaged
+						(and (!= status 'dockWithBase)
+							(!= status 'leaveSystem)
+							(gr (objGetVisibleDamage gSource) 80)
+							)
+							(objFireEvent gSource "OrderFlee")
+
+						)
+
+					; If we don't have enough raiders, create some new ones
+					(if (ls (objGetData gSource "raiderCount") (objGetData gSource "raiderMinCount"))
+						(block Nil
+							(for i 1 (subtract (objGetData gSource "raiderMaxCount") (objGetData gSource "raiderCount"))
+								(chrCreateRaider gSource)
+								)
+
+							;	If we were previously waiting for raiders to destroy a freighter,
+							;	then this means they got destroyed, so wait for the transport again
+							;	in case it comes back this way
+
+							(if (= (objGetData gSource 'status) 'waitForRaiders)
+								(objSetData gSource 'status 'waitForTransport)
+								)
+							)
+						)
+					)
+			</OnBehavior>
+
+			<OnObjDocked>
+				(block Nil
+					; If freighter returns to origin go back to wandering
+					(if (and (= aObjDocked (objGetObjRefData gSource "target")) (= aDockTarget (objGetObjRefData gSource "start")))
+						(objFireEvent gSource "OrderWander")
+						)
+					)
+			</OnObjDocked>
+
+			<OnObjDestroyed>
+				(block (
+					(status (objGetData gSource 'status))
+					)
+					(switch
+						; If one of our raiders got destroyed, decrement our count
+						(= (objGetObjRefData aObjDestroyed "charonFrigate") gSource)
+							(block (
+								(targetObj (objGetObjRefData gSource "target"))
+								(raidersInRange
+									(filter (sysFindObject gSource "s D:charonFrigate; N:100;") theObj
+										(= (objGetObjRefData theObj 'charonFrigate) gSource)
+										)
+									)
+								)
+								(objIncData gSource "raiderCount" -1)
+
+								; If we're attacking a freighter and our raiders have
+								; been almost destroyed, there is a chance that we
+								; engage directly.
+								(if (and (eq status 'waitForRaiders)
+										(leq raidersInRange 1)
+										(leq (shpGetMaxSpeed targetObj) 12)
+										(geq (objGetData gSource "cargoValue") 100000)
+										(leq (random 1 100) (divide (objGetData gSource "cargoValue") 20000))
+										)
+									(block Nil
+										(objSetData gSource 'status 'attackTransport)
+										(shpCancelOrders gSource)
+										(shpOrder gSource "attack" targetObj)
+										(dbgOutput "Charon raider: attacking freighter")
+										)
+									)
+								)
+
+						; If transport got destroyed, dock with its wreck
+						(eq aObjDestroyed (objGetObjRefData gSource "target"))
+							(if aWreckObj
+								; If we have a wreck, dock with it
+								(block Nil
+									(objFireEvent gSource "OrderLootWreck")
+
+									; Order the raiders to attack the nearest enemy
+									(chrCancelRaiderOrders gSource)
+									(chrOrderRaiders gSource "attackNearestEnemy")
+									(chrOrderRaiders gSource "escort" gSource)
+									)
+
+								; Otherwise, back to wandering
+								(objFireEvent gSource "OrderWander")
+								)
+						)
+					)
+			</OnObjDestroyed>
+
+			<OnOrdersCompleted>
+				(block (
+					(status (objGetData gSource 'status))
+					(substate (objGetData gSource 'substate))
+					)
+					(switch
+						; If we reached our ambush position, send out raiders
+						(= status 'gotoAmbushMarker)
+							(block Nil
+								(shpOrder gSource 'hold)
+								(objSetData gSource 'status 'waitForTransport)
+								)
+
+						; If we've docked with the transport, then loot the goods
+						; and take them to a pirate base
+						; (status can be 'dockWithTransport or 'wander)
+						(= substate 'loot)
+							(block (pirateBase wreck)
+								(objSetData gSource 'substate Nil)
+
+								(if (setq wreck (objGetObjRefData gSource "targetToLoot"))
+									(block (remainingValue lootedItems)
+										; Loot as many items from the transport as we can carry
+										(chrLootItems wreck gSource "*U")
+										; Calculate how much cargo is left over
+										(setq remainingValue (+ (map (objGetItems wreck "*U") theItem
+											(* (itmGetCount theItem) (itmGetActualPrice theItem))
+											)))
+										(if (gr remainingValue 5000)
+											(block Nil
+												; Create some raiders to guard wreck
+												(for i 1 (random 4 6)
+													(shpOrder
+														(sysCreateShip &tbPirateRaider1; wreck &svPirates;)
+														'guard
+														wreck
+														)
+													)
+												; Start follow on event / mission
+												)
+											; Otherwise mark wreck so we ignore it in future
+											(objSetData wreck "00100101_marked" True)
+											)
+										)
+									)
+								; If we're damaged dock at a major station, otherwise
+								; look for the nearest pirate base in the system
+								(setq pirateBase
+									(if (gr (objGetVisibleDamage gSource) 50)
+										(sysFindObject gSource "ANT:charonPirates; +majorStation;")
+										(sysFindObject gSource "ANT:charonPirates;")
+										)
+									)
+
+								(switch
+									; Low damage and cargo - continue wandering
+									(and	(leq (objGetVisibleDamage gSource) 20)
+										(geq (objGetCargoSpaceLeft gSource) 250000)
+										)
+										(objFireEvent gSource "OrderWander")
+
+									; If we found a base, dock with it.
+									pirateBase
+										(block Nil
+											(objSetData gSource 'status 'dockWithBase)
+											(objSetObjRefData gSource "targetBase" pirateBase)
+											(shpCancelOrders gSource)
+											(shpOrder gSource 'dock pirateBase)
+											(shpOrder gSource 'wait Nil (random 3 7))
+											(dbgOutput "Charon raider: return to base")
+											)
+
+									; Otherwise, we gate out
+									(block Nil
+										(objSetData gSource 'status 'leaveSystem)
+										(shpCancelOrders gSource)
+										(shpOrder gSource 'gate)
+										(dbgOutput "Charon raider: leave system")
+										)
+									)
+								)
+
+						; If we're docked with the pirate base, then dump the loot and
+						; go back to wandering
+						(= status 'dockWithBase)
+							(block (
+								(dockedAt (shpGetDockObj gSource))
+								(allLoot (objGetItems gSource "*~mf U"))
+								)
+								(if (objHasAttribute dockedAt "populated")
+									(block Nil
+										(enum allLoot theItem (objRemoveItem gSource theItem))
+										(enum allLoot theItem (objAddItem dockedAt theItem))
+										)
+									)
+								; Repair Armor
+								(if (and (objHasAttribute dockedAt "populated") (objHasAttribute dockedAt "majorStation"))
+									(block Nil
+										(intArmorRepairAll gSource 25 'alwaysRepair)
+										(objSetProperty gSource 'interiorHP (objGetProperty gSource 'maxInteriorHP))
+										)
+									)
+
+								; Wander the system
+								(objFireEvent gSource "OrderWander")
+								)
+
+						(= status 'wander)
+							(if (= substate 'traveling)
+								; If we've reached our destination, then wait for something to happen.
+								(block Nil
+									(shpOrder gSource 'hold)
+									(objSetData gSource 'substate 'waitingForPrey)
+									)
+								; Otherwise just hold
+								(block Nil
+									(shpOrder gSource 'hold)
+									(objSetData gSource 'substate Nil)
+									)
+								)
+
+						; Back to patrol
+						(= status 'attackingEnemy)
+							(block Nil
+								(setq aBaseObj (objGetObjRefData gSource 'targetBase))
+								(objFireEvent gSource "OrderPatrol")
+								)
+
+						; If we don't know what to do, just wait
+						(block Nil
+							(shpOrder gSource "hold")
+							(objSetData gSource 'substate Nil)
+							)
+						)
+					)
+			</OnOrdersCompleted>
+		</Events>
+	</Type>
+
+<!-- TABLES -->
+	<ShipTable unid="&tbPirateRaider1;">
+		<LevelTable>
+			<Ship levelFrequency="cccur r----" class="&scCorsair;" />
+			<Ship levelFrequency="vuccc urr--" class="&scViking;" />
+			<Ship levelFrequency="-vucc currr" class="&scCorsair-II;" />
+			<Ship levelFrequency="--vuc ccurr" class="&scViking-II;" />
+			<Ship levelFrequency="---vu cccuu" class="&scBarbary;" />
+		</LevelTable>
+	</ShipTable>
+
+	<ShipTable unid="&tbPirateRaider2;">
+		<LevelTable>
+			<Ship levelFrequency="ccurr -----" class="&scCorsair;" />
+			<Ship levelFrequency="ucccu rr---" class="&scViking;" />
+			<Ship levelFrequency="vuccc urrr-" class="&scCorsair-II;" />
+			<Ship levelFrequency="-vucc currr" class="&scViking-II;" />
+			<Ship levelFrequency="--vuc ccuur" class="&scBarbary;" />
+		</LevelTable>
+	</ShipTable>
+
+	<ShipTable unid="&tbPirateRaider3;">
+		<LevelTable>
+			<Ship levelFrequency="curr- -----" class="&scCorsair;" />
+			<Ship levelFrequency="cccur r----" class="&scViking;" />
+			<Ship levelFrequency="ucccu rrr--" class="&scCorsair-II;" />
+			<Ship levelFrequency="vuccc urrr-" class="&scViking-II;" />
+			<Ship levelFrequency="-vucc cuurr" class="&scBarbary;" />
+		</LevelTable>
+	</ShipTable>
+
+
+<!-- GLOBALS ------------------------------------------------------------------>
+	<Globals>
+		(block Nil
+			(setq chrCreateRaider (lambda (frigateObj pos)
+				(block (raider found i)
+					; If pos is not specified try using the nearest pirate base, then fall back to gate
+					(if (not pos) (setq pos (sysFindObject gSource "ANT:charonPirates;")))
+					(if (not pos) (setq pos (sysFindObject gSource "GN -uncharted;")))
+
+					; Create the raider
+					(setq raider (sysCreateShip (objGetData frigateObj "raiderClassTable") pos (objGetSovereign frigateObj)))
+
+					; Order the raider to escort the frigate and remember a pointer to the frigate
+					(shpOrder raider "escort" frigateObj)
+					(objSetObjRefData raider "charonFrigate" frigateObj)
+
+					; Remember a pointer to the raider
+					(objIncData frigateObj "raiderCount" 1)
+					(objRegisterForEvents frigateObj raider)
+
+					; Add the raider to a list
+					(setq i 1)
+					(setq found Nil)
+					(loop (not found)
+						(if (not (objGetObjRefData frigateObj (cat "raider" i)))
+							(block Nil
+								(objSetObjRefData frigateObj (cat "raider" i) raider)
+								(setq found True)
+								)
+							(setq i (add i 1))
+							)
+						)
+					)
+				))
+
+			; Sort a list of items by price per mass
+			(setq chrSortItems (lambda (items)
+				(map	(sort (map
+							items
+							theItem
+							(list theItem (/ (itmGetActualPrice theItem) (itmGetMass theItem)))
+							)
+						'descending
+						1
+						)
+					var
+					(@ var 0)
+					)
+				))
+
+			(setq chrJunkItems
+				(list
+					(itmCreate &itWaterIce; 1)
+					(itmCreate &itHydrocarbons; 1)
+					(itmSetProperty (itmCreate &itSalmonite; 1) 'damaged True)
+					(itmSetProperty (itmCreate &itFrozenSupplies; 1) 'damaged True)
+					(itmSetProperty (itmCreate &itBeefCylinders; 1) 'damaged True)
+					(itmSetProperty (itmCreate &itSyntheticChicken; 1) 'damaged True)
+					)
+				)
+
+			; Loot the most valuable items
+			(setq chrLootItems (lambda (theSource theDest criteria)
+				(block (lootedItems)
+					(setq lootedItems (objGetItems theSource criteria))
+					(enum (chrSortItems lootedItems) theItem
+						(block (
+							(itmCount (itmGetCount theItem))
+							(fitCount (objGetFitCount theDest theItem))
+							)
+							(switch
+								; If this is a Korolov Container and we can't take all items
+								; Combine crates by jettisoning junk and keeping valuable
+								; items (increase charges on crates)
+								(and (= (itmGetType theItem) &itKorolovShippingContainer;)
+									(ls fitCount itmCount)
+									)
+									(block (
+										(charges (itmGetCharges theItem))
+										(multiple (min (divide itmCount fitCount) 10))
+										(junkMass (* (* fitCount (- multiple 1)) (itmGetMass theItem)))
+										theCrate
+										)
+										(objRemoveItem theSource theItem (* fitCount multiple))
+										(objAddItem theDest (itmSetCharges theItem (* charges multiple)) fitCount)
+
+										(for i 1 3
+											(block Nil
+												(setq theCrate (sysCreateStation &stGenericCargoCrate; theSource))
+												(objSetVel theCrate (sysVectorPolarVelocity (random 0 359) 20))
+												(objAddRandomItems theCrate &trMiscItems1; (random 1 (divide junkMass 1000)))
+												(objEnumItems theCrate "*" junkItem (objSetItemProperty theCrate junkItem 'damaged True))
+												;(objAddItem
+												;	theCrate
+												;	(random chrJunkItems)
+												;	(divide junkMass 1000)
+												;	)
+												)
+											)
+										)
+								; Take what we can
+								(gr fitCount 0)
+									(block Nil
+										(dbgOutput "taking " fitCount " " (itmGetName theItem 0))
+										(objRemoveItem theSource theItem fitCount)
+										(objAddItem theDest theItem fitCount)
+										)
+								)
+							)
+						)
+					)
+				))
+			)
+	</Globals>
+
+</TranscendenceModule>

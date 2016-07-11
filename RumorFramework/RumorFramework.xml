@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<!DOCTYPE TranscendenceLibrary
+	[
+	<!ENTITY unidRumorFramework				"0xDDDEF100">
+
+	<!ENTITY msRaisuStation					"0xDDDEF101">
+	<!ENTITY dsRaisuStation					"0xDDDEF102">
+	]>
+
+<TranscendenceLibrary UNID="&unidRumorFramework;"
+		name=		"Rumor Framework"
+		release=	"1"
+		version=	"0.1"
+		apiVersion=	"30"
+		credits=	"Giant Cabbage"
+		>
+
+	<Library unid="&unidRPGLibrary;"/>
+	<Library unid="&unidHumanSpaceLibrary;"/>
+
+	<Module filename="Benedict02.xml"/>
+	<Module filename="Code.xml"/>
+	<Module filename="CommonwealthPub.xml"/>
+	<Module filename="CommonwealthSlums.xml"/>
+	<Module filename="Eridani.xml"/>
+	<Module filename="MissionRaisu.xml"/>
+	<Module filename="RPGAnalyzers.xml"/>
+
+</TranscendenceLibrary>

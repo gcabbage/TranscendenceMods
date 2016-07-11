@@ -1,0 +1,302 @@
+<?xml version="1.0" ?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDEF300">
+	<!ENTITY unidTopology					"0xDDDEF301">
+	<!ENTITY scHerculesPlayer				"0xDDDEF302">
+	<!ENTITY scRaijinPlayer					"0xDDDEF303">
+	<!ENTITY scSpartanPlayer				"0xDDDEF304">
+
+	<!-- LIBRARIES -->
+
+	<!ENTITY unidNearStarsVol01				"0x00910000">
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"Near Stars"
+		release=	"1"
+		version=	"1.0"
+		apiVersion=	"30"
+		extends=	"0x00200000"
+		>
+
+	<Library unid="&unidHumanSpaceLibrary;"/>
+	<Library unid="&unidNearStarsVol01;"/>
+
+	<!-- TOPOLOGY -->
+
+	<SystemMap UNID="&unidTopology;"
+			displayOn="&smHumanSpace;"
+			>
+
+		<Uses unid="&smHumanSpace;"/>
+		<Uses unid="&smNearStars;"/>
+
+		<TopologyCreator>
+			<Node ID="NearStarsMainline"/>
+			<Stargate from="SK:EdgewardNS" to="Kibo:EdgewardSK"/>
+			<Stargate from="HeilongXing:Coreward" to="C9:EdgewardNS"/>
+		</TopologyCreator>
+	</SystemMap>
+
+	<!-- PLAYER SHIPS -->
+
+	<!-- Player Ship: Hercules-class Transport -->
+
+	<ShipClass UNID="&scHerculesPlayer;"
+			manufacturer=		"United African States"
+			class=				"Hercules"
+			type=				"transport"
+
+			attributes=			"00200000_PlayerShip"
+			inherit=			"&scHerculesPlayerBase;"
+			characterClass=		"&unidPilgrimClass;"
+			   
+			size=				"45"
+			mass=				"250"
+			thrustRatio=		"3.0"
+			maxSpeed=			"20"
+			cargoSpace=			"50"
+			   
+			reactorPower=		"150"
+			fuelCapacity=		"37500"
+			drivePowerUse=		"20"
+			maxArmor=			"12000"
+			maxCargoSpace=		"200"
+			maxDevices=			"8"
+
+			leavesWreck=		"50"
+			>
+
+		<!-- Configuration -->
+		
+		<Armor
+			armorID=			"&itReactiveArmor;"
+			count=				"6"
+			/>
+		
+		<Devices>
+			<DeviceSlot criteria="l" posAngle="16" posRadius="30" posZ="5"/>
+			<DeviceSlot criteria="p" posAngle="-16" posRadius="30" posZ="5"/>
+			
+			<Device deviceID="&itRecoillessCannon;"/>
+			<Device deviceID="&itClass1Deflector;"/>
+			<Device deviceID="&it15MWReactor;"/>
+		</Devices>
+
+		<Maneuver
+			maxRotationRate=	"6.0"
+			rotationAccel=		"1.5"
+			/>
+
+		<Items>
+			<Item count="4d6" item="&itHelium3FuelRod;"/>
+		</Items>
+
+		<!-- Image and Effects -->
+
+		<Image imageID="&rsHercules;" imageWidth="80" imageHeight="80"	rotationCount="120" rotationColumns="12"/>
+		
+		<Effects>
+			<Effect type="thrustMain"		posAngle="144"	posRadius="34"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="-144"	posRadius="34"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="180"	posRadius="36"	posZ="15"	rotation="180"/>
+		</Effects>
+
+		<!-- AI and Behavior -->
+
+		<AISettings
+			fireRateAdj=		"15"
+			fireAccuracy=		"95"
+			perception=			"4"
+			/>
+
+		<!-- Player Settings -->
+		
+		<PlayerSettings
+			desc=				"The Hercules class is a multirole transport."
+			sortOrder=			"10"
+			largeImage=			"&rsHerculesLarge;"
+			initialClass=		"true"
+			startingCredits=	"5d20+200"
+			
+			startingSystem=		"SE"
+			startingPos=		"Start"
+			/>
+	</ShipClass>
+	
+	<!-- Player Ship: Raijin-class Gunship -->
+
+	<ShipClass UNID="&scRaijinPlayer;"
+			manufacturer=		"Kaigun Industries"
+			class=				"Raijin"
+			type=				"heavy gunship"
+
+			attributes=			"00200000_PlayerShip"
+			inherit=			"&scRaijinPlayerBase;"
+			characterClass=		"&unidPilgrimClass;"
+			   
+			size=				"45"
+			mass=				"150"
+			thrustRatio=		"9.0"
+			maxSpeed=			"22"
+			cargoSpace=			"35"
+			   
+			reactorPower=		"150"
+			fuelCapacity=		"37500"
+			drivePowerUse=		"20"
+			maxArmor=			"12000"
+			maxCargoSpace=		"100"
+			maxDevices=			"8"
+			maxNonWeapons=		"4"
+
+			leavesWreck=		"50"
+			>
+
+		<!-- Configuration -->
+		
+		<Armor
+			armorID=			"&itLightPlasteelPlate;"
+			count=				"4"
+			/>
+		
+		<Devices>
+			<DeviceSlot criteria="l +asianPacificDirectorate;" minFireArc="-20" maxFireArc="20" posAngle="52" posRadius="18" posZ="0" external="true"/>
+			<DeviceSlot criteria="p +asianPacificDirectorate;" minFireArc="-20" maxFireArc="20" posAngle="-52" posRadius="18" posZ="0" external="true"/>
+			
+			<Device deviceID="&itOtoroshiCannon;"/>
+			<Device deviceID="&itTakaoLauncher;">
+				<Items>
+					<Item count="2d6" item="&itT11Missile;"/>
+				</Items>
+			</Device>
+			<Device deviceID="&itClass2Deflector;"/>
+			<Device deviceID="&it15MWReactor;"/>
+		</Devices>
+
+		<Maneuver
+			maxRotationRate=	"12.0"
+			rotationAccel=		"2.0"
+			rotationStopAccel=	"12.0"
+			/>
+
+		<Items>
+			<Item count="4d6" item="&itHelium3FuelRod;"/>
+		</Items>
+
+		<!-- Image and Effects -->
+
+		<Image imageID="&rsRaijin;" imageWidth="80" imageHeight="80"	rotationCount="120" rotationColumns="12"/>
+		
+		<Effects>
+			<Effect type="thrustMain"		posAngle="172"	posRadius="36"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="-172"	posRadius="36"	posZ="0"	rotation="180"/>
+		</Effects>
+
+		<!-- AI and Behavior -->
+
+		<AISettings
+			fireRateAdj=		"15"
+			fireAccuracy=		"95"
+			perception=			"4"
+			/>
+
+		<!-- Player Settings -->
+		
+		<PlayerSettings
+			desc=				"The Raijin class mounts Asian Pacific weapons on external swivel platforms."
+			sortOrder=			"10"
+			largeImage=			"&rsRaijinLarge;"
+			initialClass=		"true"
+			startingCredits=	"5d20+200"
+			
+			startingSystem=		"SE"
+			startingPos=		"Start"
+			/>
+	</ShipClass>
+	
+	<!-- Player Ship: Spartan-class Heavy Gunship -->
+
+	<ShipClass UNID="&scSpartanPlayer;"
+			manufacturer=		"Avery Astronautics"
+			class=				"Spartan"
+			type=				"heavy gunship"
+
+			attributes=			"00200000_PlayerShip"
+			inherit=			"&scSpartanPlayerBase;"
+			characterClass=		"&unidPilgrimClass;"
+			   
+			size=				"36"
+			mass=				"200"
+			thrustRatio=		"6.0"
+			maxSpeed=			"20"
+			cargoSpace=			"50"
+			   
+			reactorPower=		"150"
+			fuelCapacity=		"37500"
+			drivePowerUse=		"20"
+			maxArmor=			"20000"
+			maxCargoSpace=		"150"
+			maxDevices=			"8"
+			maxNonWeapons=		"4"
+
+			leavesWreck=		"50"
+			>
+
+		<!-- Configuration -->
+		
+		<Armor
+			armorID=			"&itHeavyReactiveArmor;"
+			count=				"4"
+			/>
+		
+		<Devices>
+			<Device deviceID="&itHeavyRecoillessCannon;"/>
+			<Device deviceID="&itHullPlateIonizer;"/>
+			<Device deviceID="&it15MWReactor;"/>
+		</Devices>
+
+		<Maneuver
+			maxRotationRate=	"9.0"
+			rotationAccel=		"3.0"
+			/>
+
+		<Items>
+			<Item count="4d6" item="&itHelium3FuelRod;"/>
+		</Items>
+
+		<!-- Image and Effects -->
+
+		<Image imageID="&rsSpartan;" imageWidth="70" imageHeight="70"	rotationCount="120"/>
+		
+		<Effects>
+			<Effect type="thrustMain"		posAngle="144"	posRadius="27"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="166"	posRadius="24"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="-166"	posRadius="24"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="-144"	posRadius="27"	posZ="0"	rotation="180"/>
+		</Effects>
+
+		<!-- AI and Behavior -->
+
+		<AISettings
+			fireRateAdj=		"15"
+			fireAccuracy=		"95"
+			perception=			"4"
+			/>
+
+		<!-- Player Settings -->
+		
+		<PlayerSettings
+			desc=				"The Spartan class is a heavy gunship."
+			sortOrder=			"10"
+			largeImage=			"&rsSpartanLarge;"
+			initialClass=		"true"
+			startingCredits=	"5d20+200"
+			
+			startingSystem=		"SE"
+			startingPos=		"Start"
+			/>
+	</ShipClass>
+
+</TranscendenceExtension>

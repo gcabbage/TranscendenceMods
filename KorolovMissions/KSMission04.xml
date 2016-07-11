@@ -1,0 +1,544 @@
+<?xml version="1.0" ?>
+
+<TranscendenceModule>
+
+	<!-- Mission: Escort Freighter to new system ===============================
+
+	Escort a freighter to a major station in an adjacent system. Will be able to
+	encounter double the pirates.
+
+	note - The Pirate raids currently only trigger on the out-bound trip in the
+	first system as:
+	1:	chrRaidTransport considers it a one-way trip (it ends at a gate). Could
+		reverse the start/end but that will probably mess up the time calcualtions
+	2:	The frigate also considers the mission over once the freighter enters the
+		gate an goes back to wandering
+
+	EXTRA DATA
+
+	reward:			Reward (in credits) for completing mission
+	freighterID:	ID of freighter to escort
+	destID:			ID of destination station
+	destNodeID:		Node where destination station is located
+	srcID:			ID of source station (same as ownerID)
+	srcNodeID:		Node where source station is located
+	escortType:		Type of freighter being escorted
+	missionXP:		XP awarded for completing mission
+	cargoValue:		Value of cargo in freighter
+	navID:			ID of object the freighter is heading towards
+	navNodeID		Node where navID object is located
+
+	nextNode:		Next node where the freigher should appear
+	lastNode:		Node which the freighter just left
+	gateTime:		Tick when freighter entered the gate
+	gateDist:		Distance freighter was from gate when player gated
+	freighterAscended:	If True the freighter has ascended
+
+	ascendFlag:		If true the freighter should be ascended during OnGlobalSystemStopped
+	gateTarget:		If true player is directed towards gate (which freighter has used)
+	triggerAttack:	True if a pirate raid should be triggered when the freighter enters destNodeID
+
+; Possible improvements for unvFindObj
+; Allow searching multiple nodeIDs eg: (unvFindObj '('SE 'C1) "t +friendly)
+; Distinguish active / killed stations  (could maintain list using OnSystemObjDestroyed)
+; Search for Friend or Enemy objects (assuming default soverigns is probably OK.. sovGetDisposition )
+;
+; sysDescendObject - if passed a gateObj should make the object gate in as objResume does
+
+	======================================================================== -->
+
+	<MissionType UNID="&msKorolovLongEscort;"
+			name=			"Korolov escort (multisys)"
+			attributes=		"korolov, escort"
+
+			level=			"1-3"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(playerLevel (korGetPlayerLevel))
+					(destList Nil)
+					dockedFreighters freighterObj destEntry
+					)
+					; Filter down to the list of freighters that the player is
+					; qualified to escort (and that she hasn't already declined)
+					(setq dockedFreighters
+						(filter
+							(sysFindObject aOwnerObj "sHZ O:docked; +commonwealth; +freighter;")
+							theFreighter
+							(and
+								(not (objGetObjRefData theFreighter "korolovDest"))
+								(not (objGetData theFreighter "korolovPlayerEscort"))
+								(geq playerLevel (objGetStaticData theFreighter "korolovMinLevel"))
+								(geq (shpGetMaxSpeed theFreighter) 12) ; Mission is boring with a slow ship
+								)
+							)
+						)
+
+					; Must be an easier way of doing this
+					; Not using sysGetStargates as we want to avoid uncharted gates.
+					; NOTE - no way to check if destination station has been destroyed
+					(setq destList (apply append
+						(map
+							(map
+								(sysFindObject aOwnerObj "G -uncharted;")
+								gateObj
+								(sysGetStargateDestinationNode (objGetStargateID gateObj))
+								)
+							nodeID
+							(unvFindObj nodeID "t +friendly; +populated; +majorStation; -uncharted;")
+							)
+						))
+					(switch
+						; Finite number of missions per station
+						(ls (objGetData aOwnerObj 'remainingMissions) 1)
+							(msnDestroy gSource)
+
+						; Only offer to Journeyman and above
+						(not (find '(2 3) playerLevel))
+							(msnDestroy gSource)
+
+						; No missions once the stronghold is destroyed
+						(objIsAbandoned (objGetObjRefData aOwnerObj 'charonStronghold))
+							(msnDestroy gSource)
+
+						; Pick a random freighter. If we can't find one there is no mission
+						(not (setq freighterObj (random dockedFreighters)))
+							(msnDestroy gSource)
+
+						; Pick a random destination. If we can't find one there is no mission
+						(not (setq destEntry (random destList)))
+							(msnDestroy gSource)
+
+						; Otherwise setup mission
+						(block (
+							pricePerContainer cargoValue escortRate escortFee
+							)
+							; Figure out the price per container of the cargo (This depends on the freighter class)
+							(setq pricePerContainer (eval (objGetStaticData freighterObj "korolovContainerPrice")))
+							(if (leq pricePerContainer 0) (setq pricePerContainer 200))
+
+							; Load the freighter with cargo
+							(korEmptyFreighter freighterObj)
+							(setq cargoValue (korFillFreighter freighterObj pricePerContainer))
+
+							; Compute the fee that we will pay for escort based on the value of the
+							; cargo and the rate that the freighter will pay
+							(setq escortRate (objGetStaticData freighterObj "korolovEscortRate"))
+							(if (or (not escortRate) (= escortRate 0)) (setq escortRate 100))
+							(setq escortFee (/ (* escortRate cargoValue) 10000))
+
+							; Double fee for travelling to another system
+							(setq escortFee (* escortFee 2))
+
+							; Adjust the fee randomly and round down to the nearest 50
+							(setq escortFee
+								(intRoundDown
+									(/ (* escortFee (random 75 125)) 100)
+									50
+									)
+								)
+							; Mission settings
+							(msnSetData gSource 'freighterID (objGetID freighterObj))
+							; Remember the destination station
+							(msnSetData gSource 'destID (@ destEntry 0))
+							(msnSetData gSource 'destNodeID (@ destEntry 2))
+							(msnSetData gSource 'destName (fmtNoun (@ destEntry 3) (@ destEntry 4) 1 0x04))
+							(msnSetData gSource 'srcID (objGetID aOwnerObj))
+							(msnSetData gSource 'srcNodeID (sysGetNode))
+
+							(msnSetData gSource 'escortType (objGetType freighterObj))
+							(msnSetData gSource 'missionXP 125)
+							(msnSetData gSource 'cargoValue cargoValue)
+							(msnSetData gSource 'reward escortFee)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnDeclined>
+				(msnDestroy gSource)
+			</OnDeclined>
+
+			<OnAcceptedUndock>
+				(block (
+					(freighterObj (objGetObjByID (msnGetData gSource 'freighterID)))
+					)
+					(msnRegisterForEvents gSource gPlayerShip)
+					(msnRegisterForEvents gSource freighterObj)
+					(objSetObjRefData freighterObj "korolovDest" Nil)
+					(objSetData freighterObj "korolovPlayerEscort" True)
+
+					; Order the freighter
+					(shpSetAISetting freighterObj 'ascendOnGate True)
+					(msnSetData gSource 'navID (msnGetData gSource 'destID))
+					(msnSetData gSource 'navNodeID (msnGetData gSource 'destNodeID))
+					(msnFireEvent gSource 'OrderFreighter)
+
+					(objSendMessage gPlayerShip freighterObj (msnTranslate gSource 'msgBeginEscort))
+					(objSetIdentified freighterObj)
+
+					; Order the pirates
+					(chrRaidTransport
+						freighterObj
+						(objGetObjByID (msnGetProperty gSource 'ownerID))
+						(sysGetStargateLeadingToNode (msnGetData gSource 'destNodeID))
+						(msnGetData gSource 'cargoValue)
+						)
+					; And set flag for raid when entering dest system
+					(msnSetData gSource 'triggerAttack True)
+					)
+			</OnAcceptedUndock>
+
+			<OnSetPlayerTarget>
+				(if (msnGetData gSource 'gateTarget)
+					(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'gateTarget)))
+					(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'freighterID)) 'escort)
+					)
+			</OnSetPlayerTarget>
+
+			<OnCompleted>
+				(korEscortMissionCompleted gSource aReason gData)
+			</OnCompleted>
+
+			<OnReward>
+				(korGiveReward gSource)
+			</OnReward>
+
+			<OnObjDestroyed>
+				(switch
+					(= aDestroyReason 'enteredStargate)
+						Nil
+					; If the ship dies, mission fails
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'freighterID))
+						(block Nil
+							(msnSetData gSource 'playerDestroyedFreighter (and gPlayerShip (= aOrderGiver gPlayerShip)))
+							(msnFailure gSource)
+							)
+					)
+			</OnObjDestroyed>
+
+			<OnObjDocked>
+				(switch
+					; Halfway point. Wait a bit, then head back
+					(and
+						(= (objGetID aObjDocked) (msnGetData gSource 'freighterID))
+						(= (objGetID aDockTarget) (msnGetData gSource 'destID))
+						)
+						(block Nil
+							(msnSetData gSource 'navID (msnGetData gSource 'srcID))
+							(msnSetData gSource 'navNodeID (msnGetData gSource 'srcNodeID))
+							(sysAddObjTimerEvent 90 gSource "OrderFreighter")
+							)
+					; If freighter has made it back to the starting Korolov then mission is successful
+					(and
+						(= (objGetID aObjDocked) (msnGetData gSource 'freighterID))
+						(= (objGetID aDockTarget) (msnGetData gSource 'srcID))
+						)
+						(block Nil
+							(objSetData aObjDocked "korolovPlayerEscort" Nil)
+							(msnSuccess gSource)
+							)
+					)
+			</OnObjDocked>
+
+			<OnObjEnteredGate>
+				; OnObjEnteredGate gets calls twice when an object ascends through a gate
+				; first time is entering the gate (everything normal)
+				; second time is the ascension - don't want to touch that event or we'll probably crash
+				(switch
+					; No aDestNodeID means this is probably an asension event
+					(= aDestNodeID "")
+						Nil
+
+					; If the freighter is already ascended we don't have to do anything
+					(and (= (objGetID aObj) (msnGetData gSource 'freighterID)) (msnGetData gSource 'freighterAscended))
+						(dbgOutput "SHOULD NOT BE HERE??? freighter was already ascended")
+
+					; Freigher is entering gate
+					(= (objGetID aObj) (msnGetData gSource 'freighterID))
+						(block ((freighterObj (objGetObjByID (msnGetData gSource 'freighterID))))
+							(dbgOutput "freighter entering gate from " (sysGetNode) " to " aDestNodeID " at " (unvGetTick))
+							; Record where we've come from and are going to
+							(msnSetData gSource 'lastNode (sysGetNode))
+							(msnSetData gSource 'nextNode aDestNodeID)
+							; Time we entered the gate so we can workout where to position on the otherside
+							(msnSetData gSource 'gateTime (unvGetTick))
+							(msnSetData gSource 'gateDist Nil)
+							(msnSetData gSource 'freighterAscended True)
+							; Point the player towards the gate
+							(msnSetData gSource 'gateTarget (objGetID aGateObj))
+							(msnSetPlayerTarget gSource)
+							)
+
+					(and gPlayerShip (= aObj gPlayerShip))
+						(block (freighterObj)
+							(switch
+								; Don't do anything if the freighter is not in the system
+								(not (setq freighterObj (objGetObjByID (msnGetData gSource 'freighterID))))
+									Nil
+								; If we took the wrong gate then fail mission
+								(!= aDestNodeID (msnGetData gSource 'navNodeID))
+									; Could use gateTime to record when we abandoned the freighter...
+									(dbgOutput "player just went through the wrong gate: " aDestNodeID " should go to: "(msnGetData gSource 'navNodeID))
+								;	(msnFailure gSource)
+								; Freighter has already jumped ahead of us
+								(msnGetData gSource 'freighterAscended)
+									(dbgOutput "player following freighter")
+
+								; If player abandons the freigher while it is under attack then fail
+;								(objGetProperty freighterObj 'underAttack)
+;									(msnFailure gSource)
+								; Or if there were enemies near by
+;								(sysFindObject freighterObj "sEN:100;")
+;									(msnFailure gSource)
+;								(ls (objGetDistance freighterObj aGateObj) 50)
+									(block Nil
+										(dbgOutput "player leads, time to ascend freighter")
+										(msnSetData gSource 'lastNode (sysGetNode))
+										(msnSetData gSource 'nextNode aDestNodeID)
+										(msnSetData gSource 'gateTime Nil)
+										(msnSetData gSource 'gateDist (objGetDistance freighterObj aObj))
+										; Do this last as it calls OnObjEnteredGate on the freighter obj and changes all our arguments
+										(msnSetData gSource 'ascendFlag True)
+										;(sysAscendObject freighterObj)
+										;(msnSetData gSource 'freighterAscended True)
+										)
+;								(dbgOutput "left freighter behind")
+								)
+							)
+					)
+			</OnObjEnteredGate>
+
+			<OnGlobalSystemStarted>
+				; Using OnGlobalSystemStarted so we can place the descended freighter
+				; before the player arrives. If we use standard events e.g. OnPlayerEnteredSystem
+				; then the freighter will appear as the player does - i.e. a few moments after the
+				; game starts displaying the system.
+				;
+				; We enum over all the active copies of this mission to simulate an OnSystemStarted event
+				(enum (msnFind "a +unid:&msKorolovLongEscort;;") missionObj
+					(switch
+						; If we're in the wrong place then don't do anything
+						(!= (sysGetNode) (msnGetData missionObj 'nextNode))
+							Nil
+						; If we don't have an ascended freighter we can't do anything
+						(not (msnGetData missionObj 'freighterAscended))
+							Nil
+						; Nothing to do if the freighter came through after the player
+						(not (msnGetData missionObj 'gateTime))
+							Nil
+						; Work out where the freigher is heading next and create it a short
+						; distance towards its destination.
+						(block (
+							(destObj
+								(if (= (sysGetNode) (msnGetData missionObj 'navNodeID))
+									(objGetObjByID (msnGetData missionObj 'navID))
+									(sysGetStargateLeadingToNode (msnGetData missionObj 'navNodeID))
+									)
+								)
+							(gateObj (sysGetStargateLeadingToNode (msnGetData missionObj 'lastNode)))
+							(freighterObj (sysDescendObject (msnGetData missionObj 'freighterID) gateObj))
+							(angle (sysVectorAngle (sysVectorSubtract destObj gateObj)))
+							(maxdist (/ (objGetDistance gateObj destObj) 4))
+							(dist  (/ (- (unvGetTick) (msnGetData missionObj 'gateTime)) 5))
+							)
+							; Still need to limit distance travelled. If the player waits long enough
+							; then the freighter could overshoot destination
+							(dbgOutput "gate: " gateObj " : " (objGetID gateObj))
+							(dbgOutput "frgt: " freighterObj " " (objGetName freighterObj))
+							(dbgOutput "angle: " angle " dist: " dist " maxdist: " maxdist )
+							(msnSetData missionObj 'gateTarget Nil)
+							(msnSetData missionObj 'freighterAscended Nil)
+							(objSetPos freighterObj (sysVectorPolarOffset gateObj angle dist) angle)
+							; And order the freigher to start travelling
+							(msnFireEvent missionObj 'OrderFreighter)
+							)
+						)
+					)
+			</OnGlobalSystemStarted>
+
+			<OnGlobalSystemStopped>
+				; As with OnGlobalSystemStarted, we don't want to remove the freighter until
+				; the last minute, otherwise the player will notice it disappear while the gate
+				; animation is playing
+				(enum (msnFind "a +unid:&msKorolovLongEscort;;") missionObj
+					(if (msnGetData missionObj 'ascendFlag)
+						(block (freighterObj)
+							(setq freighterObj (objGetObjByID (msnGetData missionObj 'freighterID)))
+							(sysAscendObject freighterObj)
+							(msnSetData missionObj 'freighterAscended True)
+							(msnSetData missionObj 'ascendFlag Nil)
+							)
+						)
+					)
+			</OnGlobalSystemStopped>
+
+			<OnPlayerEnteredSystem>
+				(switch
+					; No ascended freighter to worry about
+					(not (msnGetData gSource 'freighterAscended))
+						Nil
+
+					; Freighter is not descending to this system (player has wandered elsewhere)
+					(!= (msnGetData gSource 'nextNode) (sysGetNode))
+						Nil
+
+					; Freighter is already here
+					(msnGetData gSource 'gateTime)
+						Nil
+
+					; Player went through gate ahead of freighter. So descend it after a suitable delay
+					(msnGetData gSource 'gateDist)
+						(block Nil
+							(dbgOutput "frieghter following at distance: " (msnGetData gSource 'gateDist))
+							(sysAddObjTimerEvent 90 gSource "OnFreighterArrives")
+							)
+
+					; Something has gone wrong
+					(dbgOutput "unexpected outcome")
+					)
+			</OnPlayerEnteredSystem>
+
+			<OnFreighterArrives>
+				;
+				(block (
+					(gateObj (sysGetStargateLeadingToNode (msnGetData gSource 'lastNode)))
+					(freighterObj (sysDescendObject (msnGetData gSource 'freighterID) gateObj))
+					)
+					; Suspend/resume to trigger a gate effect
+					(objSuspend freighterObj)
+					(objResume freighterObj gateObj)
+					; Housekeeping
+					(msnSetData gSource 'freighterAscended Nil)
+					; Order the freighter
+					(msnFireEvent gSource 'OrderFreighter)
+					; And refresh the target
+					(msnSetPlayerTarget gSource)
+					)
+			</OnFreighterArrives>
+
+			<OrderFreighter>
+				(block (
+					(freighterObj (objGetObjByID (msnGetData gSource 'freighterID)))
+					)
+					(shpCancelOrders freighterObj)
+					; If we are in target system then dock at the target station, otherwise onto the next gate
+					(if (= (sysGetNode) (msnGetData gSource 'navNodeID))
+						(shpOrder freighterObj 'dock (objGetObjByID (msnGetData gSource 'navID)))
+						(shpOrder freighterObj 'gate (sysGetStargateLeadingToNode (msnGetData gSource 'navNodeID)))
+						)
+
+					; If we are in destination system then add some pirates
+					(if (and
+						(= (sysGetNode) (msnGetData gSource 'navNodeID))
+						(msnGetData gSource 'triggerAttack)
+						)
+						(block Nil
+							; Order the pirates
+							(chrRaidTransport
+								freighterObj
+								(sysGetStargateLeadingToNode (msnGetData gSource 'srcNodeID))
+								(objGetObjByID (msnGetData gSource 'destID))
+								(msnGetData gSource 'cargoValue)
+								)
+							; Only do this once
+							(msnSetData gSource 'triggerAttack Nil)
+							)
+						)
+
+					)
+			</OrderFreighter>
+
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				"Escort Korolov Freighter"
+			</Text>
+
+			<Text id="Summary">
+				(block (
+					(ship (objGetObjByID (msnGetData gSource 'freighterID)))
+					(dest (objGetObjByID (msnGetData gSource 'destID)))
+					)
+					(cat
+						"Your mission is to escort the " (objGetName ship 4)
+						" to "  (msnGetData gSource 'destName) " in the "
+						(sysGetName (msnGetData gSource 'destNodeID)) " system.\n\n"
+
+						"System: " (sysGetName (msnGetData gSource 'srcNodeID)) "\n"
+						"Payment: " (fmtCurrency 'credit (msnGetData gSource 'reward)) "\n"
+						)
+					)
+			</Text>
+
+			<Text id="Intro">
+				(cat
+					"The command center is filled with noise as freighter captains try to find "
+					"the best escort for thier missions. A manager walks over to you: "
+					"\"Hello %name%. Do you wish to hire yourself out as a freighter escort?\""
+					)
+			</Text>
+
+			<Text id="Briefing">
+				(block (
+					(ship (objGetObjByID (msnGetData gSource 'freighterID)))
+					(dest (objGetObjByID (msnGetData gSource 'destID)))
+					(cargoValue (intRoundUp (msnGetData gSource 'cargoValue) 1000))
+					)
+					(strCapitalize
+						(cat
+							(objGetName ship 4) " (" (shpGetClassName ship 4) ")"
+							" is transporting " (fmtCurrency 'credit cargoValue) " worth of cargo."
+							" She will pay " (fmtCurrency 'credit (msnGetData gSource 'reward))
+							" if you escort her safely to " (msnGetData gSource 'destName) " in the "
+							(sysGetName (msnGetData gSource 'destNodeID)) " system."
+							"\n\nDo you wish to accept this assignment?"
+							)
+						)
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Great! Keep that freighter safe. Good luck!\""
+			</Text>
+			<Text id="DeclineReply">
+				"\"Oh well\""
+			</Text>
+			<Text id="InProgress">
+				(if (objGetObjByID (msnGetData gSource 'freighterID))
+					"\"The freighter you're supposed to be escorting is already on its way!\""
+					"\"The freighter you're supposed to be escorting is in another system!\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				(if (msnGetData gSource 'playerDestroyedFreighter)
+					(cat "\"Either your poor marksmanship or deliberate malice destroyed the"
+						" freighter entrusted to your care! You will never work for us again, captain.\""
+						)
+					(cat "\"Your timidity under fire and your lack of skill doomed the poor crew"
+						" of your freighter and its cargo!\""
+						)
+					)
+			</Text>
+			<Text id="SuccessDebrief">
+				(typTranslate &unidKorolovEscort; 'SuccessDebrief {reward:(msnGetData gSource 'reward)})
+			</Text>
+			<Text id="msgBeginEscort">
+				(block (
+					(ship (objGetName (objGetObjByID (msnGetData gSource 'freighterID)) 0))
+					)
+					(random (list
+						"Glad to have you with us, %name%"
+						(cat ship " reporting in")
+						"Nice to have you on our wing"
+						(cat ship " on course")
+						))
+					)
+			</Text>
+		</Language>
+
+	</MissionType>
+
+</TranscendenceModule>

@@ -1,0 +1,540 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<TranscendenceModule>
+
+<!--
+	Start of a generic reputation / crime system for all sovereigns.
+
+	Committing crimes against a sovereign will lower players reputation
+	eventually make the sovereign hostile to the player. Reputation can
+	be increased by destroying enemies of the sovereign.
+
+	Initial reputations are:
+		Enemy	-250
+		Neutral	0
+		Friend	250
+
+	Default reputation penaties are
+		majorStation	250
+		majorShip		150
+		other station	100
+		freighter		80
+		capitalShip		60
+		other ship		10
+
+	Major crimes with severity 120 or greater are instantly recorded.
+	Minor crimes are only recorded if there was a friendly witness and then:
+	1) witnessed by a station (or majorShip)
+	2) witness docks at station or leaves system
+	3) player leaves system while witnesses are alive
+
+	In addition the player reputation with witness sovereigns can be
+	affected.
+	*	If the witness was a friend of the victim then the player also
+		incurs a 50% reputation penalty with the witness sovereign
+	*	If the witness was an enemy of the victim then the player gets
+		a 10% reputation bonus with the witness sovereign
+
+	To Do
+	*	Filter out accidents (or at least reduce severity)
+		*	Check number of enemies near by
+	*	Track all crimes so player can face trial (e.g. commonwealth justice)
+	*	Corporate Hierarchy / Blackmarket will just demand compensation
+	*	Corporate insurace to cover damages. Legal insurace for trials
+	*	Fines / bribes (e.g. Blackmarket) to restore reputation
+	*	Bounty hunter / militia encouters for very low reputation / high crime
+	*	More control over sovereign relations e.g. Should only gain reputation
+		with Huari by attacking (hated) Sung, not commonwealth etc.
+	*	Placeholder dockscreens to use if player befriends initial enemies
+	*	Wingmen should not report crimes, but can get reputation penalty with wingman
+	*	Extradition - if player docks at sovereign A but has criminal record at
+		sovereign B, then they may be extradited if sov A has a better relation
+		with sov B than with the player
+	*	Record number of witnesses left when crime is reported
+	*	Vary when reputation penalty is applied e.g.
+		* 	Innocent until proven guilty - no penalty until after trial
+			Need some time limit / apply penalty if player leaves system
+		*	Assumed guilt - penalty on reporting, but restore if found innocent
+	-->
+
+<!--	Virtual station used to track player crimes
+	-->
+	<StationType UNID="&stPlayerCrime;"
+			name=			"(crime tracker)"
+			sovereign=		"&svIndependent;"
+			virtual=		"true"
+			>
+		<Events>
+			<OnGlobalUniverseCreated>
+				; Set some sensible defaults
+				(enum
+					(typFind "v")
+					theSov
+					(switch
+						; Do nothing if playerReputation already set
+						(typGetData theSov 'playerReputation)
+							Nil
+
+						; Otherwise Reputation depends on disposition
+						(= (sovGetDisposition theSov &svPlayer;) 'enemy)
+							(typSetData theSov 'playerReputation -250)
+						(= (sovGetDisposition theSov &svPlayer;) 'friend)
+							(typSetData theSov 'playerReputation 250)
+						(typSetData theSov 'playerReputation 0)
+						)
+					)
+			</OnGlobalUniverseCreated>
+
+			<GetGlobalAchievements>
+				; So we can check our reputation
+				(map
+					(filter (typFind "v") theSov (typGetData theSov 'playerReputation))
+					theSov
+					(list
+						(typGetProperty theSov 'name)
+						(typTranslate &stPlayerCrime; 'playerRep {rep:(typGetData theSov 'playerReputation)})
+						"Reputation"
+						)
+					)
+			</GetGlobalAchievements>
+
+			<OnGlobalObjDestroyed>
+				(if (and aOrderGiver (= aOrderGiver gPlayerShip) (objGetSovereign aObjDestroyed))
+					(block (
+						(severity (msfGetObjRepBonus aObjDestroyed))
+						(theSovereign (objGetSovereign aObjDestroyed))
+						(theWitnesses (append
+							; Any nearby ship / stations which can see aDestroyer (might not be player)
+							(filter (sysFindObject aObjDestroyed "sTAZ N:180") theObj (objCanDetectTarget theObj aDestroyer))
+							; For major ships / stations then include more distant stations
+							(if (geq severity 100) (sysFindObject aObjDestroyed "TAZ N:900"))
+							))
+						(witFr (filter theWitnesses witness (= (objGetDisposition witness aObjDestroyed) 'friend)))
+						(witNe (filter theWitnesses witness (= (objGetDisposition witness aObjDestroyed) 'neutral)))
+						(witEn (filter theWitnesses witness (= (objGetDisposition witness aObjDestroyed) 'enemy)))
+						(theCrime {
+							id: (objGetID aObjDestroyed)
+							nodeID: (sysGetNode)
+							objName: (objGetName aObjDestroyed)
+							objType: (objGetType aObjDestroyed)
+							objSovereign: theSovereign
+							severity: severity
+							evidence: (list (count witFr) (count witNe) (count witEn))
+							})
+						)
+
+						; Check if this might have been an accident
+						(if (not (objIsAngryAt aObjDestroyed gPlayerShip))
+							(block Nil
+								; Enemies attacking the victim
+								; Need to check that these are also hostile to player!
+								(set@ theCrime 'mitigate.attackers
+									(count (sysFindObject aObjDestroyed "sTAEPXZ")))
+
+								; Total hostiles in area
+								(set@ theCrime 'mitigate.hostiles
+									(count (sysFindObject aObjDestroyed "sTAEPZ")))
+
+								; Number attacking the player
+								(set@ theCrime 'mitigate.fighters
+									(count (sysFindObject gPlayerShip "sTAEX N:100")))
+
+								; Enemies of the player nearby
+								(set@ theCrime 'mitigate.others
+									(count (sysFindObject gPlayerShip "sTAE N:100")))
+								)
+							)
+
+						(switch
+							; Always know about major incidents
+							(geq severity 120)
+								(msfRegisterCrime theCrime witFr)
+
+							; Or if witnessed by a major ship/station
+							(filter witFr theObj (or
+							 		(objHasAttribute theObj 'majorShip)
+									(objHasAttribute theObj 'majorStation)
+									))
+								(msfRegisterCrime theCrime witFr)
+
+							; Otherwise track the friendly witnesses
+							(setq aWitness witFr)
+								(block (theTracker)
+									(setq theTracker (sysCreateStation &stPlayerCrime; Nil))
+									(objSetData theTracker 'playerCrime theCrime)
+									)
+
+							Nil
+							)
+
+						; Reputation bonus if player is seen destroying enemies
+						(enum
+							(msfGetSovereigns witEn)
+							witSov
+							(msfIncRelation witSov (divide severity 10))
+							)
+						)
+					)
+			</OnGlobalObjDestroyed>
+
+			<OnCreate>
+				(block Nil
+					(enum aWitness theObj (objRegisterForEvents gSource theObj))
+					(objSetData gSource 'witnesses (map aWitness theObj (objGetID theObj)))
+					(objSetData gSource 'stations (map aWitness 'excludeNil theObj
+							(if (= (objGetProperty theObj 'category) 'station) (objGetID theObj))
+						))
+					(sysAddObjRecurringTimerEvent 300 gSource "OnUpdate")
+					)
+			</OnCreate>
+
+			<OnUpdate>
+				(enumwhile
+					(objGetData gSource 'stations)
+					(not (objGetData gSource 'crimeReported))
+					objID
+					(block (
+						(theObj (objGetObjByID objID))
+						)
+						(switch
+							; Do nothing if under attack
+							(objGetProperty theObj 'underAttack)
+								Nil
+
+							; Or if enemies near by (may make dependent on number)
+							(sysFindObject theObj "sTAE N:100")
+								Nil
+
+							; 80% chance of nothing
+							(ls (random 1 100) 80)
+								Nil
+
+							; Otherwise register the crime
+							(block Nil
+								(msfRegisterCrime
+									(objGetData gSource 'playerCrime)
+									(map (objGetData gSource 'witnesses) objID (objGetObjByID objID))
+									)
+								(objSetData gSource 'crimeReported True)
+								(objDestroy gSource)
+								)
+							)
+						)
+					)
+			</OnUpdate>
+
+			<OnObjDestroyed>
+				(block (
+					(objID (objGetID aObjDestroyed))
+					(witList (objGetData gSource 'witnesses))
+					)
+					; Stations are tracked in two lists
+					(if (= (objGetProperty aObjDestroyed 'category) 'station)
+						(objSetData gSource 'stations
+							(filter (objGetData gSource 'stations) sta (!= sta objID))
+						))
+					; Remove witness from list
+					(if (setq witList (filter witList witID (!= witID objID)))
+						(objSetData gSource 'witnesses witList)
+						(objDestroy gSource)
+						)
+					)
+			</OnObjDestroyed>
+
+			<OnPlayerLeftSystem>
+				(block Nil
+					(msfRegisterCrime
+						(objGetData gSource 'playerCrime)
+						(map (objGetData gSource 'witnesses) objID (objGetObjByID objID))
+						)
+					(objSetData gSource 'crimeReported True)
+					(objDestroy gSource)
+					)
+			</OnPlayerLeftSystem>
+
+			<OnObjEnteredGate>
+				(block Nil
+					(msfRegisterCrime
+						(objGetData gSource 'playerCrime)
+						(map (objGetData gSource 'witnesses) objID (objGetObjByID objID))
+						)
+					(objSetData gSource 'crimeReported True)
+					(objDestroy gSource)
+					)
+			</OnObjEnteredGate>
+
+			<OnObjDocked>
+				(switch
+					; If we dock at a major station / ship then crime is reported
+					(or (objHasAttribute aObjdocked 'majorShip)
+						(objHasAttribute aObjdocked 'majorStation)
+						)
+						(block Nil
+							(msfRegisterCrime
+								(objGetData gSource 'playerCrime)
+								(map (objGetData gSource 'witnesses) objID (objGetObjByID objID))
+								)
+							(objDestroy gSource)
+							)
+
+					; Otherwise we add the station as an extra witness
+					(block (
+						(objID (objGetID aDockTarget))
+						(witList (objGetData gSource 'witnesses))
+						(staList (objGetData gSource 'stations))
+						)
+						(if (not (find witList objID))
+							(block Nil
+								(objRegisterForEvents gSource aDockTarget)
+								(objSetData gSource 'witnesses (append witList objID))
+								(objSetData gSource 'stations (append staList objID))
+								)
+							)
+						)
+					)
+			</OnObjDocked>
+
+		</Events>
+
+		<Language>
+			<Text id="playerRep">
+				(cat
+					(switch
+						(ls (@ gData 'rep) -200)
+							"Enemy"
+						(ls (@ gData 'rep) -100)
+							"Outlaw"
+						(ls (@ gData 'rep) 0)
+							"Criminal"
+						(ls (@ gData 'rep) 100)
+							"Neutral"
+						"Friend"
+						)
+					" (" (@ gData 'rep) ")"
+					)
+			</Text>
+		</Language>
+	</StationType>
+
+
+	<DockScreen UNID="&dsPlayerCrime;"
+			nestedScreen=		"true"
+			inherit=			"&dsDockScreenBase;"
+			backgroundID=		"none"
+			>
+		<OnScreenInit>
+			(block Nil
+				; Store the crime list in screen data
+				(scrSetData gScreen 'crimeList (@ gData 'playerCrime))
+				(scrSetData gScreen 'crimeIndex 0)
+				)
+		</OnScreenInit>
+
+		<Display>
+			<Text id="text"	left="12" right="-12" top="16" bottom="-16" />
+		</Display>
+
+		<Panes>
+			<Default>
+				<OnPaneInit>
+					(block (
+						(crimeList (scrGetData gScreen 'crimeList))
+						(crimeIndex (scrGetData gScreen 'crimeIndex))
+						(theCrime (@ crimeList crimeIndex))
+						(theSov (objGetSovereign gSource))
+						)
+						(scrShowAction gScreen 'actionNext (ls crimeIndex (- (count crimeList) 1)))
+						(scrShowAction gScreen 'actionPrev (!= crimeIndex 0))
+
+						(scrSetDisplayText gScreen "text"
+						 	(cat
+						 		"Destruction of " (@ theCrime 'objName)
+								" in " (sysGetName (@ theCrime 'nodeID)) "\n\n"
+
+								"Penalty: " (@ theCrime 'severity) "\n"
+								"Witnesses: "
+								(@ (@ theCrime 'evidence) 0) " friendly, "
+								(@ (@ theCrime 'evidence) 1) " neutral, "
+								(@ (@ theCrime 'evidence) 2) " hostile\n\n"
+
+								"Mitigating circumstances:\n"
+								(if (@ theCrime 'mitigate.attackers)
+									(cat
+										(@ theCrime 'mitigate.attackers) " hostiles attacking victim\n"
+										(@ theCrime 'mitigate.hostiles) " hostiles in area\n"
+										(@ theCrime 'mitigate.fighters) " ships attacking player\n"
+										(@ theCrime 'mitigate.others) " player enemies nearby\n"
+										)
+									"None"
+									)
+								)
+							)
+
+						(scrSetDesc gScreen
+						 	(cat
+								"You have been accused of " (count crimeList)
+								"crimes in the "(typGetProperty theSov 'name) "."
+								)
+							)
+						)
+				</OnPaneInit>
+				<Actions>
+					<Action id="actionNext"	minor="true">
+						(block (
+							(crimeList (scrGetData gScreen 'crimeList))
+							(crimeIndex (scrGetData gScreen 'crimeIndex))
+							)
+							(if (ls crimeIndex (- (count crimeList) 1))
+								(block Nil
+									(setq crimeIndex (+ crimeIndex 1))
+									(scrSetData gScreen 'crimeIndex crimeIndex)
+									(scrShowPane gScreen "Default")
+									)
+								)
+							)
+					</Action>
+					<Action id="actionPrev"	minor="true">
+						(block (
+							(crimeIndex (scrGetData gScreen 'crimeIndex))
+							)
+							(if (gr crimeIndex 0)
+								(block Nil
+									(setq crimeIndex (- crimeIndex 1))
+									(scrSetData gScreen 'crimeIndex crimeIndex)
+									(scrShowPane gScreen "Default")
+									)
+								)
+							)
+					</Action>
+					<Action id="actionClear" default="1">
+						(block Nil
+							(typSetData (objGetSovereign gSource) 'playerCrimeReported Nil)
+							(scrExitScreen gScreen)
+							)
+					</Action>
+					<Action id="actionUndock" cancel="1">
+						(scrExitScreen gScreen 'forceUndock)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+
+		<Language>
+			<Text id="actionClear">"[C]lear Record"</Text>
+			<Text id="actionNext">"&gt;[RightArrow] Next"</Text>
+			<Text id="actionPrev">"&lt;[LeftArrow] Previous"</Text>
+		</Language>
+
+		<Events>
+			<GetGlobalDockScreen>
+				(block (playerCrime)
+					(switch
+						(objGetProperty gSource 'abandoned)
+							Nil
+
+						(setq playerCrime (typGetData (objGetSovereign gSource) 'playerCrimeReported))
+							(list &dsPlayerCrime; {playerCrime: playerCrime} 8)
+
+						Nil
+						)
+					)
+			</GetGlobalDockScreen>
+		</Events>
+	</DockScreen>
+
+
+	<Globals>
+		(block Nil
+			(setq msfGetSovereigns (lambda (objList)
+				; Generate a list of unique sovereigns from a list of space objects
+				(block (sovList)
+					(enum objList theobj
+						(if (not (find sovList (objGetSovereign theobj)))
+							(lnkAppend sovList (objGetSovereign theobj))
+							)
+						)
+					sovList
+					)
+				))
+
+			(setq msfIncRelation (lambda (theSov delta)
+				; Change the players relation with the given sovereign.
+				(block (
+					(oldRep (typGetData theSov 'playerReputation))
+					(newRep (typIncData theSov 'playerReputation delta))
+					(rel (switch
+						(ls newRep -150)	'enemy
+						(ls newRep 150)		'neutral
+											'friend
+						))
+					)
+					(sovSetDisposition theSov &svPlayer; rel)
+					(sovSetDisposition &svPlayer; theSov rel)
+					)
+				))
+
+			(setq msfGetObjRepBonus (lambda (theObj)
+				; Return the reputation bonus for destroying the given object
+				(switch
+					;(objGetStaticData theObj 'notImplementedYet.destroyBonus)
+					;	(objGetStaticData theObj 'notImplementedYet.destroyBonus)
+
+					(objHasAttribute theObj 'majorStation)
+						250
+
+					(objHasAttribute theObj 'majorShip)
+						150
+
+					(not (objIsShip theObj))
+						100
+
+					(objHasAttribute theObj 'freighter)
+						80
+
+					(objHasAttribute theObj 'capitalShip)
+						60
+
+					10
+					)
+				))
+
+			(setq msfRegisterCrime (lambda (theCrime theWitnesses)
+				(block (
+					(objSov (@ theCrime 'objSovereign))
+					(repBonus (@ theCrime 'severity))
+					)
+					(dbgOutput "Destruction of " (@ theCrime 'objName) " reported")
+					(msfIncRelation objSov (* -1 repBonus))
+					(typSetData objSov 'playerCrimeReported
+						(append (typGetData objSov 'playerCrimeReported) theCrime)
+						)
+					(enum
+						(filter (msfGetSovereigns theWitnesses) theSov (!= theSov objSov))
+						friendSov
+						(msfIncRelation friendSov (* repBonus -0.5))
+						)
+					)
+				))
+
+			(setq msfListCrime (lambda ()
+				(enum
+					(typFind "v")
+					theSov
+					(enum
+						(typGetData theSov 'playerCrimeReported)
+						theCrime
+						(dbgOutput
+							(typGetProperty theSov 'name) " : "
+							"Destruction of " (@ theCrime 'objName)
+							" (" (@ theCrime 'severity) ")"
+							)
+						)
+					)
+				))
+
+			; Disable Commonwealth piracy check for now
+			(setq korOnShipDestroyed Nil)
+			)
+	</Globals>
+
+</TranscendenceModule>

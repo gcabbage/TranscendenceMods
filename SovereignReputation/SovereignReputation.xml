@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDEF200">
+	<!ENTITY stPlayerCrime					"0xDDDEF201">
+	<!ENTITY dsPlayerCrime					"0xDDDEF202">
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"Sovereign Reputation"
+		release=	"1"
+		version=	"0.1"
+		apiVersion=	"30"
+		credits=	"Giant Cabbage"
+		>
+
+	<Module filename="CrimeTracker.xml"/>
+
+</TranscendenceExtension>

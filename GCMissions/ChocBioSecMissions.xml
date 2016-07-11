@@ -1,0 +1,1428 @@
+<?xml version="1.0" ?>
+<!-- Corporate BioSec Missions
+	msCorpBioSecInvestigate1	Intercept independent trader
+	msCorpBioSecQuarantine		Intercept (friendly) freighter
+	msCorpBioSecSupplies1		Collect medical supplies
+	msCorpBioSecInvestigate2	Deliver ROM to medical station
+	msCorpBioSecInvestigate3	Attack anarchist base
+	msCorpBioSecInvestigate4	End Quarantine
+
+	To Do:
+		handle main mission timeout (especially msCorpBioSecSupplies1) with sub mission failure
+	-->
+
+<TranscendenceModule>
+	<!-- Mission: Investigate 1 =================================================
+
+	Investigate independent trader
+
+	EXTRA DATA
+
+	destID:	Destination of ship
+	reward:	Reward (in credits) for completing mission
+	targetID:	Id of ship to destroy
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpBioSecInvestigate1;"
+			name=				"Quarantine Investigation 1"
+			attributes=			"corporate, corporatePrivateer, corpBioSec, special"
+			priority=			"10"
+			level=				"1-5"
+			maxAppearing=		"1"
+			>
+
+		<StaticData>
+			<Encounter>
+				(	Nil
+					&stOutlawBase;
+					&stOutlawBase2;
+					&stOutlawBase2;
+					&stOutlawHaven;
+					&stOutlawHaven;
+					)
+			</Encounter>
+		</StaticData>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(aidMission (@ (msnFind "a +unid:&msCorpMedicalAid;") 0))
+					)
+					(switch
+						; Main mission must be active
+						(not aidMission)
+							(msnDestroy gSource)
+
+						(block Nil
+							; Copy data from parent mission
+							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
+							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
+
+							; Compute reward
+							(msnSetData gSource 'reward (corpPriv_calcReward (sysGetLevel)))
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnAccepted>
+				(block (
+					(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
+					(enemyStations (sysFindObject stationObj "TAE +populated; +outlaws; -uncharted; N:600;"))
+					baseObj targetObj email
+					)
+
+					; If we have a suitable outlaw station, then use it. Otherwise create a new one
+					(setq baseObj
+						(if enemyStations
+							(random enemyStations)
+							(sysCreateStation
+								(@ (msnGetStaticData gSource 'Encounter) (sysGetLevel))
+								(sysVectorRandom stationObj (random 360 600) 200 "t -asteroid;")
+								)
+							)
+						)
+					(msnSetData gSource 'baseID (objGetID baseObj))
+					(msnRegisterForEvents gSource baseObj)
+
+					; Create the freighter
+					(setq targetObj (sysCreateShip &tbCorpBioSecInvestigate1Ship; baseObj &svIndependentTrader;))
+					(shpCancelOrders targetObj)
+					(shpOrder targetObj 'dock baseObj)
+					(shpOrder targetObj 'gateOnThreat)
+					(objSetProperty targetObj 'alwaysLeaveWreck True)
+
+					(msnSetData gSource 'targetID (objGetID targetObj))
+					(msnRegisterForEvents gSource targetObj)
+
+					; Add items to recover
+					(setq email (itmCreate &itNamedDataROM; 1))
+					(setq email (itmSetData email "name" "Ship log"))
+					(setq email (itmSetData email "desc" "This data ROM contains the black box data recordings from a ship."))
+					(setq email (itmSetData email "corpBioSec" True))
+					(objAddItem targetObj email)
+
+					(msnSetData gSource 'item1 email)
+
+					; Investigate
+					(msnSetData gSource 'status 'investigate)
+					(msnRegisterForEvents gSource gPlayerShip)
+					)
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(block (
+					(status (msnGetData gSource 'status))
+					)
+					(switch
+						(= status 'investigate)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)) 'attack)
+
+						(= status 'search)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'wreckID)) 'dock)
+
+						(objGetProperty (objGetObjByID (msnGetData gSource 'baseID)) 'abandoned)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetProperty gSource 'ownerID)) 'dock)
+
+						(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'baseID)) 'attack)
+						)
+					)
+			</OnSetPlayerTarget>
+
+			<OnObjDocked>
+				(switch
+					; If the player has returned with the required items and destroyed targets the mission succeeds,
+					(and (= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						(objGetProperty (objGetObjByID (msnGetData gSource 'baseID)) 'abandoned)
+						(objHasItem gPlayerShip (msnGetData gSource 'item1))
+						(objHasItem gPlayerShip (msnGetData gSource 'item2))
+						(msnGetProperty gSource 'isActive)
+						)
+						(block Nil
+							; Remove the items from the player ship and complete mission
+							(objRemoveItem gPlayerShip (msnGetData gSource 'item1))
+							(objRemoveItem gPlayerShip (msnGetData gSource 'item2))
+							(msnSuccess gSource)
+							)
+
+					; If the player has managed to lose the items then the mission is a failure
+					(and (= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						(objGetProperty (objGetObjByID (msnGetData gSource 'baseID)) 'abandoned)
+						(= (msnGetData gSource 'status) 'foundItems)
+						(msnGetProperty gSource 'isActive)
+						)
+						(msnFailure gSource 'lostItems)
+					)
+			</OnObjDocked>
+
+			<OnObjDestroyed>
+				(switch
+					; Target freigher
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(switch
+							; Fail if the ship escapes
+							(= aDestroyReason 'enteredStargate)
+								(msnFailure gSource 'escaped)
+
+							; Fail if there is no wreck
+							(not aWreckObj)
+								(msnFailure gSource 'destroyed)
+
+							; Otherwise proceed
+							(block (theItem)
+								; Add the cadaver after destruction (incase player has jettison hack)
+								(setq theItem (itmSetData (itmCreate &itHumanCadaver; 1) "corpBioSec" True))
+								(objAddItem aWreckObj theItem)
+								(msnSetData gSource 'item2 theItem)
+
+								(msnSetData gSource 'wreckID (objGetID aWreckObj))
+								(msnSetData gSource 'status 'search)
+								(msnSetPlayerTarget gSource)
+								(msnAddRecurringTimerEvent gSource 30 'OnCheckItem)
+								)
+							)
+
+					; Fail if wreck destroyed before player recovers the items
+					(and (= (objGetID aObjDestroyed) (msnGetData gSource 'wreckID))
+						(!=  (msnGetData gSource 'status) 'foundItems))
+						(block Nil
+							(msnCancelTimerEvent gSource 'OnCheckItem)
+							(msnFailure gSource 'destroyed)
+							)
+
+					; Update player target after station is destroyed
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'baseID))
+						(msnSetPlayerTarget gSource)
+					)
+			</OnObjDestroyed>
+
+			<OnCheckItem>
+				(switch
+					(and
+						(objHasItem gPlayerShip (msnGetData gSource 'item1))
+						(objHasItem gPlayerShip (msnGetData gSource 'item2))
+						)
+						(block Nil
+							(msnSetData gSource 'status 'foundItems)
+							(msnSetPlayerTarget gSource)
+							(msnCancelTimerEvent gSource 'OnCheckItem)
+							)
+					)
+			</OnCheckItem>
+
+			<OnCompleted>
+				(corpBioSec_missionCompleted gSource aReason gData)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+
+		</Events>
+		<Language>
+			<Text id="Name">
+				"Obtain Samples"
+			</Text>
+			<Text id="Summary">
+				(corpPriv_calcSummary gSource
+					(cat
+						"An independent merchant visited " (msnGetData gSource 'stationName) " before the contagion was detected. "
+						"Your mission is to track it down and obtain samples. Forcibly."
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(corpBioSec_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(list
+					{
+						desc:	(cat
+							"\"We have tracked down an independent merchant ship which visited the station "
+							"shortly before the first patients fell ill. Given the limited information we have at "
+							"the moment, they are our best lead and could even be source of the infection or "
+							"attack.\"\n\n"
+
+							"\"Your mission is collect biological samples and flight data from the ship and any "
+							"station they have docked at.\""
+							)
+						acceptLabel: "\"[I]'m ready.\""
+						declineLabel: "\"[L]et me arm up first.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				(cat
+					"\"Great! We'll program the target into your ship's computer. It's unlikely the merchant "
+					"captain will cooperate; however, we do not require live samples.\""
+					)
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					(random (list
+						"\"Did you miss the part where a major Corporate station was placed under quarantine?\""
+						"\"Have you forgotten about the emergency medical situation?\""
+						))
+					"\n\n\"Hurry up!\""
+					)
+			</Text>
+			<Text id="InProgress">
+				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
+			</Text>
+			<Text id="SuccessDebrief">
+				(cat
+					"\"Nice work out there. Our initial analysis of the data indicates that the merchant ship was unconnected "
+					"with the outbreak, but that is still useful information on how the contagion spread.\"\n\n"
+					"\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+			</Text>
+		</Language>
+	</MissionType>
+
+	<ShipTable unid="&tbCorpBioSecInvestigate1Ship;">
+		<LevelTable>
+			<Ship levelFrequency="ccu-- -----" count="1" class="&scT31ArmedTransport;" orders="hold">
+				<Escorts>
+					<LevelTable count="3">
+						<Ship levelFrequency="ccurr -----" class="&scZulu;" orders="escort"/>
+						<Ship levelFrequency="uccur -----" class="&scZulu-II;" orders="escort"/>
+					</LevelTable>
+				</Escorts>
+			</Ship>
+			<Ship levelFrequency="-uccu r----" count="1" class="&scT55ArmedTransport;" orders="hold">
+				<Escorts>
+					<LevelTable count="3">
+						<Ship levelFrequency="ucccu rr---" class="&scZulu-II;" orders="escort"/>
+						<Ship levelFrequency="vuccc urr--" class="&scOromo;" orders="escort"/>
+					</LevelTable>
+				</Escorts>
+			</Ship>
+		</LevelTable>
+	</ShipTable>
+
+
+	<!-- Mission: Intercept Freighter =================================================
+
+	Intercept and stop a freigher from leaving system. Player is allowed to destroy the freighter,
+	but will be awarded a bonus if they persuade the freighter to return to base
+
+	EXTRA DATA
+
+	destID:	Destination of ship
+	reward:	Reward (in credits) for completing mission
+	targetID:	Id of ship to destroy
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpBioSecQuarantine;"
+			name=				"Enforce Quarantine"
+			attributes=			"corporate, corporatePrivateer, corpBioSec, special"
+			priority=			"10"
+			level=				"1-5"
+			maxAppearing=		"1"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(aidMission (@ (msnFind "a +unid:&msCorpMedicalAid;") 0))
+					destObj targetObj
+					)
+					(switch
+						; Main mission must be active
+						(not aidMission)
+							(msnDestroy gSource)
+
+						; Pick a random stargate. It must be a certain distance from us. If we can't
+						; find one, then there is no mission.
+						(not (setq destObj (random (sysFindObject aOwnerObj "G R:300; -uncharted;"))))
+							(msnDestroy gSource)
+
+						; Otherwise, set up mission
+						(block Nil
+							; Copy data from parent mission
+							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
+							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
+
+							; Create the freighter
+							(setq targetObj (sysCreateShip &tbCorpBioSecQuarantineShip; Nil &svIndependentTrader;))
+							(objSetData targetObj 'state 'flee)
+							(objSetData targetObj 'destID (objGetID aOwnerObj))
+
+							; And suspend it
+							(objSuspend targetObj)
+
+							(msnSetData gSource 'targetID (objGetID targetObj))
+							(msnSetData gSource 'shipName (objGetName targetObj 0x05))
+
+							; Remember the destination stargate
+							(msnSetData gSource 'destID (objGetID destObj))
+
+							; Compute reward
+							(msnSetData gSource 'reward (corpPriv_calcReward (sysGetLevel)))
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnStarted>
+				(block (
+					(destObj (objGetObjByID (msnGetData gSource 'destID)))
+					(distToGate (random 300 600))
+					(angleToStation (sysVectorAngle (sysVectorSubtract aOwnerObj destObj)))
+					(courseAngle (modulo 'degrees (add angleToStation (random -60 60)) 360))
+					(interceptPos (sysVectorPolarOffset destObj courseAngle distToGate))
+					(targetObj (objGetObjByID (msnGetData gSource 'targetID)))
+					playerTravelTime freighterDist freighterPos
+					)
+
+					; Compute the time that it will take the player to reach the intercept
+					; position from the mission station.
+					(setq playerTravelTime (sysCalcTravelTime (sysVectorDistance interceptPos aOwnerObj) (shpGetMaxSpeed gPlayerShip)))
+
+					; Adjust travel time a bit because the player won't always travel to the
+					; intersection point.
+					(setq playerTravelTime (divide (multiply playerTravelTime 3) 2))
+
+					; Compute the distance that the target freighter will travel in that time
+					(setq freighterDist (sysCalcTravelDistance 16 playerTravelTime))
+
+					; Now compute a position for the freighter
+					(setq freighterPos (sysVectorPolarOffset destObj courseAngle (add distToGate freighterDist)))
+
+					; Create the freighter, based on the mission level.
+					(objResume targetObj)
+					(objSetPos targetObj freighterPos)
+
+					; Register for events so we know when the target is destroyed
+					(msnRegisterForEvents gSource targetObj)
+					(msnAddRecurringTimerEvent gSource 60 'OnUpdate)
+					)
+			</OnStarted>
+
+			<OnAccepted>
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+			</OnSetPlayerTarget>
+
+			<OnUpdate>
+				(block (
+					(shipObj (objGetObjByID (msnGetData gSource 'targetID)))
+					(armorLeft (- 100 (objGetVisibleDamage shipObj)))
+					(shieldLevel (objGetShieldLevel shipObj))
+					)
+					(switch
+						;
+						(and (= (objGetData shipObj 'state) 'surrender)
+							(gr (objGetDistance shipObj (shpGetOrderTarget shipObj)) 100)
+							(gr (objGetDistance shipObj gPlayerShip) 100)
+							)
+							(objFireEvent shipObj 'OnFlee)
+
+						; Fleeing, no shields, less than 50% armor, and more than (100 + 10*armor) ls from dest
+						; and player within range then give up
+						(and (= (objGetData shipObj 'state) 'flee)
+							(leq shieldLevel 0)
+							(leq armorLeft 50)
+							(gr (objGetDistance shipObj (shpGetOrderTarget shipObj)) (+ 100 (* 10 armorLeft)))
+							(ls (objGetDistance shipObj gPlayerShip) 100)
+							)
+							(objFireEvent shipObj 'OnSurrender)
+						)
+					)
+			</OnUpdate>
+
+			<OnObjDestroyed>
+				(switch
+					(eq (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(msnSuccess gSource 'destroyed)
+					)
+			</OnObjDestroyed>
+
+			<OnObjDocked>
+				(switch
+					(and
+						(= (objGetID aObjDocked) (msnGetData gSource 'targetID))
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						)
+						(block Nil
+							; Reset soverign and event handler
+							(objSetSovereign aObjDocked &svCorporate;)
+							(objSetEventHandler aObjDocked (objGetType aObjDocked))
+							; Wait for a bit then leave
+							(shpOrder aObjDocked 'hold 10)
+							(shpOrder aObjDocked 'gate (sysFindObject gSource "GN -uncharted;"))
+							; Award a bonus for keeping ship alive
+							(msnSetData gSource 'reward (int (* 1.5 (msnGetData gSource 'reward))))
+							(msnSuccess gSource 'returned)
+							)
+					)
+			</OnObjDocked>
+
+			<OnObjEnteredGate>
+				(switch
+					(eq (objGetID aObj) (msnGetData gSource 'targetID))
+						(msnFailure gSource)
+					)
+			</OnObjEnteredGate>
+
+			<OnCompleted>
+				(corpBioSec_missionCompleted gSource aReason gData)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				"Enforce Quarantine"
+			</Text>
+			<Text id="Summary">
+				(corpPriv_calcSummary gSource
+					(cat
+						(strCapitalize (msnGetData gSource 'shipName)) " has evaded the quarantine around "
+						(msnGetData gSource 'stationName) ". You must persuade it to return or destroy it."
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(corpBioSec_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(list
+					{
+						desc:	(cat
+							"\"" (strCapitalize (msnGetData gSource 'shipName)) " managed to evade the "
+							"initial quarantine by leaving the regular shipping routes and hiding in the outer "
+							"system. They are now making a run for the stargate.\"\n\n"
+
+							"\"We cannot let them leave until our medics have checked them out. Your job "
+							"is to stop them by any means necessary. Understood?\""
+							)
+						acceptLabel: "\"[I]'m ready.\""
+						declineLabel: "\"[L]et me arm up first.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Great! We'll program the target into your ship's computer. Remember, you must not let it reach the stargate. Good luck!\""
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					(random (list
+						"\"Did you miss the part where a major Corporate station was placed under quarantine?\""
+						"\"Have you forgotten about the emergency medical situation?\""
+						))
+					"\n\n\"Hurry up!\""
+					)
+			</Text>
+			<Text id="InProgress">
+				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
+			</Text>
+			<Text id="SuccessDebrief">
+				(if (= (msnGetData gSource 'outcome) 'returned)
+					(cat
+						"\"Great work! The freighter crew is a little shaken up. Luckily for them they turned out to "
+						"be clean, but we couldn�t risk them breaking quarantine before we were certain.\"\n\n"
+
+						"\"I've been authorized to award you a bonus for keeping them alive. We've deposited "
+						(msnGetData gSource 'reward) " credits to your account.\""
+						)
+					(cat
+						"\"Nice work out there! It's a shame we couldn�t confirm if the crew were contagious or "
+						"not, but we cant take than risk until we understand what is happening here.\"\n\n"
+
+						"\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
+						)
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				(cat
+					"\"What the kack happened out there? You just let that ship break quarantine. "
+					"Now someone else will have to clean up your mess.\""
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+<!-- TABLES -->
+
+	<ShipTable unid="&tbCorpBioSecQuarantineShip;">
+		<LevelTable>
+			<Ship levelFrequency="cu--- -----" count="1" class="&scEI100;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
+			<Ship levelFrequency="ucu-- -----" count="1" class="&scEI200;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
+			<Ship levelFrequency="-ucu- -----" count="1" class="&scEI500;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
+			<Ship levelFrequency="--ucc ccccc" count="1" class="&scEI7000;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
+		</LevelTable>
+	</ShipTable>
+
+<!-- BEHAVIORS -->
+
+	<!--	Behavior class for the freighter
+		Has to be a ShipClass so the Communications menu will work
+		Overrides OnDestroy so player is not accused of piracy
+		-->
+	<ShipClass UNID="&evCorpBioSecQuarantine;" virtual="true" attributes="behaviorClass">
+		<Communications>
+			<Message name="Cut engines" key="C">
+				<OnShow>
+					(and	(= (objGetData gSource 'state) 'flee)
+						(ls (objGetDistance gSource gPlayerShip) 100)
+						)
+				</OnShow>
+				<Invoke>
+					(block (
+						(armorLeft (- 100 (objGetVisibleDamage gSource)))
+						(shieldLevel (objGetShieldLevel gSource))
+						)
+						(switch
+							; No response if shields up
+							(gr shieldLevel 0)
+								Nil
+
+							; If we're more than (10 * armor) ls away from gate then give up
+							(gr (objGetDistance gSource (shpGetOrderTarget gSource)) (* 10 armorLeft))
+								(objFireEvent gSource 'OnSurrender)
+
+							; Otherwise defiant
+							(objSendMessage gSender gSource (objTranslate gSource 'defiant))
+							)
+						)
+				</Invoke>
+			</Message>
+		</Communications>
+
+		<Events>
+			<OnSurrender>
+				(block Nil
+					(objSetData gSource 'state 'surrender)
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'hold 4)
+					(shpOrder gSource 'dock (objGetObjByID (objGetData gSource 'destID)))
+					(objSendMessage gSender gSource (objTranslate gSource 'surrender))
+					)
+			</OnSurrender>
+
+			<OnFlee>
+				(block Nil
+					(objSetData gSource 'state 'flee)
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'gate (sysFindObject gSource "GN -uncharted;"))
+					)
+			</OnFlee>
+
+			<OnDestroy>
+			</OnDestroy>
+		</Events>
+
+		<Language>
+			<Text id="defiant">
+				(random
+					(list
+						"Leave us alone."
+						"This is a registered Commonwealth vessel!"
+						"You have no right to detain us."
+						)
+					)
+			</Text>
+			<Text id="surrender">
+				(random
+					(list
+						"Cease fire! We surrender."
+						"OK we're cutting engines."
+						"We surrender! Stop firing."
+						"We give up. Please don't kill us"
+						)
+					)
+			</Text>
+		</Language>
+	</ShipClass>
+
+
+	<!-- Mission: Deliver Supplies =================================================
+
+	When time is running out on the msCorpMedicalAid mission, the player can gain an extra
+	ten minutes by delivering some extra medical supplies
+
+	EXTRA DATA
+
+	medsXXXX:	Purchace cost of mes item XXXX
+	medsNeeded:	Number of med items required
+	destID:		ID of destination (mission owner)
+	targetID:		ID of station with supplies
+	gotMeds:		True if player has meds
+	reward:		Reward for completing mission
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpBioSecSupplies1;"
+			name=				"Quarantine Investigation 1"
+			attributes=			"corporate, corporatePrivateer, corpBioSec, special, deliveryMission"
+			priority=			"8"
+			level=				"1-5"
+			maxAppearing=		"1"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(aidMission (@ (msnFind "a +unid:&msCorpMedicalAid;") 0))
+					stationObj
+					)
+
+					; Look for a station that already has Meds
+					(setq stationObj (random
+						(filter (sysFindObject aOwnerObj "TAF +populated; -occupation; -uncharted;") theDest
+							(objGetSellPrice theDest (itmCreate &itMedicalSupplies; 1))
+							)
+						))
+
+					; Otherwise look for a corporate metropolis.
+					; Not using stCorporateMetropolis to avoid dependency on CC library
+					(if (not stationObj)
+						(setq stationObj (sysFindObject aOwnerObj "TAFN +corporate; +populated; +primary;"))
+						)
+
+					(switch
+						; Main mission must be active
+						(not aidMission)
+							(msnDestroy gSource)
+
+						; Trigger when time is running out
+						(gr (- (msnGetData aidMission 'expiresOn) (unvGetTick)) 14000)
+							(msnDestroy gSource)
+
+						; If we don't have a station then no mission
+						(not stationObj)
+							(msnDestroy gSource)
+
+						(block (
+							; Amount of meds needed depends on level
+							(medsNeeded (* (sysGetLevel) 40))
+							; We'll accept any standard medical items over level 1
+							(medTypes (typFind "i +Meds; -Illegal; -NotForSale; &gt;1"))
+							; Check what items the station already has
+							(curItems (objGetItems stationObj "tU +Meds; -Illegal; -NotForSale; &gt;1"))
+							(curValue 0)
+							)
+							(msnSetData gSource 'parentID aidMission)
+							; Count how many Medical items available at station
+							(enum curItems theItem
+								(setq curValue (+ curValue (* (itmGetLevel theItem) (itmGetCount theItem))))
+								)
+							; Add extra items if needed
+							(loop	(ls curValue medsNeeded)
+								(block (theItem)
+									(setq theItem (itmCreate (random medTypes) 1))
+									(objAddItem stationObj theItem (itmGetFrequency theItem))
+									(setq curValue (+ curValue (* (itmGetLevel theItem) (itmGetFrequency theItem))))
+									)
+								)
+
+							; Store cost of Medical items at station
+							(enum medTypes theItem
+								(msnSetData gSource (cat "med" theItem)
+									(objGetSellPrice stationObj (itmCreate theItem 1) 'noInventoryCheck)
+									)
+								)
+
+							(msnSetData gSource 'medsNeeded medsNeeded)
+							(msnSetData gSource 'destID (msnGetProperty gSource 'ownerID))
+							(msnSetData gSource 'targetID (objGetID stationObj))
+							; Check if we're carrying Meds
+							(msnAddRecurringTimerEvent gSource 30 'OnUpdate)
+
+							; Compute reward
+							(msnSetData gSource 'reward (corpPriv_calcReward (sysGetLevel)))
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnSetPlayerTarget>
+				(if (msnGetData gSource 'gotMeds)
+					(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'destID)) 'dock)
+					(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)) 'dock)
+					)
+			</OnSetPlayerTarget>
+
+			<OnUpdate>
+				(block (
+					(needMeds (not (objGetItems gPlayerShip "tU +Meds; -Illegal; -NotForSale; &gt;1")))
+					)
+					; Update target if needed
+					(if (= needMeds (msnGetData gSource 'gotMeds))
+						(block Nil
+							(msnSetData gSource 'gotMeds (not needMeds))
+							(msnSetPlayerTarget gSource)
+							)
+						)
+					)
+			</OnUpdate>
+
+			<OnCompleted>
+				(block Nil
+					; If we succeed then increase time by 10 minutes
+					(if (= aReason 'success)
+						(msnIncData (msnGetData gSource 'parentID) 'expiresOn 18000)
+						)
+					(corpBioSec_missionCompleted gSource aReason gData)
+					)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+
+			<OnDeliveryMissionCompleted>
+				(block ((meds 0))
+					(enum
+						(objGetItems gPlayerShip "tU +Meds; -Illegal; -NotForSale; &gt;1")
+						medicalItem
+						(block Nil
+							(objRemoveItem gPlayerShip medicalItem)
+							; Reduce the number of meds required
+							(msnIncData gSource 'medsNeeded
+								(* -1 (itmGetLevel medicalItem) (itmGetCount medicalItem))
+								)
+							; Calculate how much to reimburse player
+							(setq meds (+ meds (*
+								(msnGetData gSource (cat "med" (itmGetType medicalItem)))
+								(itmGetCount medicalItem)
+								)))
+							)
+						)
+					(plyCredit gPlayer meds)
+					(switch
+						(= meds 0)
+							{	desc: (msnTranslate gSource 'NoMeds)
+								forceUndock: True
+								}
+						(gr (msnGetData gSource 'medsNeeded) 0)
+							{	desc: (msnTranslate gSource 'MoreMeds {meds: meds})
+								forceUndock: True
+								}
+						(block Nil
+							(msnSuccess gSource)
+							(msnReward gSource)
+							(msnSetProperty gSource 'isDebriefed True)
+							(msnTranslate gSource 'AllMeds {meds: meds})
+							)
+						)
+					)
+			</OnDeliveryMissionCompleted>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				"Deliver medical supplies"
+			</Text>
+			<Text id="Summary">
+				(corpPriv_calcSummary gSource
+					(cat
+						"The " (objGetName (objGetObjByID (msnGetProperty gSource 'ownerID)))
+						" is running low on medical supplies. You mission is to acquire more supplies."
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(corpBioSec_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(list
+					{
+						desc:	(cat
+								"\"We're running low on medical supplies. We need you to travel to "
+								(objGetName (objGetObjByID (msnGetData gSource 'targetID)))
+								" and bring back the necessary supplies.\""
+								)
+						acceptLabel: "\"[I]'m ready.\""
+						declineLabel: "\"[L]et me arm up first.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Great! Following corporate policy we will reimburse you for the cost of all supplies after delivery.\""
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					"\"We need you to haul cargo, not fight the Ares!\"\n\n"
+					"\"Hurry up!\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+			</Text>
+			<Text id="NoMeds">
+				"\"What are you doing here? Go get the medicine!\""
+			</Text>
+			<Text id="MoreMeds">
+				(cat
+					"\"Thanks, those supplies will help&#x97;but we still need more.\"\n\n"
+					"\"We've deposited " (@ gData 'meds) " in your account to cover your costs.\""
+					)
+			</Text>
+			<Text id="AllMeds">
+				(cat
+					"\"Good work. Those supplies will keep us in operation for the time being.\"\n\n"
+					"\"We've reimbursed you for the supplies and deposited " (msnGetData gSource 'reward) " credits for your time.\""
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+	<!-- Mission: Investigate 2 =================================================
+
+	Take ROM to medical station
+
+	EXTRA DATA
+
+	reward:	Reward (in credits) for completing mission
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpBioSecInvestigate2;"
+			name=				"Quarantine Investigation 2"
+			attributes=			"corporate, corporatePrivateer, deliveryMission, corpBioSec, special"
+			priority=			"6"
+			level=				"1-5"
+			maxAppearing=		"1"
+			noFailureOnOwnerDestroyed="true"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(aidMission (@ (msnFind "a +unid:&msCorpMedicalAid;") 0))
+					)
+					(switch
+						; Main mission must be active
+						(not aidMission)
+							(msnDestroy gSource)
+
+						(block (dest email)
+							; Copy data from parent mission
+							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
+							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
+
+							(msnSetData gSource 'srcNodeID (sysGetNode))
+							; Find nearest medical station
+							(setq dest
+								(map
+									(unvFindObj "t +commonwealth;")
+									'(excludeNil original reduceMin)
+									theEntry
+									(switch
+										; Only want Medical Suburb
+										(= (@ theEntry 1) &stMedicalSuburb;)
+											(sysGetTopologyDistance (sysGetNode) (@ theEntry 2))
+										Nil
+										)
+									)
+								)
+							(if (leq (sysGetTopologyDistance (sysGetNode) (@ dest 2)) 2)
+								; Found a nearby station
+								(block Nil
+									(msnSetData gSource 'destID (@ dest 0))
+									(msnSetData gSource 'destNodeID (@ dest 2))
+									(msnSetData gSource 'destName (fmtNoun (@ dest 3) (@ dest 4) 1 0x04))
+									)
+								; Otherwise place one in a random nearby system
+								(block Nil
+									(msnSetData gSource 'createStation True)
+									(msnSetData gSource 'destNodeID (random
+										(filter (sysGetNodes) node (= (sysGetTopologyDistance (sysGetNode) node) 1))
+										))
+									(msnSetData gSource 'destName "a Commonwealth medical colony")
+									)
+								)
+
+							; Create data ROM for delivery
+							(setq email (itmCreate &itNamedDataROM; 1))
+							(setq email (itmSetData email "name" "Corporate data ROM"))
+							(setq email (itmSetData email "desc" (cat "This heavily encrypted ROM contains medical data from the incident at " (msnGetData gSource 'stationName))))
+							(setq email (itmSetData email "corpBioSec" gSource))
+							(msnSetData gSource 'dataROM email)
+
+							; Compute reward
+							(msnSetData gSource 'reward (corpPriv_calcReward (sysGetLevel)))
+
+							(msnRegisterForEvents gSource gPlayerShip)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnPlayerEnteredSystem>
+				(if	(and
+						(msnGetData gSource 'createStation)
+						(= (sysGetNode) (msnGetData gSource 'destNodeID))
+						)
+					(block (destObj)
+						(setq destObj (sysCreateStation &stMedicalSuburb;
+							(sysVectorRandom Nil (random 160 600) 100 "t -asteroid;")
+							))
+						(msnSetData gSource 'destID (objGetID destObj))
+						(msnSetData gSource 'createStation Nil)
+
+						(msnFireEvent gSource 'OnAddEncounter destObj)
+						)
+					)
+			</OnPlayerEnteredSystem>
+
+			<OnAccepted>
+				(block (destObj)
+					(objAddItem gPlayerShip (msnGetData gSource 'dataROM))
+
+					(if (= (msnGetData gSource 'destNodeID) (sysGetNode))
+						(setq destObj (objGetObjByID (msnGetData gSource 'destID)))
+						(setq destObj (sysGetStargateLeadingToNode (msnGetData gSource 'destNodeID)))
+						)
+					(msnFireEvent gSource 'OnAddEncounter destObj)
+					)
+			</OnAccepted>
+
+			<OnAddEncounter>
+				; Encounter event based on CC msCorpPrivDeliverData
+				;
+				; gData is the players destination
+				(block ((travelTime (sysCalcTravelTime (objGetDistance gPlayerShip gData) (shpGetMaxSpeed gPlayerShip))))
+
+					(if (leq (random 1 100) 80)
+						(sysAddEncounterEventAtDist
+							(divide (multiply (random 25 40) travelTime) 100)
+							gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
+							)
+						)
+
+					(if (leq (random 1 100) 40)
+						(sysAddEncounterEventAtDist
+							(divide (multiply 50 travelTime) 100)
+							gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
+							)
+						)
+
+					(if (leq (random 1 100) 80)
+						(sysAddEncounterEventAtDist
+							(divide (multiply (random 60 75) travelTime) 100)
+							gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
+							)
+						)
+					)
+			</OnAddEncounter>
+
+			<OnObjDestroyed>
+				(switch
+					(= aDestroyReason 'enteredStargate)
+						Nil
+
+					(= aObjDestroyed gPlayerShip)
+						(block Nil
+							(objRemoveItem gPlayerShip (msnGetData gSource 'dataROM))
+							(msnFailure gSource)
+							)
+					)
+			</OnObjDestroyed>
+
+			<OnSetPlayerTarget>
+				(switch
+					(and (msnGetData gSource 'gotResults) (= (msnGetData gSource 'srcNodeID) (sysGetNode)))
+						(rpgSetTarget gSource aReason (objGetObjByID(msnGetProperty gSource 'ownerID)) 'dock)
+
+					(msnGetData gSource 'gotResults)
+						(rpgSetTarget gSource aReason (sysGetStargateLeadingToNode (msnGetData gSource 'srcNodeID)))
+
+					(= (msnGetData gSource 'destNodeID) (sysGetNode))
+						(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'destID)) 'dock)
+
+					(rpgSetTarget gSource aReason (sysGetStargateLeadingToNode (msnGetData gSource 'destNodeID)))
+					)
+			</OnSetPlayerTarget>
+
+			<OnDeliveryMissionCompleted>
+				(if (objHasItem gPlayerShip (msnGetData gSource 'dataROM))
+					(block Nil
+						(msnSetData gSource 'gotResults True)
+						(msnSetData gSource 'destID Nil)
+						(msnSetPlayerTarget gSource)
+						(cat
+							"\"Thanks for bringing the data ROM. It's still faster to deliver this much data on a ship than to beam it "
+							"slowly over the system network.\""
+							)
+						)
+					; If the player doesn't have the dataROM, then the mission fails.
+					(block Nil
+						(msnFailure gSource)
+						(cat
+							"\"Where is the data ROM that you were supposed to bring? I hope it did not fall into the wrong hands; "
+							"even with the encryption there is a risk that someone will crack it. I hope for your sake that doesn't happen.\""
+							)
+						)
+					)
+			</OnDeliveryMissionCompleted>
+
+			<OnObjDocked>
+				(switch
+					(and	(msnGetProperty gSource 'isActive)
+						(msnGetData gSource 'gotResults)
+						(= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						(objHasItem gPlayerShip (msnGetData gSource 'dataROM))
+						)
+						(block Nil
+							(objRemoveItem gPlayerShip (msnGetData gSource 'dataROM))
+							(msnSuccess gSource)
+							)
+					)
+			</OnObjDocked>
+
+			<OnCompleted>
+				(corpBioSec_missionCompleted gSource aReason gData)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				"Delivery Medical Data"
+			</Text>
+			<Text id="Summary">
+				(corpPriv_calcSummary gSource
+					(cat
+						"Your mission is to deliver a medical data ROM to " (msnGetData gSource 'destName)
+						" in " (sysGetName (msnGetData gSource 'destNodeID))
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(corpBioSec_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(list
+					{
+						desc:	(cat
+							"\"We need you to deliver a medical data ROM to " (msnGetData gSource 'destName)
+							" in " (sysGetName (msnGetData gSource 'destNodeID)) " for analysis.\""
+							)
+						acceptLabel: "\"[I]'m ready.\""
+						declineLabel: "\"[L]et me arm up first.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				(cat
+					"\"Great! We'll program the target into your computer. Good Luck!\""
+					)
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					(random (list
+						"\"Did you miss the part where a major Corporate station was placed under quarantine?\""
+						"\"Have you forgotten about the emergency medical situation?\""
+						))
+					"\n\n\"Hurry up!\""
+					)
+			</Text>
+			<Text id="InProgress">
+				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
+			</Text>
+			<Text id="SuccessDebrief">
+				(cat
+					"\"Nice work out there.\"\n\n"
+					"\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+			</Text>
+		</Language>
+	</MissionType>
+
+	<!-- Mission: Investigate 3 =================================================
+
+	Investigate Anarchist cell
+
+	EXTRA DATA
+
+	reward:	Reward (in credits) for completing mission
+	targetID:	Id of ship to destroy
+	recoveredROM:	True if player returned Tao ROM to CHOC
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpBioSecInvestigate3;"
+			name=				"Quarantine Investigation 3"
+			attributes=			"corporate, corporatePrivateer, corpBioSec, special"
+			priority=			"6"
+			level=				"1-5"
+			maxAppearing=		"1"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(aidMission (@ (msnFind "a +unid:&msCorpMedicalAid;") 0))
+					)
+					(switch
+						; Main mission must be active
+						(not aidMission)
+							(msnDestroy gSource)
+
+						; Player must have completed previous mission
+						(not (msnFind "r +unid:&msCorpBioSecInvestigate1;;"))
+							(msnDestroy gSource)
+
+						(block Nil
+							; Copy data from parent mission
+							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
+							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
+
+							; Compute reward
+							(msnSetData gSource 'reward (corpPriv_calcReward (sysGetLevel)))
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnAccepted>
+				(block (
+					; Random location 12 to 20 light-minutes from central star.
+					(basePos (sysVectorRandom Nil (random 720 1200) 200 "t -asteroid;"))
+					baseObj email
+					)
+
+					; Create the Anarchist station
+					(setq baseObj (sysCreateStation &stAnarchistCell; basePos))
+
+					; Add items to recover
+					(setq email (itmCreate &itNamedDataROM; 1))
+					(setq email (itmSetData email "name" "Anarchist data ROM"))
+					(setq email (itmSetData email "desc" "This unmarked ROM is formatted for 2 exabytes of data. Its contents are heavily encrypted."))
+					(setq email (itmSetData email "corpBioSec" True))
+					(objAddItem baseObj email)
+
+					; Remember it
+					(msnSetData gSource 'targetID (objGetID baseObj))
+					(msnSetData gSource 'item1 email)
+
+					; Register for events so we know when the target is destroyed
+					(msnRegisterForEvents gSource baseObj)
+					(msnRegisterForEvents gSource gPlayerShip)
+					)
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+			</OnSetPlayerTarget>
+
+			<OnObjDestroyed>
+				(switch
+					(eq (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(msnSuccess gSource)
+					)
+			</OnObjDestroyed>
+
+			<OnObjDocked>
+				(switch
+					; If the player has returned with the required items and destroyed targets the mission succeeds,
+					(and (= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						(objHasItem gPlayerShip (msnGetData gSource 'item1))
+						)
+						(block Nil
+							(objRemoveItem gPlayerShip (msnGetData gSource 'item1))
+							(msnSetData gSource 'recoveredROM True)
+							)
+					)
+			</OnObjDocked>
+
+
+			<OnCompleted>
+				(corpBioSec_missionCompleted gSource aReason gData)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+
+		</Events>
+		<Language>
+			<Text id="Name">
+				"Destroy Anarchist Settlement"
+			</Text>
+			<Text id="Summary">
+				(corpPriv_calcSummary gSource
+					(cat
+						"Your mission is to destroy an Anarchist settlement at the edge of the system."
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(corpBioSec_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(list
+					{
+						desc:	(cat
+							"\"We finally have some more intelligence on the biological attack on "
+							(msnGetData gSource 'stationName) ". We have traced it back to an "
+							"Anarchist cell in the outer system. We want you to go out there and "
+							"verify the intelligence&#x97;after you've destroyed anything that moves of course!\""
+							)
+						acceptLabel: "\"[I]'m ready.\""
+						declineLabel: "\"[L]et me arm up first.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				(cat
+					"\"Great! We'll program the target into your ship's computer.\"\n\n"
+
+					"\"Don't forget to search the station for any information about the "
+					"weapon they used or their future plans. Good luck!\""
+					)
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					(random (list
+						"\"Did you miss the part where a major Corporate station was placed under quarantine?\""
+						"\"Have you forgotten about the emergency medical situation?\""
+						))
+					"\n\n\"Hurry up!\""
+					)
+			</Text>
+			<Text id="InProgress">
+				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
+			</Text>
+			<Text id="SuccessDebrief">
+				(cat
+					(if (msnGetData gSource 'recoveredROM)
+						(msnTranslate gSource "SuccessDebrief:FoundROM")
+						(msnTranslate gSource "SuccessDebrief:NoROM")
+						)
+					"\n\n\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:NoROM">
+				(cat
+					"\"You didn't find anything? I was certain there would some clue about the attack at that station.\"\n\n"
+					"\"Oh well, at least we have one less band of anarchists out there. No doubt they would have caused trouble if we had let them live.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:FoundROM">
+				(cat
+					"\"Great work! The data ROM you found was heavily encrypted, but we'll crack it eventually. "
+					"It looks like it contains some references to Tao Station, which is one of their main bases in "
+					"Commonwealth space, so with a bit of luck we'll soon have a few more targets for you to torch.\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				(cat
+					"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+
+	<!-- Mission: Investigate 4 =================================================
+
+	End Quarantine
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpBioSecInvestigate4;"
+			name=				"Quarantine Investigation 4"
+			attributes=			"corporate, corporatePrivateer, corpBioSec, special"
+			priority=			"40"
+			level=				"1-5"
+			maxAppearing=		"1"
+			noDebrief=			"true"
+			noStats=			"true"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					(aidMission (@ (msnFind "a +unid:&msCorpMedicalAid;") 0))
+					)
+					(switch
+						; Main mission must be active
+						(not aidMission)
+							(msnDestroy gSource)
+
+						(msnGetProperty aidMission 'isSuccess)
+							(msnDestroy gSource)
+
+						; Player must have completed previous mission
+						(not (msnFind "r +unid:&msCorpBioSecInvestigate2;;"))
+							(msnDestroy gSource)
+						(not (msnFind "r +unid:&msCorpBioSecInvestigate3;;"))
+							(msnDestroy gSource)
+
+						(block Nil
+							; Copy data from parent mission
+							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
+							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
+
+							; Compute reward
+							(msnSetData gSource 'reward Nil)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnDeclined>
+				(block Nil
+					(msnSuccess (msnGetData gSource 'parentID))
+					(msnDestroy gSource)
+					)
+			</OnDeclined>
+			<OnAccepted>
+				(block Nil
+					(msnSuccess (msnGetData gSource 'parentID))
+					(msnDestroy gSource)
+					)
+			</OnAccepted>
+		</Events>
+		<Language>
+			<Text id="Intro">
+				(corpBioSec_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(list
+					{
+						desc:	"All done"
+						acceptLabel: "\"[C]ontinue\""
+						declineLabel: "\"[I]s there anything else I can do to help?\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Thanks again for your help. You can return to your usual CHOC assignment now.\""
+			</Text>
+			<Text id="DeclineReply">
+				"\"Not at the moment. Once we've finished the clean up here we're going to investigate the Tao Station connection. Maybe we'll see you later.\""
+			</Text>
+
+		</Language>
+	</MissionType>
+</TranscendenceModule>

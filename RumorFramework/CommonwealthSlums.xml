@@ -1,0 +1,201 @@
+<?xml version="1.0" ?>
+<!-- Changes to Container Slums
+	* Use rumor framework
+-->
+
+<TranscendenceModule>
+
+	<!-- Commonwealth Slums
+
+	GLOBAL DATA
+
+	lastMissionTime:	Tick on which mission was given to player (Nil if never)
+	totalMissionCount:	Total number of missions that the player has requested
+	missionsCompleted:	Total number of successful missions
+	missionsFailed:		Total number of failures
+
+	-->
+
+	<StationType UNID="&stCommonwealthSlums;"
+			name=				"Commonwealth habitat"
+			sovereign=			"&svCommonwealth;"
+			inherit=			"&baCommonwealthStation;"
+
+			dockScreen=			"Main"
+			abandonedScreen=	"&dsAbandonedStation;"
+			canAttack=			"true"
+
+			multiHull=			"true"
+			armorID=			"&itPlasteelPlate;"
+			hitPoints=			"150"
+			regen=              "0.5"
+			ejectaType=			"&vtWreckEjecta;"
+
+			attributes=			"commonwealth, commonwealthCustoms, friendly, generic, human, populated"
+			level=				"1"
+			>
+
+		<Names noArticle="true">Habitat Alpha %1%0; Habitat Beta %1%0; Habitat Gamma %1%0; Habitat Delta %1%0;
+				Habitat Epsilon %1%0; Habitat Zeta %1%0</Names>
+
+		<ImageVariants>
+			<Image	imageID="&rsCommonwealthSlumsImage;" imageX="0" imageY="0" imageWidth="64" imageHeight="128"/>
+			<Image	imageID="&rsCommonwealthSlumsImage;" imageX="64" imageY="0" imageWidth="64" imageHeight="128"/>
+			<Image	imageID="&rsCommonwealthSlumsImage;" imageX="128" imageY="0" imageWidth="64" imageHeight="128"/>
+			<Image	imageID="&rsCommonwealthSlumsImage;" imageX="192" imageY="0" imageWidth="64" imageHeight="128"/>
+		</ImageVariants>
+
+		<Ships>
+			<Lookup count="1d4" table="&tbCommPrivateCrafts;"/>
+		</Ships>
+
+		<Events>
+			<GetGlobalAchievements>
+				(block (
+					(successList (plyGetKeyEventStat gPlayer 'missionSuccess Nil "* +commonwealthHabitat;"))
+					(failureList (plyGetKeyEventStat gPlayer 'missionFailure Nil "* +commonwealthHabitat;"))
+					theList
+					)
+					(if (or successList failureList)
+						(setq theList (list
+							(list
+								"Commonwealth habitat missions"
+								(rpgMissionAchievementString (count successList) (count failureList))
+								"missions &amp; activities"
+								)
+							))
+						)
+
+					theList
+					)
+			</GetGlobalAchievements>
+
+			<OnContractGenerate>
+				(intGenerateStandardRequestContract1)
+			</OnContractGenerate>
+
+			<OnContractQuery>True</OnContractQuery>
+
+			<GetRumors>
+				(if (objIsDockedAt gPlayerShip gSource)
+					(switch
+						(= (sysGetNode) 'BA)
+							(msfSimpleRumors (objTranslate gSource 'RumorsBA))
+
+						(msfSimpleRumors (objTranslate gSource 'Rumors))
+						)
+					)
+			</GetRumors>
+		</Events>
+
+		<DockScreens>
+			<Main>
+				<Panes>
+					<Default>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'Welcome)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionMeetingHall" default="1">
+								(rpgMissionAssignment {
+									missionCriteria: "n +commonwealthHabitat;"
+									maxActive: 1
+									intervalPerType: (+ 5400 (* (objGetDestiny gSource) 10))
+									noMissionTextID: 'descNoMissions
+									})
+							</Action>
+
+							<Action id="actionUndock" cancel="1">
+								<Exit/>
+							</Action>
+
+						</Actions>
+
+					</Default>
+				</Panes>
+			</Main>
+
+		</DockScreens>
+
+		<DockingPorts>
+			<Port x="0"		y="80" />
+			<Port x="43"	y="56" />
+			<Port x="52"	y="8" />
+			<Port x="35"	y="-44" />
+			<Port x="-35"	y="-44" />
+
+			<Port x="-52"	y="8" />
+			<Port x="-43"	y="56" />
+		</DockingPorts>
+
+		<Language>
+			<Text id="actionMeetingHall">"[M]eeting Hall"</Text>
+			<Text id="actionUndock">"[U]ndock"</Text>
+
+			<Text id="Welcome">
+				(cat
+					"The loud voices of a packed multitude bounce off every bulkhead and corridor in the station. "
+					"Old air scrubbers pump a thin, odorous breeze out of rusty vents. Discarded packets of Salmonite and Red Nebula beer huddle in the corner.\n\n"
+					"Welcome to " (objGetName gSource) "!"
+					)
+			</Text>
+
+			<Text id="descNoMissions">
+				(msfGenerateRumor {
+					introText: "The station master is working at his console. He stops to chat:\n\n"
+					noRumorText: "\"Everything's quiet around here at the moment\""
+					})
+			</Text>
+
+			<Text id="Rumors">
+				(list
+					"\"You got a pretty nice ship there. Did your mom and dad buy it for you?\""
+					"\"Truth is, you gotta approach life philosophically, you know what I mean? You gotta believe that it's all going to work out in the end, or else what's the point?\""
+					"\"Nobody cares. Station needs a carbon scrubber? Get on the waiting list! After the corporate suits get their grilled Icelandic salmon, then they might pay attention to you. Nobody cares.\""
+					(if (= (objGetProperty gPlayerShip 'characterClass) &unidPilgrimClass;)
+						"\"I don't know what you're doing in this backwater system. You wanna get to the Core? Go! What's stopping you? Kids today: they dream big, but they'd rather watch the 3DVs.\""
+						"\"I don't know what you're doing in this backwater system. You wanna see the galaxy? Go! What's stopping you? Kids today: they dream big, but they'd rather watch the 3DVs.\""
+						)
+					"\"A station is not like a starship. If you get into trouble you can always run away. All we can do is sit tight and repair the damage. Takes a special kind of man to live like that.\""
+					(cat "\"How do you like your " (objGetName gPlayerShip 0x00) "? "
+						(switch
+							(= (objGetType gPlayerShip) &scSapphirePlayer;)
+								"My daughter's friend had one once. It was beautiful, but not very practical for long voyages.\""
+							(= (objGetType gPlayerShip) &scEI100XPlayer;)
+								"My son pilots an older 200-series in the Cairn system. He's got it up-armored with polyceramic to protect against pirate attacks.\""
+							(= (objGetType gPlayerShip) &scWolfenPlayer;)
+								"I knew this guy John Tremaine who flew one in the Militia. They're fast as hell on a whip, but a little flimsy. Hope you've got some good shields on her.\""
+							"I haven't seen a lot of ships like that. Is it hard to get parts for it?\""
+							)
+						)
+					)
+			</Text>
+			<Text id="RumorsBA">
+				(list
+					(cat "\"What's your favorite weapon? Personally I favor "
+						(seededRandom (objGetDestiny gSource)
+							'(
+								"the AK505 Ballista. It's a monster and it will kill a lot of ships with a single punch. When I hit something, I want it to go down, you know what I mean?\""
+								"a particle beam weapon. The latest tech is always going to win in the end. You have to keep up with technology or you're just another wreck in the Arena.\""
+								"an omni turbolaser. I say a computer can hit a target way better than I can, so why not take advantage of that? By the time your opponent has lined up his BFG, you've already hit him five times!\""
+								"a slam cannon, enhanced if possible. There's nothing better than the thump-thump sounds of a slam cannon hitting your enemy's plasteel!\""
+								"the RK15 Partisan turret. Sure, the wimpy omniturbo is a little faster, but I wanna hit my targets with a punch, not shine a damn light in their eyes.\""
+								)
+							)
+						)
+					(cat "\"So what kind of shields you got? I think a lot of gladiators underestimate how important shields are. "
+						(seededRandom (objGetDestiny gSource)
+							'(
+								"Even a good monopole deflector is better than nothing. I'd enhance the crap out of it, though.\""
+								"The Cyclotron series are my choice at the moment. The S55 has more protection than a class III; better yet, get the S1200.\""
+								"If you can afford the Ceratops series then go for it. They're the best against missiles anyway, which is what you're gonna get hit with in the Arena.\""
+								)
+							)
+						)
+					)
+			</Text>
+		</Language>
+	</StationType>
+
+</TranscendenceModule>

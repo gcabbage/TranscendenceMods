@@ -1,0 +1,484 @@
+<?xml version="1.0" ?>
+
+<!--
+	Named Data ROM
+	Escape Capsule
+	Mining Thumper
+-->
+
+<TranscendenceModule>
+
+	<Type UNID="&unidAttrDesc;">
+		<AttributeDesc>
+			<ItemAttribute label="Galactic Construction"	criteria="* +GC;"/>
+		</AttributeDesc>
+	</Type>
+
+	<!-- Data ROM
+
+	Generic data ROM for use in missions. Name and description can be changed
+	using itmSetData
+
+	EXTRA DATA
+
+	name:		Overrides default name
+	desc:		Overrides default description
+	-->
+
+	<ItemType UNID="&itNamedDataROM;"
+			name=				"data ROM"
+			level=				"1"
+			value=				"0"
+			mass=				"1"
+			frequency=			"notrandom"
+			attributes=			"Info; MinorItem; NotForSale"
+
+			description=		"Data ROMs are used to store everything from personal mail to ship's logs."
+			>
+
+		<Image imageID="&rsItems1;" imageX="192" imageY="96" imageWidth="96" imageHeight="96"/>
+		<Events>
+			<GetDescription>
+				(block (desc)
+					(if (setq desc (itmGetData gItem 'desc))
+						desc
+						(typTranslate (itmGetType gItem) 'desc)
+						)
+					)
+			</GetDescription>
+
+			<GetName>
+				(block (name)
+					(if (setq name (itmGetData gItem 'name))
+						name
+						(typTranslate (itmGetType gItem) 'name)
+						)
+					)
+			</GetName>
+		</Events>
+		<Language>
+			<Text id="name">"data ROM"</Text>
+			<Text id="desc">"Data ROMs are used to store everything from personal mail to ship's logs."</Text>
+		</Language>
+	</ItemType>
+
+
+	<!-- Escape Capsule
+
+	The escape capsule is automatically ejected if the ship carrying it is destroyed
+	A spaceobject (station) is created and the capsule item is moved to it
+
+	StationType capsules are "ejected" by the force of the explosion. Just need to
+	create them far enough from the wreck that they don't overlap otherwise the
+	collision detection results in everything getting stuck. This means we can not
+	eject multiple StationType capsules at once as they will get jammed together
+
+	ShipClass capsules seemed to ignore the explosion and needed an inital velocity.
+	They don't have the overlap / collision issue, but getting them to stop is harder
+	as it interacts with the ship AI. They also clutter up the map with long labels.
+
+	GLOBAL DATA
+
+	ejected:	True if the pod has been ejected
+
+	-->
+
+	<ItemType UNID="&itEscapeCapsule;"
+			name=				"escape capsule"
+			level=				"5"
+			value=				"0"
+			mass=				"500"
+			frequency=			"notRandom"
+			attributes=			"MinorItem; NotForSale; Soul; GC"
+
+			description=		"This is an escape capsule."
+			>
+
+		<Image imageID="&rsItems1;" imageX="288" imageY="0" imageWidth="96" imageHeight="96"/>
+
+		<StaticData>
+			<00182001_Donation>
+				;		attd	rel		text (same as sung coffin)
+				'(Nil	-1		100		"We will take care of these lost children and teach them the way of Domina. Trust your fate to Domina.")
+			</00182001_Donation>
+		</StaticData>
+
+		<Events>
+			<Eject>
+				; Ejects the capsule
+				(block (theObj)
+					(setq theObj (sysCreateStation &stEscapeCapsule; gSource))
+					(objSetVel theObj (sysVectorPolarVelocity (random 0 359) 20))
+					(objAddItem theObj (itmSetData gItem 'ejected True))
+					(objRemoveItem gSource gItem)
+					)
+			</Eject>
+
+			<OnObjDestroyed>
+				(switch
+					(itmGetData gItem 'ejected)
+						Nil
+
+					(find '('disintegration 'shatter 'enteredStargate) aDestroyReason)
+						Nil
+
+					(!= gSource aObjDestroyed)
+						Nil
+
+					; Lots of pods causes problems!
+					;(for i 1 (itmGetCount gItem)
+						(block (
+							(angle (random 0 359))
+							; Create pod short distance from source object. Needs to be outside wreck or the two
+							; will get stuck together. Explosion should be sufficient to give the pod initial velocity
+							(pos (sysVectorPolarOffset gSource angle 2))
+							theObj
+							)
+							; Ship version does not work as well as the station one
+							; (setq theObj (sysCreateShip &scEscapeCapsule; pos &svIndependentTrader;))
+							; (shpOrder theObj 'hold)
+
+							(setq theObj (sysCreateStation &stEscapeCapsule; pos))
+							(objSetVel theObj (sysVectorPolarVelocity angle 20))
+							; Pods only eject once
+							(objAddItem theObj (itmSetData gItem 'ejected True))
+							(if aWreckObj (objRemoveItem aWreckObj gItem))
+							)
+
+					)
+			</OnObjDestroyed>
+		</Events>
+	</ItemType>
+
+	<StationType UNID="&stEscapeCapsule;"
+			name=				"escape capsule"
+			sovereign=			"&svIndependent;"
+			dockScreen=			"Main"
+
+			scale=				"flotsam"
+			mobile=				"true"
+			mass=				"1"
+			stealth=			"20"
+			destroyWhenEmpty=	"true"
+			noMapIcon=			"true"
+			noMapLabel=			"true"
+
+			structuralHitPoints="20"
+			armorID=			"&itStealthPlate;"
+			ejectaType=			"&vtWreckEjecta;"
+
+			attributes=			"debris, friendly, shipwreck"
+			>
+
+		<ImageVariants>
+			<Image imageID="&rsLogBuoy;" imageX="0"   imageY="0"   imageWidth="40" imageHeight="40"/>
+			<Image imageID="&rsLogBuoy;" imageX="40"  imageY="0"   imageWidth="40" imageHeight="40"/>
+			<Image imageID="&rsLogBuoy;" imageX="80"  imageY="0"   imageWidth="40" imageHeight="40"/>
+			<Image imageID="&rsLogBuoy;" imageX="120" imageY="0"   imageWidth="40" imageHeight="40"/>
+		</ImageVariants>
+
+		<DockScreens>
+			<Main>
+				<OnScreenInit>
+					; If there is not exactly one item here then something has gone wrong
+					(if (or (!= 1 (count (objGetItems gSource "*")))
+							(!= 1 (itmGetCount (@ (objGetItems gSource "*") 0))))
+						(scrShowScreen gScreen &dsRPGLoot; { forceUndock: 'forceUndock })
+						)
+				</OnScreenInit>
+				<Panes>
+					<Default desc="You find an escape capsule floating in space.">
+						<OnPaneInit>
+							(if (= 0 (objGetFitCount gPlayerShip (@ (objGetItems gSource "*") 0)))
+								(scrSetDesc gScreen "does not fit")
+								)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionBring" default="1">
+								(block Nil
+									(objEnumItems gSource "*" thisItem
+										(block Nil
+											(objRemoveItem gSource thisItem)
+											(objAddItem gPlayerShip thisItem)
+											)
+										)
+									(scrExitScreen gScreen 'forceUndock)
+									)
+							</Action>
+
+							<Action id="actionUndock" cancel="1">
+								<Exit/>
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</Main>
+		</DockScreens>
+
+		<DockingPorts
+				portCount=		"2"
+				portRadius=		"24"
+				maxDist=		"3"
+				/>
+		<Language>
+			<Text id="actionBring">"[B]ring aboard"</Text>
+			<Text id="actionUndock">"[U]ndock"</Text>
+		</Language>
+	</StationType>
+
+
+	<ShipClass UNID="&scEscapeCapsule;"
+			manufacturer=		"Earth Industries"
+			class=				"Hornet"
+			type=				"escapepod"
+			defaultSovereign=	"&svIndependent;"
+
+			attributes=			"genericClass"
+
+			size=				"5"
+			mass=				"10"
+			thrustRatio=		"0.2"
+			maxSpeed=			"20"
+			cargoSpace=			"1"
+
+			dockScreen=			"Main"
+			>
+
+		<Armor
+			armorID=			"&itUltraLightTitaniumPlate;"
+			count=				"1"
+			/>
+
+		<Maneuver
+			maxRotationRate=	"4.5"
+			rotationAccel=		"1.5"
+			/>
+
+		<Image imageID="&rsSmallShips1;" imageX="128" imageY="0" imageWidth="32" imageHeight="32"/>
+
+		<AISettings
+			fireRateAdj=		"30"
+			fireAccuracy=		"70"
+			perception=			"4"
+			/>
+
+		<DockScreens>
+			<Main>
+				<OnScreenInit>
+					; If there is not exactly one item here then something has gone wrong
+					(if (or (!= 1 (count (objGetItems gSource "*U")))
+							(!= 1 (itmGetCount (@ (objGetItems gSource "*U") 0))))
+						(scrShowScreen gScreen &dsRPGLoot; { forceUndock: 'forceUndock })
+						)
+				</OnScreenInit>
+				<Panes>
+					<Default desc="You find an escape capsule floating in space.">
+						<OnPaneInit>
+							(if (= 0 (objGetFitCount gPlayerShip (@ (objGetItems gSource "*") 0)))
+								(scrSetDesc gScreen "does not fit")
+								)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionBring" default="1">
+								(block Nil
+									(objEnumItems gSource "*U" thisItem
+										(block Nil
+											(objRemoveItem gSource thisItem)
+											(objAddItem gPlayerShip thisItem)
+											)
+										)
+									(scrExitScreen gScreen 'forceUndock)
+									)
+							</Action>
+
+							<Action id="actionUndock" cancel="1">
+								<Exit/>
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</Main>
+		</DockScreens>
+
+		<DockingPorts
+				portCount=		"2"
+				portRadius=		"24"
+				maxDist=		"3"
+				/>
+
+		<Language>
+			<Text id="actionBring">"[B]ring aboard"</Text>
+			<Text id="actionUndock">"[U]ndock"</Text>
+		</Language>
+
+	</ShipClass>
+
+	<!-- EM thumper
+
+	Mining thumper from Mission Framework with minor updates for compatibility with new mining system.
+	-->
+	<ItemType UNID="&itMiningThumper;"
+			name=				"EM Thumper"
+			attributes=			"commonwealth, consumable, miningEquipment, GC"
+
+			level=				"3"
+			frequency=			"common"
+			numberAppearing=	"4d6"
+
+			value=				"100"
+			mass=				"500"
+
+			description=		"The EM Thumper was one of the first mining pods developed. Although Galactic Construction failed to negotiate a contract with the IMU, some pilots still prefer the thumper due to the secondary uses of its thermonuclear charge."
+			>
+
+		<Image imageID="&rsItemsNAMI4;" imageX="96" imageY="0" imageWidth="96" imageHeight="96"/>
+
+		<Invoke>
+			(block (thumperObj)
+				(setq thumperObj (sysCreateShip &scMiningThumper; (objGetPos gSource) &svFriendlyAuton;))
+				(objSetVel thumperObj (objGetVel gSource))
+				(objSetData thumperObj 'ownerID (objGetID gSource))
+				(shpOrder thumperObj 'wait)
+
+				; Identify and consume the thumper
+				(itmSetKnown gItem)
+				(objRemoveItem gSource gItem 1)
+			)
+		</Invoke>
+	</ItemType>
+
+
+	<ShipClass UNID="&scMiningThumper;"
+			manufacturer=		""
+			class=				"EM Thumper"
+			type=				""
+
+			mass=				"10"
+			cargoSpace=			"0"
+			thrust=				"2"
+			maneuver=			"2"
+			maxSpeed=			"10"
+			leavesWreck=		"0"
+
+			attributes=			"auton"
+			>
+
+		<Armor>
+			<ArmorSection start="0" span="360" armorID="&itUltraLightTitaniumPlate;" areaSet="0,2,3,7" />
+		</Armor>
+
+		<Image imageID="&rsSmallShips1;" imageX="128" imageY="0" imageWidth="32" imageHeight="32" imageFrameCount="0" imageTicksPerFrame="0"/>
+
+		<Communications>
+			<Message name="Detonate" key="A">
+				<OnShow>
+					(= (objGetID gSender) (objGetData gSource 'ownerID))
+				</OnShow>
+
+				<Invoke>
+					(sysCreateWeaponFire
+						&vtThumperExplosion;
+						gSender
+						(objGetPos gSource)
+						0
+						0
+						Nil
+						(list 'detonateNow 'fireEffect 'soundEffect)
+						)
+				</Invoke>
+			</Message>
+		</Communications>
+	</ShipClass>
+
+
+	<!-- EM thumper explosions. Based on the XM900 with an extra long-range & weak ion effect shockwave -->
+	<ItemType UNID="&vtThumperExplosion;"
+			name=		"EM Thumper Detonation"
+			virtual=	"true"
+			level=		"3">
+		<Weapon
+				type=			"radius"
+
+				damage=			"thermo:7d24; momentum:6; WMD:7; mining:5;"
+				minRadius=		"1"
+				maxRadius=		"4"
+				missileSpeed=	"0"
+
+				effect=			"&efThermoFragmentExplosion;"
+				hitEffect=		"&efThermoFragmentHit;"
+				>
+
+			<Fragment
+					count=			"1"
+					type=			"area"
+					damage=			"ion:2; EMP:2"
+
+					expansionSpeed=	"30"
+					missileSpeed=	"0"
+					lifetime=		"50"
+					passthrough=	"100"
+					canHitSource=	"true"
+					>
+				<Effect>
+					<Shockwave
+							style=	"image"
+							fadeStart="70"
+							>
+						<Image imageID=	"&rsShockwave1;"
+								imageX=				"0"
+								imageY=				"128"
+								imageWidth=			"512"
+								imageHeight=		"128"
+								imageFrameCount=	"1"
+								imageTicksPerFrame=	"1"/>
+					</Shockwave>
+				</Effect>
+			</Fragment>
+		</Weapon>
+
+		<Events>
+			<OnDamageAbandoned>
+				(switch
+					; If not an asteroid, then nothing to do
+					(not (objHasAttribute gSource "asteroid"))
+						Nil
+
+					; If there is no ore here, nothing to do
+					(not (objGetItems gSource "t +ore;"))
+						Nil
+
+					; If we already have this overlay, then nothing to do
+					(filter (objGetOverlays gSource) theOverlay
+							(= (objGetOverlayType gSource theOverlay) &ovThumperOre;)
+							)
+						Nil
+
+					; Otherwise, create an overlay
+					(block (depositID)
+						(objAddOverlay gSource &ovThumperOre;)
+						(if (setq depositID (objGetData gSource 'oreDeposit))
+							(miningNotifyOnOreDepositFound (objGetObjByID depositID) aOrderGiver)
+							)
+						; Return Nil to indicate that default damage applies
+						Nil
+						)
+					)
+			</OnDamageAbandoned>
+		</Events>
+	</ItemType>
+
+	<!-- Simple sparkle effect for ore bearing asteroids hit by the EM thumper -->
+	<OverlayType UNID="&ovThumperOre;">
+		<Effect>
+			<LightningStorm
+					style=			"objectArcs"
+					intensity=		"50"
+					primaryColor=	"#80ffff"
+					secondaryColor=	"#00ffff"
+					/>
+		</Effect>
+	</OverlayType>
+
+</TranscendenceModule>

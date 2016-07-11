@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Changes to RPGAnalyzers
+
+    Added Continue action to dockscreen
+-->
+
+<TranscendenceModule>
+
+<!-- ANALYZE SCREEN ============================================================
+
+	GLOBAL DATA
+
+	skillLevel:			Total number of successful uses
+
+	ITEM OBJECT
+
+	We fire OnAnalyzeItem to allow the item to handle analysis. The item should
+	return a struct with the following fields:
+
+		desc: A description of the result of the analysis.
+		modifiedItem: The modified item.
+
+-->
+
+	<DockScreen UNID="&dsRPGAnalyzeItem;"
+			type=				"itemPicker"
+			>
+
+		<ListOptions
+			dataFrom=	"player"
+			list=		"*"
+			>
+			(scrSetListFilter gScreen (lambda (theItem)
+				(or
+					(not (itmIsKnown theItem))
+					(objFireItemEvent gSource theItem 'GetIsAnalysisRequired)
+					)
+				))
+		</ListOptions>
+
+		<Panes>
+			<Default>
+				<OnPaneInit>
+					(block (desc skillLevel chargesLeft itemToAnalyze canAnalyze result)
+
+						;	Init skill level
+
+						(setq skillLevel (typGetData &dsRPGAnalyzeItem; 'skillLevel))
+						(if (not skillLevel)
+							(block Nil
+								(typSetData &dsRPGAnalyzeItem; 'skillLevel 0)
+								(setq skillLevel 0)
+								)
+							)
+
+						;	Report the number of charges remaining
+
+						(setq chargesLeft (itmGetProperty gItem 'charges))
+						(setq desc (cat
+							"Charges Left: " chargesLeft "\n\n"
+							))
+
+						;	Item to analyze
+
+						(setq itemToAnalyze (scrGetItem gScreen))
+
+						;	Continue with description
+
+						(setq canAnalyze Nil)
+						(switch
+							;	If no more charges then we cannot analyze anything
+
+							(eq chargesLeft 0)
+								(setq desc (cat desc "Unfortunately, " (itmGetName gItem 0x40) " is out of charge and cannot function."))
+
+							;	Nothing to analyze
+
+							(not itemToAnalyze)
+								(setq desc (cat desc "There are no items here requiring analysis."))
+
+							;	Check to see if this analyzer can handle this item
+
+							(and (setq result (objFireItemEvent gSource gItem 'CanAnalyzeItem { itemToAnalyze: itemToAnalyze }))
+									(not (@ result 'canAnalyzeItem))
+									)
+								(setq desc (cat desc (@ result 'message)))
+
+							;	OK
+
+							(block Nil
+								(setq desc (cat desc
+									"You can analyze " (itmGetName itemToAnalyze 0x804)
+									))
+
+								(switch
+									(ls skillLevel 2)
+										(setq desc (cat desc
+											", though you do not have much experience analyzing items."
+											))
+
+									(ls skillLevel 5)
+										(setq desc (cat desc
+											"; you have some experience analyzing items."
+											))
+
+									(ls skillLevel 10)
+										(setq desc (cat desc
+											"; you are proficient at analyzing items."
+											))
+
+									(setq desc (cat desc
+										"; you are an expert at analyzing items."
+										))
+									)
+
+								(setq canAnalyze True)
+								)
+							)
+
+						;	Initialize
+
+						(scrSetDesc gScreen desc)
+						(scrEnableAction gScreen 0 canAnalyze)
+						)
+				</OnPaneInit>
+
+				<Actions>
+					<Action name="Analyze Item" key="A" default="1">
+						(block (result)
+
+							;	Analyze the item
+							(setq result (rpgAnalyzeItem gSource (scrGetItem gScreen)))
+
+							;	Consume a charge on the analyzer
+							(setq gItem (objSetItemProperty gSource gItem 'incCharges -1))
+
+							;	Set the title (for the next pane)
+							(setq gTitle (cat
+								"Charges Left: " (itmGetProperty gItem 'charges) "\n\n"
+								(@ result 'desc)
+								))
+
+							;(dbgOutput "Analyze:")
+
+							;	Set the filter so we only select the modified item
+							(scrSetListFilter gScreen (lambda (theItem)
+								(block Nil
+									;(dbgOutput "item1: " (itmGetName theItem 0))
+									;(dbgOutput "item2: " (itmGetName (@ result 'modifiedItem) 0))
+									(itmIsEqual theItem (@ result 'modifiedItem))
+									)
+								))
+
+							;	Done
+
+							(scrShowPane gScreen "Done")
+							)
+					</Action>
+
+					<Action name="Cancel" cancel="1" key="C">
+						<Exit/>
+					</Action>
+
+				</Actions>
+			</Default>
+
+			<Done
+					desc="=gTitle"
+					noListNavigation="true"
+					>
+
+				<Actions>
+					<Action name="Continue" default="1" key="C">
+						(block Nil
+							;	Reset filter to show all items again
+							(scrSetListFilter gScreen (lambda (theItem)
+								(or
+									(not (itmIsKnown theItem))
+									(objFireItemEvent gSource theItem 'GetIsAnalysisRequired)
+									)
+								))
+							(scrShowPane gScreen "Default")
+							)
+					</Action>
+					<Action name="Done" cancel="1" key="D">
+						<Exit/>
+					</Action>
+				</Actions>
+			</Done>
+		</Panes>
+	</DockScreen>
+
+</TranscendenceModule>

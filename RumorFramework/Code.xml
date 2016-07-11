@@ -1,0 +1,180 @@
+<?xml version="1.0" ?>
+<!--
+	Changes to core code:
+	* rpgMissionAssignment
+		* Add maxActive option to limit the number of missions of similar type
+		active at one (as seen with slums / Corporate privateer missions)
+		* Add delay between missions (similar to CorpPriv and commonwealth slums)
+
+	To Do:
+		* rpgMissionAssignment: maxPerType option as used by stCommonwealthSlums
+		* more rumor sources (other stations in system, types with +Rumor attrib?)
+-->
+
+<TranscendenceModule>
+	<Globals>
+		(block Nil
+
+			(setq rpgMissionAssignment (lambda (options)
+				;	Options may contain the following fields
+				;
+				;		maxActive: Maximum number of missions (meeting missionCriteria) which can
+				;				be active at the same time
+				;
+				;		maxPerStation: Maximum number of missions that we give out at
+				;				this station.
+				;
+				;		intervalPerType: Time between missions given by same station type
+				;
+				;		intervalPerStation: Time between mission given at this station
+				;
+				;		missionCriteria: Criteria used to create new missions. [Required]
+				;
+				;		noMissionTextID: Language ID to display if there is no mission
+				;				available at this station. [Required]
+
+				(block (
+					(noMissionTextID (@ options 'noMissionTextID))
+					theMission newMissions noMissionFunc nextMissionTime
+					)
+
+					; Show proper screen
+					(switch
+						; If we have an active mission from this station then we show it.
+						(setq theMission (@ (msnFind gSource "aS") 0))
+							(scrShowScreen gScreen &dsRPGMission; {	missionObj: theMission })
+
+						; If we have an open mission available then display it.
+						(setq theMission (@ (msnFind gSource "oS") 0))
+							(scrShowScreen gScreen &dsRPGMission; {	missionObj: theMission })
+
+						; If the player has to many active missions from other stations, then no new mission
+						(and (@ options 'maxActive)
+								(geq (count (msnFind Nil (cat "a" (@ options 'missionCriteria))))
+									(@ options 'maxActive))
+								)
+							(scrShowScreen gScreen &dsRPGMessage; { desc:(scrTranslate gScreen noMissionTextID) })
+
+						; Don't give out more than X mission per station
+						(and (@ options 'maxPerStation)
+								(geq (objGetProperty gSource 'playerMissionsGiven) (@ options 'maxPerStation))
+								)
+							(scrShowScreen gScreen &dsRPGMessage; { desc:(scrTranslate gScreen noMissionTextID) })
+
+						; If it's not time for a new mission, then nothing
+						(and (setq nextMissionTime (objGetData gSource 'nextMissionTime))
+								(gr nextMissionTime (unvGetTick)))
+							(scrShowScreen gScreen &dsRPGMessage; { desc:(scrTranslate gScreen noMissionTextID) })
+
+						; If it's not time for a new mission, then nothing
+						(and (setq nextMissionTime (objGetTypeData gSource 'nextMissionTime))
+								(gr nextMissionTime (unvGetTick)))
+							(scrShowScreen gScreen &dsRPGMessage; { desc:(scrTranslate gScreen noMissionTextID) })
+
+						; Make a list of available missions. We filter out any missions
+						; that are outside our system level. If we can't find anything, then we've got nothing.
+						(not (setq newMissions (typFind (@ options 'missionCriteria))))
+							(scrShowScreen gScreen &dsRPGMessage; { desc:(scrTranslate gScreen noMissionTextID) })
+
+						; Create a random mission from the list. If we succeed, then show the mission screen
+						(setq theMission (msnCreate newMissions gSource))
+							(block Nil
+								; And set next mission times if required
+								(if (@ options 'intervalPerStation)
+									(objSetData gSource 'nextMissionTime (+ (unvGetTick) (@ options 'intervalPerStation)))
+									)
+								(if (@ options 'intervalPerType)
+									(objSetTypeData gSource 'nextMissionTime (+ (unvGetTick) (@ options 'intervalPerType)))
+									)
+								(scrShowScreen gScreen &dsRPGMission; { missionObj: theMission })
+								)
+
+						; Otherwise, nothing
+						(scrShowScreen gScreen &dsRPGMessage; { desc:(scrTranslate gScreen noMissionTextID) })
+						)
+					)
+				))
+
+			; Simple wrapper to convert a list of text strings to a list of rumors
+			(setq msfSimpleRumors (lambda (rumorList priority)
+				(map rumorList rumor
+					(if (= (typeof rumor) 'string)
+						{desc:rumor priority:(max priority 1)}
+						(set@ rumor 'priority (max (@ rumor 'priority) priority 1))
+						)
+					)
+				))
+
+			; msfGenerateRumor
+			;
+			; Generate some rumor text to display to the player. This function can be
+			; used inside a Language Text element (e.g. descNoMissions)
+			(setq msfGenerateRumor (lambda (options)
+				;	Options may contain the following fields
+				;
+				;		introText: Text to prepend to rumor.
+				;
+				;		noRumorText: Text to display if there are no rumors.
+				(block (
+					(introText (@ options 'introText))
+					(noRumorText (@ options 'noRumorText))
+					(eventData {
+						rumorCriteria: (@ options 'rumorCriteria)
+						stationObj:gSource
+						})
+					(rumorList (append
+						; Global rumors
+						(apply append
+							(map (typFind "*") 'excludeNil theType
+								(typFireEvent theType 'GetGlobalRumors eventData)
+								)
+							)
+						; Rumors from stations
+						(apply append
+							(map (sysFindObject Nil "AT") 'excludeNil theObj
+								(objFireEvent theObj 'GetRumors eventData)
+								)
+							)
+						; Rumors from missions
+						(apply append
+							(map (msnFind "*") 'excludeNil msnObj
+								(msnFireEvent msnObj 'GetRumors eventData)
+								)
+							)
+						))
+					; Chance of rumor being selected is proportional to its priority
+					; If all priorities are equal this is equivalent to (random rumorList)
+					(i (random 1 (+ (map rumorList rumor (@ rumor 'priority)))))
+					(theRumor (match rumorList rumor (ls (setq i (- i (@ rumor 'priority))) 1)))
+					)
+					; We should only be called if a rumor will actually be displayed on screen.
+					; Therefore it should be safe to execute code here (cf. dsRPGDialog)
+					(if (@ theRumor 'code) ((@ theRumor 'code)))
+					(if theRumor
+						(cat introText (@ theRumor 'desc))
+						noRumorText
+						)
+					)
+				))
+
+			(setq msfShowRumor (lambda (options)
+				;	Options may contain the following fields
+				;
+				;		introTextID: Language ID to prepend to basic text-only rumors. [Required]
+				;
+				;		noRumorTextID: Language ID to display if there are no rumors. [Required]
+				(block (
+					(rumorText (msfGenerateRumor {
+							rumorCriteria: (@ options 'rumorCriteria)
+							introText: (scrTranslate gScreen (@ options 'introTextID))
+							noRumorText: (scrTranslate gScreen (@ options 'noRumorTextID))
+							}
+						))
+					)
+					(scrShowScreen gScreen &dsRPGMessage; { desc:rumorText } )
+					)
+				))
+			)
+	</Globals>
+
+</TranscendenceModule>

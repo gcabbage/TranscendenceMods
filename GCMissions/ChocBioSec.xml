@@ -1,0 +1,564 @@
+<?xml version="1.0" ?>
+
+<TranscendenceModule>
+	<!-- CHOC BioSec cruiser
+
+	GLOBAL DATA
+
+	-->
+
+	<Type UNID="&unidCorpBioSec;">
+		<StaticData>
+			<MissionAttribute>"corpBioSec"</MissionAttribute>
+			<Name>"Choc Ship"</Name>
+			<Sovereign>&svCorporate;</Sovereign>
+		</StaticData>
+
+		<Events>
+			<OnCharacterCanBeMet>
+				(switch
+					; Must be a Corporate Privateer
+					(or (not (corpPriv_getRank))
+							(eq (corpPriv_getRank) -1))
+						True
+						;(objTranslate gSource 'NotACorporatePrivateer)
+
+					True
+					)
+			</OnCharacterCanBeMet>
+
+			<OnGlobalSystemStopped>
+				; Don't ascend if any missions are open or active
+				(block (shipObj)
+					(setq shipObj (objGetObjByID (typGetData &unidCorpBioSec; 'objID)))
+					(if shipObj
+						(if (not (msnFind shipObj "aoS"))
+							(rpgCharacterAscend &unidCorpBioSec;)
+							)
+						)
+					)
+			</OnGlobalSystemStopped>
+		</Events>
+
+		<Language>
+		</Language>
+	</Type>
+
+	<!--	Medical ship
+		Based on Corporate cruiser, but with lower level equipment -->
+
+	<ShipClass UNID="&scCorpBioSec;"
+			manufacturer=		"Rasiermesser"
+			class=			"Corporate cruiser"
+			type=			""
+			defaultSovereign=	"&svCorporate;"
+
+			attributes=			"corpBioSec, capitalShip, corporate, majorShip"
+			character=			"&unidCorpBioSec;"
+
+			size=				"275"
+			mass=			"25000"
+			thrustRatio=		"2"
+			maxSpeed=			"20"
+			cargoSpace=		"1000"
+
+			cyberDefenseLevel=	"8"
+
+			leavesWreck=		"100"
+			explosionType=		"&vtThermoExplosion2;"
+
+			dockingPorts=		"4"
+			dockScreen=		"Main"
+			>
+		<Names noArticle="true">Nightingale; Seacole; Dasha; Saunders; Cadwaladr</Names>
+
+		<!-- Configuration -->
+
+		<Armor
+			armorID=			"&itV300PoweredArmor;"
+			count=				"16"
+			/>
+
+		<Devices>
+			<Device deviceID="&itAkan30Cannon;" secondaryWeapon="true" minFireArc="340" maxFireArc="200"	posAngle="110" posRadius="60" posZ="0"/>
+			<Device deviceID="&itAkan30Cannon;" secondaryWeapon="true" minFireArc="160" maxFireArc="20"		posAngle="250" posRadius="60" posZ="0"/>
+			<Device deviceID="&itNephrenB700;"/>
+		</Devices>
+
+		<Maneuver
+			maxRotationRate=	"3.0"
+			rotationAccel=		"0.5"
+			/>
+
+		<Interior>
+			<Compartment name="interior"
+					hitPoints=	"300"
+					/>
+
+			<Compartment name="main drive"
+					type=		"mainDrive"
+					hitPoints=	"100"
+
+					posX=		"-25"
+					posY=		"0"
+					sizeX=		"50"
+					sizeY=		"40"
+					/>
+		</Interior>
+
+		<Items>
+			<Item count="1000-1200" item="&itAkan30CannonShell;"/>
+			<Item count="2d12" item="&itPteracniumFuelRod;"/>
+		</Items>
+
+		<!-- Image and Effects -->
+		<Image imageID="&rsCorporateCruiser;" imageWidth="230" imageHeight="230"/>
+
+		<Effects>
+			<Effect type="thrustMain"		posAngle="180"	posRadius="0"	posZ="-10"	rotation="180"	sendToBack="*"/>
+		</Effects>
+
+		<!-- AI and Behavior -->
+		<AISettings
+			fireRateAdj=		"20"
+			fireAccuracy=		"95"
+			perception=		"4"
+			/>
+
+		<!-- Dock Screens -->
+
+		<DockScreens>
+			<Main>
+				<InitialPane>
+					(block (
+						(firstVisit (not (typGetData (objGetProperty gSource 'character) 'firstPlayerMeetingTime)))
+						)
+						; Remember that we've met
+						(rpgCharacterSetMeeting (objGetProperty gSource 'character))
+
+						(switch
+							firstVisit
+								"Welcome"
+
+							"Default"
+							)
+						)
+				</InitialPane>
+
+				<Panes>
+					<Welcome>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'descWelcome)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionContinue" default="1" cancel="1">
+								(scrShowPane gScreen "Default")
+							</Action>
+						</Actions>
+					</Welcome>
+
+					<Default>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'descDefault)
+						</OnPaneInit>
+						<Actions>
+							<Action id="actionOps" default="1">
+								(rpgMissionAssignment {
+									missionCriteria: (cat "n +corpBioSec; =" (sysGetLevel) ";")
+									noMissionTextID: 'descNoMissions
+									})
+							</Action>
+							<Action id="actionMess">
+								(msfShowRumor {
+									introTextID: 'descRumorIntro
+									noRumorTextID: 'descNoRumors
+									})
+							</Action>
+							<Action id="actionUndock" cancel="1">
+								<Exit/>
+							</Action>
+						</Actions>
+					</Default>
+				</Panes>
+			</Main>
+		</DockScreens>
+
+
+		<!-- Language -->
+		<Language>
+			<Text id="actionOps">"[B]riefing Room"</Text>
+			<Text id="actionMess">"[M]ess Room"</Text>
+			<Text id="actionContinue">"[C]ontinue"</Text>
+			<Text id="actionUndock">"[U]ndock"</Text>
+			<Text id="actionLeave">"[L]eave"</Text>
+
+			<Text id="descWelcome">
+				(cat
+					"A trooper wearing the Corporate Hierarchy Operations Command insignia meets you at the airlock:\n\n"
+					"\"Welcome aboard the medical cruiser " (objGetName gSource) ", %sir%. You can check in with Operations "
+					"Command in the briefing room. You're also welcome in the mess room.\""
+					)
+			</Text>
+			<Text id="descDefault">
+				(cat
+					"You are docked at the medical cruiser " (objGetName gSource) ".\n\n"
+
+					"Along with the mix of ship's crew and medical professionals you can also see a "
+					"few Corporate Operations officers making their way through the corridors."
+					)
+			</Text>
+			<Text id="descRumorIntro">"The mess room is packed with crew, CHOC operatives and medical professionals.\n\n"</Text>
+			<Text id="descNoRumors">"The mess room is packed with crew, CHOC operatives and medical professionals."</Text>
+			<Text id="descNoMissions">
+				(cat
+					"The briefing room is dominated by a large, central display table while various terminals "
+					"line the walls. The main display is dark and a couple of CHOC agents sit at a terminal "
+					"quietly complaining about the quality of the food served in the mess last night.\n\n"
+					"\"Sorry, there are no missions currently available.\""
+					)
+			</Text>
+			<Text id="NotACorporatePrivateer">
+				(cat
+					"A trooper wearing the Corporate Hierarchy Operations Command insignia meets you at the airlock:\n\n"
+					"\"I'm sorry, %sir%, I can't let you board. Authorized CHOC personnel only.\""
+					)
+			</Text>
+			<Text id="Intro">
+				(cat
+					"The briefing room is dominated by a large, central display table while various terminals "
+					"line the walls. Analysts work at the terminals and several people are gathered around the "
+					"central display table. As you approach the senior agent turns towards you:\n\n"
+					"\"Welcome %name%, we have a job for you.\""
+					)
+			</Text>
+		</Language>
+	</ShipClass>
+
+	<DockScreen UNID="&dsCorpBioSec;" inherit="&dsDockScreenBase;">
+		<Panes>
+			<Default>
+				<OnPaneInit>
+				</OnPaneInit>
+				<Actions>
+					<Action id="actionUndock" cancel="1">
+						<Exit/>
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+	</DockScreen>
+
+
+	<!-- Mission: Medical Aid =================================================
+
+	Entry point for the Corporate BioSec mission chain.
+
+	Will select a Corporate majorStation for quarantine. And transfer the player to the cruiser
+
+	EXTRA DATA
+
+	stationID:			ID of quarantine station
+	stationName:		Name of quarantine station
+	shipID:			ID of BioSec cruiser
+	shipName:			Name of BioSec cruiser
+
+	======================================================================== -->
+
+	<MissionType UNID="&msCorpMedicalAid;"
+			name=			"Deliver Medical Aid"
+			attributes=			"corporate, corporatePrivateer, rank1, rank2, rank3"
+
+			level=			"1-5"
+			maxAppearing=		"1"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (stationList stationObj shipObj)
+					(setq stationList
+						(sysFindObject
+							aOwnerObj
+							"TAF +corporate; +populated; +majorStation; -occupation; -uncharted;"
+							)
+						)
+
+					; Set up the mission
+					(switch
+						; This mission works at system levels 1-5
+						(gr (sysGetLevel) 5)
+							(msnDestroy gSource)
+
+						; If there is no friendly station, then no mission
+						(not (setq stationObj (random stationList)))
+							(msnDestroy gSource)
+
+						; Otherwise, continue
+						(block Nil
+							; Station is quarantined
+							(objSetProperty stationObj 'playerBlacklisted True)
+							(objSetProperty stationObj 'shipReinforcementEnabled Nil)
+							; Dismiss all docked ships
+							(enum
+								(append
+									(sysFindObject stationObj "sZ O:dock;")
+									(sysFindObject stationObj "sZ O:docked;")
+									(sysFindObject stationObj "sZ O:guard;")
+									)
+								theShip
+								(block Nil
+									(shpCancelOrders theShip)
+									(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+									)
+								)
+							(msnSetData gSource 'state 'Quarantine)
+							(msnSetData gSource 'stationID (objGetID stationObj))
+							(msnSetData gSource 'stationName (objGetName stationObj 0x04))
+							(msnSetData gSource 'expiresOn (+ (unvGetTick) 18000)) ; 10 minutes
+							(msnAddRecurringTimerEvent gSource 300 'OnUpdate)
+
+							; Create the medical ship
+							(setq shipObj
+								(rpgCharacterCreateShip
+									&unidCorpBioSec;
+									&scCorpBioSec;
+									(sysVectorRandom stationObj 20 10)
+									)
+								)
+							(typSetData
+								&unidCorpBioSec;
+								'introData
+								{	translateType: &msCorpMedicalAid;	translateID: "Intro:FirstMission"	}
+								)
+
+							(shpCancelOrders shipObj)
+							(shpOrder shipObj 'hold)
+							(msnSetData gSource 'shipID (objGetID shipObj))
+							(msnSetData gSource 'shipName (objGetName shipObj 0x04))
+
+							(msnRegisterForEvents gSource shipObj)
+							(msnRegisterForEvents gSource gPlayerShip)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnUpdate>
+				(if (ls (msnGetData gSource 'expiresOn) (unvGetTick))
+					; If we're out of time, then destroy the station and fail
+					(block Nil
+						(objSetProperty (objGetObjByID (msnGetData gSource 'stationID)) 'hp 0)
+						(msnFailure gSource)
+						)
+					; Otherwise check for any ships trying to dock and redirect them
+					(block (
+						(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
+						)
+						(enum
+							(append
+								(sysFindObject stationObj "sZ O:dock;")
+								(sysFindObject stationObj "sZ O:docked;")
+								(sysFindObject stationObj "sZ O:guard;")
+								)
+							theShip
+							(block Nil
+								(shpCancelOrders theShip)
+								(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+								)
+							)
+						)
+					)
+			</OnUpdate>
+
+			<OnGlobalSystemStarted>
+				(if	(and
+						(@ (msnFind "a +unid:&msCorpMedicalAid;;") 0)
+						(eq (sysGetNode) (typGetData &unidCorpBioSec; 'lastNodeID))
+						)
+					(block (shipObj)
+						; Create the medical ship
+						(setq shipObj
+							(rpgCharacterCreateShip
+								&unidCorpBioSec;
+								&scCorpBioSec;
+								Nil
+								)
+							)
+
+							(shpCancelOrders shipObj)
+							(shpOrder shipObj 'hold)
+							(msnRegisterForEvents gSource shipObj)
+						)
+					)
+			</OnGlobalSystemStarted>
+
+			<OnObjDestroyed>
+				(switch
+					(= aDestroyReason 'enteredStargate)
+						Nil
+
+					; Fail if medical cruiser is destroyed
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'shipID))
+						(msnFailure gSource)
+
+					Nil
+					)
+			</OnObjDestroyed>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'shipID)) 'dock)
+			</OnSetPlayerTarget>
+
+			<OnCompleted>
+				(block Nil
+					(switch
+						(= aReason 'success)
+							(msnFireEvent gSource 'OnLiftQuarantine)
+						)
+					(corpPriv_missionCompleted gSource aReason gData)
+					)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+
+			<OnLiftQuarantine>
+				(block (
+					(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
+					)
+					(msnCancelTimerEvent gSource 'OnUpdate)
+					(objSetProperty stationObj 'playerBlacklisted Nil)
+					(objSetProperty stationObj 'shipReinforcementEnabled True)
+					)
+			</OnLiftQuarantine>
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				(cat "Assist " (msnGetData gSource 'shipName))
+			</Text>
+			<Text id="Summary">
+				(corpPriv_calcSummary gSource
+					(cat
+						"You have been transferred to the medical ship " (msnGetData gSource 'shipName)
+						" to help with an urgent medical situation at " (msnGetData gSource 'stationName) "."
+						)
+					)
+			</Text>
+			<Text id="Intro">
+				(corpPriv_calcIntro)
+			</Text>
+			<Text id="Briefing">
+				(cat
+					"\"" (strCapitalize (msnGetData gSource 'stationName)) " has declared a medical emergency. "
+					"We need you to transfer to the " (msnGetData gSource 'shipName)
+					" immediately and provide whatever support the medical team requests.\""
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Great! We'll program the destination into your ship's computer. Good luck!\""
+			</Text>
+			<Text id="DeclineReply">
+				"\"Ah, Hell! What are you doing here then? Stop wasting my time!\""
+			</Text>
+			<Text id="InProgress">
+				(cat
+					"\"What are you still doing here? You're needed on the "
+					(msnGetData gSource 'shipName) "! Get back out there and finish the job!\""
+					)
+			</Text>
+			<Text id="SuccessDebrief">
+				(cat
+					"\"Welcome back %name%. I hear you did some good work over on the "
+					(msnGetData gSource 'shipName) ".\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				(cat
+					"\"What happened our there? The loss of the " (msnGetData gSource 'stationName)
+					"is a disaster for us. Someone on the " (msnGetData gSource 'shipName)
+					" is going to take a lot of the blame for this, but your record is not looking good either.\""
+					)
+			</Text>
+
+			<Text id="Intro:FirstMission">
+				(list
+					{
+						desc: (cat
+							"The briefing room is filled with noise as medical technicians, data analysts and freelancers "
+							"discuss the situation. Suddenly the room goes quiet as the senior agent enters the room.\n\n"
+							"\"Alright everyone listen up. Approximately 24 hours ago " (msnGetData (@ gData 'missionObj) 'stationName)
+							" started reporting cases of an unknown contagion. Several hundred people are now in critical "
+							" condition and the entire station population is likely to have been exposed.\"\n\n"
+							)
+						}
+					{
+						desc: (cat
+							"\"Fortunately the " (objGetName (@ gData 'ownerObj) 0x04)
+							" was in the area and we have been assigned to deal with the incident. The station is now on "
+							" lockdown and our medical teams are en-route to assess the situation. For now we are "
+							"operating under emergency quarantine protocols for an unidentified biological contaminant.\"\n\n"
+							"\"Right, everyone read your assignments and get to work!\""
+							)
+						}
+					{
+						desc: (cat
+							"As the briefing ends a manager approaches you: \"Hello %name%, welcome to the BioSec "
+							"division of Corporate Hierarchy Operations Command. I have your assignment.\""
+							)
+						nextCode: (typSetData &unidCorpBioSec; 'introData Nil)
+						}
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+	<Globals>
+		(block Nil
+			(setq corpBioSec_calcIntro (lambda ()
+				(block (
+					(rank (corpPriv_getRank))
+					(ownerObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					(charType (objGetProperty ownerObj 'character))
+					(introData (typGetData charType 'introData))
+					)
+					(switch
+						; If we have a translateType and translateID, then translate
+						(@ introData 'translateID)
+							(typTranslate
+								(@ introData 'translateType)
+								(@ introData 'translateID)
+								{	missionObj: gSource
+									ownerObj: ownerObj
+									}
+								)
+
+						; If we some other data, then return that
+						introData
+							introData
+
+						; Otherwise, use default from spaceobject
+						(objTranslate ownerObj 'Intro)
+						)
+					)
+				))
+
+			(setq corpBioSec_missionCompleted (lambda (missionObj reason data)
+				(block (
+					(parentObj (msnGetData missionObj 'parentID))
+					)
+					(if parentObj
+						(msnFireEvent parentObj 'OnSubmissionCompleted {
+							missionObj:missionObj
+							reason:reason
+							extra:data
+							})
+						)
+					(msnSetData missionObj 'outcome data)
+					(corpPriv_missionCompleted missionObj reason data)
+					)
+				))
+			)
+	</Globals>
+</TranscendenceModule>
