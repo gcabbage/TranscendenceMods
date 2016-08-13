@@ -1,0 +1,191 @@
+<?xml version="1.0" ?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDEFF00">
+	<!ENTITY dsHacking						"0xDDDEFF01">
+
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"GC Testing"
+		release=	"1"
+		version=	"0.0"
+		apiVersion=	"30"
+		>
+
+	<DockScreen UNID="&dsHacking;"
+			name=				"Passhack Analysis Tool"
+			nestedScreen=		"true"
+			inherit=			"&dsDockScreenBase;"
+			backgroundID=		"none"
+			>
+
+		<OnScreenInit>
+			(block (
+				(code (@ gData 'code))
+				(codeLen (@ gData 'length))
+				(codeDict (@ gData 'dict))
+				(maxGuess (@ gData 'maxGuess))
+				guess guessList
+				)
+				(if (not codeDict) (setq codeDict 6))
+				(if (not codeLen) (setq codeLen 4))
+				(if (not maxGuess) (setq maxGuess 10))
+				(if (isint codeDict) (setq codeDict (subset
+					(list 1 2 3 4 5 6 7 8 9 0 'a 'b 'c 'd 'e 'f 'g 'h 'i 'j)
+					0
+					codeDict
+					)))
+				(if code
+					(setq codeLen (count (str2list code)))
+					(for i 1 codeLen (lnkAppend code (random codeDict)))
+					)
+				(scrSetData gScreen 'code (join code))
+				(scrSetData gScreen 'codeDict codeDict)
+				(scrSetData gScreen 'codeLen codeLen)
+				(scrSetData gScreen 'maxGuess maxGuess)
+				(setq guess (list "&mdash;" "&mdash;" "&mdash;" "&mdash;"))
+				(for i 1 maxGuess (lnkAppend guessList guess))
+				(scrSetData gScreen 'userGuesses guessList)
+				(scrSetData gScreen 'userResults (list "&gt;"))
+				(scrSetData gScreen 'guessNum 0)
+				)
+		</OnScreenInit>
+
+		<Display>
+			<Image left="0" top="0" width="96" height="96" transparent="true">
+				(resCreateImageDesc &rsItems1; 192 96 96 96)
+			</Image>
+			<Text left="104" right="-94" top="24" bottom="82" font="SubTitle" align="left">
+				"Passcode analysis"
+			</Text>
+			<Text left="104" right="-94" top="56" bottom="82" font="Large" align="left">
+				(join (scrGetData gScreen 'codeDict) " ")
+			</Text>
+
+			<Text id="col0" left="100" right="120" top="96" bottom="-12" align="center" font="Large" color="#daebff"/>
+			<Text id="col1" left="120" right="140" top="96" bottom="-12" align="center" font="Large" color="#daebff"/>
+			<Text id="col2" left="140" right="160" top="96" bottom="-12" align="center" font="Large" color="#daebff"/>
+			<Text id="col3" left="160" right="180" top="96" bottom="-12" align="center" font="Large" color="#daebff"/>
+			<Text id="col4" left="180" right="200" top="96" bottom="-12" align="center" font="Large" color="#daebff"/>
+			<Text id="res" left="10" right="90" top="96" bottom="-12" align="right" font="Large" color="#daebff">
+				(join (scrGetData gScreen 'userResults) "\n")
+			</Text>
+		</Display>
+
+		<Panes>
+			<Default showTextInput="true">
+				<OnPaneInit>
+					(block (
+						(userGuess (scrGetData gScreen 'userGuesses))
+						(guessNum (scrGetData gScreen 'guessNum))
+						(maxGuess (scrGetData gScreen 'maxGuess))
+						)
+						(for i 0 (- (scrGetData gScreen 'codeLen) 1)
+							(scrSetDisplayText gScreen (cat "col" i)
+								(join (map userGuess g (@ g i)) "\n")
+								)
+							)
+						(scrSetDescTranslate gScreen 'descWelcome)
+						(scrEnableAction gScreen 'actionTest (ls guessNum maxGuess))
+						)
+				</OnPaneInit>
+
+				<Actions>
+					<Action id="actionTest" default="1">
+						(block (
+							(userCode (str2list (scrGetInputText gScreen)))
+							(lockCode (str2list (scrGetData gScreen 'code)))
+							(userGuesses (scrGetData gScreen 'userGuesses))
+							(userResults (scrGetData gScreen 'userResults))
+							(guessNum (scrGetData gScreen 'guessNum))
+							(maxGuess (scrGetData gScreen 'maxGuess))
+							(hit 0)
+							(miss 0)
+							i userMiss lockMiss
+							)
+							; If usercode is too short then pad
+							(loop
+								(ls (count userCode) (count lockCode))
+								(lnkAppend userCode "&mdash;")
+								)
+							; Count hits (exact matches)
+							(for i 0 (- (count lockCode) 1)
+								(if (= (@ userCode i) (@ lockCode i))
+									(setq hit (+ hit 1))
+									(block Nil
+										(lnkAppend userMiss (@ userCode i))
+										(lnkAppend lockMiss (@ lockCode i))
+										)
+									)
+								)
+							; Count misses (right number, wrong place)
+							(enum
+								userMiss
+								char
+								(if (find lockMiss char)
+									(lnkRemove lockMiss (find lockMiss char))
+									)
+								)
+							(setq miss (- (count lockCode) hit (count lockMiss)))
+							(lnkReplace userGuesses guessNum userCode)
+							(setq userResults (append
+								(lnkRemove userResults guessNum)
+								(cat hit " : " miss " ")
+								(if (ls (+ guessNum 1) maxGuess) "&gt;")
+								))
+							(scrSetData gScreen 'userGuesses userGuesses)
+							(scrSetData gScreen 'userResults userResults)
+							(scrSetData gScreen 'guessNum (+ guessNum 1))
+							(scrShowPane gScreen 'Default)
+							)
+					</Action>
+					<Action id="actionEnter">
+						(if (= (scrGetInputText gScreen) (scrGetData gScreen 'code))
+							(scrShowPane gScreen 'Success)
+							(scrShowPane gScreen 'Failure)
+							)
+					</Action>
+					<Action id="actionDone" cancel="1">
+						(scrExitScreen gScreen)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+
+		<Language>
+			<Text id="descWelcome">"Enter Passcode:"</Text>
+			<Text id="actionTest">"[T]est Code"</Text>
+			<Text id="actionEnter">"[E]nter Code"</Text>
+		</Language>
+
+		<Events>
+			<OnGlobalPaneInit>
+				(if (= aScreen &dsShipInterior;)
+					(scrAddAction gScreen 'testHack 1 "Test Hacking" "T"
+						(scrShowScreen gScreen &dsHacking;)
+						)
+					)
+			</OnGlobalPaneInit>
+		</Events>
+
+	</DockScreen>
+
+	<Globals>
+		(block Nil
+			(setq str2list (lambda (str)
+				(block (i c l)
+					(setq i 0)
+					(loop
+						(setq c (subset str i 1))
+						(block Nil
+							(setq i (+ i 1))
+							(setq l (append l c))
+							)
+						)
+					)
+				))
+			)
+	</Globals>
+</TranscendenceExtension>

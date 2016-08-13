@@ -30,3 +30,8 @@ Start of a generic reputation / crime system for all sovereigns.
 Near Stars
 ----------
 Simple extension to add Near Stars to base game (requires Eternity Port)
+
+
+Testing
+-------
+A simple hacking minigame based on Bulls and Cows / Mastermind
