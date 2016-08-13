@@ -14,10 +14,16 @@
 
 	reward:			Reward (in credits) for completing mission
 	freighterID:	ID of freighter to escort
-	destID:			ID of destination (station or gate)
+	gateID:			ID of gate where freighter will arrive
 	escortType:		Type of freighter being escorted
 	missionXP:		XP awarded for completing mission
+	pricePerContainer:	Price per container - used to fill freighter
 	cargoValue:		Value of cargo in freighter
+	attackRoll:
+		1	Standard pirate raid
+		2	Pirates follow freighter through gate
+		3	Pirates waiting at gate to ambush freighter
+	playerDestroyedFreighter:	True if player destroyed the freighter (will be blacklisted)
 
 	======================================================================== -->
 

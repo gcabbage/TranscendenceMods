@@ -14,6 +14,7 @@
 	escortType:		Type of freighter being escorted
 	missionXP:		XP awarded for completing mission
 	cargoValue:		Value of cargo in freighter
+	playerDestroyedFreighter:	True if player destroyed the freighter (will be blacklisted)
 
 	======================================================================== -->
 

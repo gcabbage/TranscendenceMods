@@ -20,6 +20,7 @@
 	freighterID:	ID of freighter to escort
 	destID:			ID of destination station
 	destNodeID:		Node where destination station is located
+	destName:		Name of destination
 	srcID:			ID of source station (same as ownerID)
 	srcNodeID:		Node where source station is located
 	escortType:		Type of freighter being escorted
@@ -37,6 +38,8 @@
 	ascendFlag:		If true the freighter should be ascended during OnGlobalSystemStopped
 	gateTarget:		If true player is directed towards gate (which freighter has used)
 	triggerAttack:	True if a pirate raid should be triggered when the freighter enters destNodeID
+
+	playerDestroyedFreighter:	True if player destroyed the freighter (will be blacklisted)
 
 ; Possible improvements for unvFindObj
 ; Allow searching multiple nodeIDs eg: (unvFindObj '('SE 'C1) "t +friendly)

@@ -8,6 +8,9 @@
 
 	EXTRA DATA
 
+	targetID:	ID of the Kronosaurus
+	destroyedByPlayer:	True if player destroyed the Kronosaurus
+	destroyedBy:		Name of ship which destroyed Kronosaurus
 
 	======================================================================== -->
 

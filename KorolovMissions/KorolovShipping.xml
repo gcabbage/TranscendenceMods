@@ -1298,7 +1298,7 @@
 					)
 				))
 
-			(setq korGiveReward (lambda (missionObj amount)
+			(setq korGiveReward (lambda (missionObj)
 				(block (oldRank newRank)
 					(rpgMissionRewardPayment (msnGetData missionObj 'reward))
 					(typIncData &unidKorolovEscort; 'xp (msnGetData missionObj 'missionXP))

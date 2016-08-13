@@ -8,10 +8,11 @@
 	Easier than escort mission, so less XP given.
 
 	EXTRA DATA
-	
+
 	reward:		Reward (in credits) for completing mission
 	destID:		ID of destination (station or gate)
 	missionXP:	XP awarded for completing mission
+	cargo:		Cargo to transport
 	cargoValue:	Value of cargo
 
 	state:		One of the following:

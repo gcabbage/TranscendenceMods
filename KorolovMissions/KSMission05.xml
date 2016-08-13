@@ -13,6 +13,7 @@
 	targetName:		Name of pirate
 	targetGenome:	Genome of pirate (humanMale or humanFemale)
 	targetID:		ID of ship to destroy
+	baseID:			ID of station where pirate is waiting
 	numFreighters:	Number of freighers docked as Korolov station
 
 	======================================================================== -->
