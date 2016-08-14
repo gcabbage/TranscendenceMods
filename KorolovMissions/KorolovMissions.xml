@@ -22,6 +22,9 @@
 	<!ENTITY msKorolovLongEscort			"0xDDDEF094">
 	<!ENTITY msKorolovPirateLeader			"0xDDDEF095">
 	<!ENTITY msKorolovDelivery				"0xDDDEF096">
+	<!ENTITY msKorolovRescue				"0xDDDEF097">
+	<!ENTITY scKorolovDisabledFreighter		"0xDDDEF098">
+	<!ENTITY ovShipDisabled					"0xDDDEF099">
 	]>
 
 <TranscendenceExtension UNID="&unidExtension;"
@@ -44,6 +47,7 @@
 	<Module filename="KSMission05.xml"/>
 	<Module filename="KSMission06.xml"/>
 	<Module filename="KSMission07.xml"/>
+	<Module filename="KSMission08.xml"/>
 	<Module filename="RPGWingmen.xml"/>
 
 </TranscendenceExtension>

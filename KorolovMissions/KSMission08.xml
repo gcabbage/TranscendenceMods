@@ -1,0 +1,1312 @@
+<?xml version="1.0" ?>
+<!--
+To Do:
+	trap:
+	 *	Add pirate gunships after triggering
+	 *	Add debrief screens
+	 *	Add special case for declined state (chance of rescue ship being captured?)
+-->
+
+<TranscendenceModule>
+
+	<!-- Mission: Rescue Freighter =============================================
+
+	This mission will run without the player if declined (mission is started
+	using a call to msnSetUnavailable from OnDeclined).
+
+	EXTRA DATA
+
+	anomaly: One of:
+		'crippled:	ship crippled by pirates, protect while waiting for backup
+		'destroyed:	ship already destroyed, report back
+		'mystery:	total mystery. ship is abandoned and drifting
+		'outOfFuel:	ship ran out of fuel after fighting pirates
+		'trap:		ship captured by pirates
+
+	state: Current state of mission
+		Nil:		Not accepted yet
+		search:		Heading towards target
+		searchArea:	Player has to search for freighter
+		found:		Player has found ship
+		docked:		Player has docked with ship
+		returning:	Player has resolved anomaly and returning to Korolov
+		fight:		Player has triggered pirate trap
+
+	fuelNeeded:		Amount of fuel needed
+	expiresOn:		Tick on which mission expires (e.g. out of fuel)
+	overlayID:		Overlay(s) used to diable Ship
+	markerID:		Marker at last known location
+	rescueID:		ID of rescue ship
+	shipID:			Ship we're supposed to rescue
+	destID:			Used if the ship is a wreck (so we can override the abandoned ship dockscreen using deliveryMission)
+	shipName:		Name of the target ship
+	destName:		Name of destination (station or gate) ship was enroute to
+	missionXP:		XP awarded for completing mission
+	reward:			Reward (in credits) for completing mission
+	playerDestroyedFreighter:	True if player destroyed the freighter (will be blacklisted)
+
+	======================================================================== -->
+
+	<MissionType UNID="&msKorolovRescue;"
+			name=			"Korolov Rescue"
+			attributes=		"korolov, deliveryMission"
+
+			level=			"1-4"
+			>
+		<Events>
+			<OnCreate>
+				(block (
+					(playerLevel (korGetPlayerLevel))
+					destList destObj
+					)
+
+					; Get the list of all stations that we might visit.
+					(setq destList
+						(filter
+							(append
+								(sysFindObject aOwnerObj "TAF R:300; +populated; -occupation; -uncharted;")
+								(sysFindObject aOwnerObj "G R:300; -uncharted;")
+								)
+							theDest
+							; Mid-point must be 200 ls from any friendlies. This is a bit ugly
+							; as we have to create a temporary marker for sysFindObject to work
+							(block (
+								(markerObj (sysCreateMarker "temp" (sysGetNavPathPoint &svCorporate; aOwnerObj theDest 50) &svCorporate;))
+								(friendList (sysFindObject markerObj "TAF N:100;"))
+								)
+								(objDestroy markerObj)
+								(not friendList)
+								)
+							)
+						)
+
+					(switch
+						; Only offer to levels 2-3
+						(not (find '(2 3) playerLevel))
+							(msnDestroy gSource)
+
+						; No missions once the stronghold is destroyed
+						(objIsAbandoned (objGetObjRefData aOwnerObj 'charonStronghold))
+							(msnDestroy gSource)
+
+						; Only offer once per station
+						(msnFind aOwnerObj "*S +unid:&msKorolovRescue;;")
+							(msnDestroy gSource)
+
+						; Pick a random destination. If we can't find one there is no mission
+						(not (setq destObj (random destList)))
+							(msnDestroy gSource)
+
+						; Otherwise setup mission
+						(block (
+							; Waypoint halfway between Korolov and destination station
+							(markerObj (sysCreateMarker "Last Communication" (sysGetNavPathPoint &svCorporate; aOwnerObj destObj 50) &svCorporate;))
+							(roll (random 1 100))
+							shipObj
+							)
+
+							(msnSetData gSource 'anomaly (switch
+								(ls roll 30)	'crippled
+								(ls roll 40)	'destroyed
+								(ls roll 45)	'mystery
+								(ls roll 75)	'outOfFuel
+												'trap
+								))
+
+							(msnSetData gSource 'pirateTable
+								(switch
+									(= (sysGetLevel) 1) &etPirateAmbush1;
+									(= (sysGetLevel) 2) &etPirateAmbush2;
+									&etPirateAmbush3;
+								))
+
+							; Create the freighter 120 ls from marker
+							(setq shipObj (sysCreateShip &scKorolovDisabledFreighter; (sysVectorRandom markerObj 120 60 "TA") &svCorporate;))
+							(objSetObjRefData shipObj 'missionObj gSource)
+							(objSuspend shipObj)
+
+							; Remember name for case when ship is destroyed
+							(msnSetData gSource 'shipName (objGetName shipObj 4))
+							(msnSetData gSource 'shipID (objGetID shipObj))
+
+							; Mission settings
+							(msnSetData gSource 'markerID (objGetID markerObj))
+							(msnSetData gSource 'destName (objGetName destObj 4))
+
+							(msnSetData gSource 'missionXP 75)
+							(msnSetData gSource 'reward (@ '(0 100 200 400 600 800) (sysGetLevel)))
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnAccepted>
+				(block Nil
+					(msnSetData gSource 'state 'search)
+					)
+			</OnAccepted>
+
+			<OnStarted>
+				(block (
+					(anomaly (msnGetData gSource 'anomaly))
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					(markerObj (objGetObjByID (msnGetData gSource 'markerID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(addWrecks True)
+					)
+
+					(objResume shipObj)
+
+					(switch
+						(= anomaly 'crippled)
+							(block Nil
+								(objAddOverlay shipObj &ovShipDisabled;)
+								(objAddOverlay shipObj &ovDamagedSiteSmall; (sysVectorRandom shipObj 1 0) (random 0 360))
+								(objAddOverlay shipObj &ovDamagedSiteMedium; (sysVectorRandom shipObj 1 0) (random 0 360))
+								; Disable shields
+								(objEnumItems shipObj "sI" item
+									(objSetItemProperty shipObj item 'enabled Nil)
+									)
+								; Heavy damage to armor
+								(for i 0 (- (shpGetArmorCount shipObj) 1)
+									(shpDamageArmor shipObj i 'laser (random 20 100))
+									)
+								; Some pirates still attacking the freighter
+								(for i 0 (random 1 2)
+									(block (theEnemy)
+										(setq theEnemy (sysCreateShip &tbPirateRaider1; (sysVectorRandom shipObj (random 4 12) 8) &svPirates;))
+										(shpOrder theEnemy 'waitForTarget gPlayerShip)
+										(shpOrder theEnemy 'attack shipObj)
+										)
+									)
+								)
+
+						(= anomaly 'destroyed)
+							(block Nil
+								(objDestroy shipObj)
+								(setq shipObj (sysCreateShipwreck
+									&scKorolovDisabledFreighter;
+									(sysVectorRandom markerObj 60 60 "TA")
+									&svIndependent;
+									))
+								(sysCreateFlotsam
+									(itmSetProperty (itmCreate &itKorolovShippingContainer; 1) 'damaged True)
+									(sysVectorRandom shipObj (random 2 4) 1)
+									&svIndependent;
+									)
+								(msnSetData gSource 'shipID (objGetID shipObj))
+								; Also store in destID so we can override the dock screen
+								(msnSetData gSource 'destID (objGetID shipObj))
+								)
+
+						(= anomaly 'mystery)
+							(block Nil
+								(objAddOverlay shipObj &ovShipDisabled;)
+								; Do not add any wrecks
+								(setq addWrecks Nil)
+								)
+
+						(= anomaly 'outOfFuel)
+							(block Nil
+								(msnSetData gSource 'fuelNeeded (multiply 12500 (sysGetLevel)))
+								(objAddOverlay shipObj &ovShipDisabled;)
+								(objAddOverlay shipObj &ovDamagedSiteSmall; (sysVectorRandom shipObj 1 0) (random 0 360))
+
+								; Disable shields
+								(objEnumItems shipObj "sI" item
+									(objSetItemProperty shipObj item 'enabled Nil)
+									)
+								; Light damage to armor
+								(for i 0 (- (shpGetArmorCount shipObj) 1)
+									(shpDamageArmor shipObj i 'laser (random 0 30))
+									)
+								; Add time limit
+								(msnSetData gSource 'expiresOn
+									(+
+										(unvGetTick)
+										(* 4 (sysCalcTravelTime (objGetDistance stationObj shipObj) (shpGetMaxSpeed gPlayerShip)))
+										(random 400 1200)
+										)
+									)
+								(msnAddRecurringTimerEvent gSource 30 'OnUpdate)
+								)
+
+						(= anomaly 'trap)
+							(block Nil
+								(objSetData shipObj 'pirateTrap True)
+								)
+						)
+
+					(if addWrecks
+						(block Nil
+							; Escort
+							(msfCreateShipwreck
+								(random '(&scRoninB; &scRoninC; &scWolfen;))
+								(sysVectorRandom markerObj (random 4 12) 2)
+								&svIndependent;
+								)
+							; And priates near both escort and freighter
+							(for i 1 (random 2 4)
+								(msfCreateShipwreck
+									&tbPirateRaider1;
+									(sysVectorRandom markerObj (random 8 24) 8)
+									&svIndependent;
+									'withItems
+									)
+								)
+							(for i 1 (random 2 4)
+								(msfCreateShipwreck
+									&tbPirateRaider1;
+									(sysVectorRandom shipObj (random 4 12) 8)
+									&svIndependent;
+									'withItems
+									)
+								)
+							)
+						)
+
+					(msnRegisterForEvents gSource shipObj)
+					)
+			</OnStarted>
+
+			<OnAcceptedUndock>
+				(block Nil
+					(msnRegisterForEvents gSource gPlayerShip)
+					(msnAddRecurringTimerEvent gSource 30 'OnTimer)
+					)
+			</OnAcceptedUndock>
+
+			<OnDeclined>
+				(block Nil
+					; No player, so replace destroyed with crippled mission
+					(if (= (msnGetData gSource 'anomaly) 'destroyed)
+						(msnSetData gSource 'anomaly 'crippled))
+
+					; Start mission without player
+					(msnSetUnavailable gSource)
+
+					; Stop player from docking with ship to avoid having to
+					; write extra dockscreens
+					(objSetProperty (objGetObjByID (msnGetData gSource 'shipID)) 'dockingEnabled Nil)
+
+					; Send the rescue ship
+					(msnFireEvent gSource 'SendRescue)
+					)
+			</OnDeclined>
+
+			<SendRescue>
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					rescueObj
+					)
+					; Create a rescue transport
+					(setq rescueObj (sysCreateShip &scEI500; stationObj &svCorporate;))
+					(shpOrder rescueObj 'dock shipObj)
+					(shpOrder rescueObj 'fireEvent gSource 'RescueArrived)
+					(shpOrder rescueObj 'hold 10)
+					(shpOrder rescueObj 'fireEvent gSource 'RescueComplete)
+					(msnSetData gSource 'rescueID (objGetID rescueObj))
+					(msnRegisterForEvents gSource rescueObj)
+
+					; Send some pirates if mission is active
+					(if (msnGetProperty gSource 'isActive)
+						(sysAddEncounterEventAtDist
+							(random 0 300)
+							shipObj
+							(msnGetData gSource 'pirateTable)
+							(random 100 120)
+							)
+						)
+					)
+			</SendRescue>
+
+			<RescueArrived>
+				(block (
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(rescueObj (objGetObjByID (msnGetData gSource 'rescueID)))
+					)
+					; Stop the ship incase it is drifting
+					(objSetVel shipObj Nil)
+					(sysAddEncounterEventAtDist
+						(random 0 300)
+						shipObj
+						(msnGetData gSource 'pirateTable)
+						(random 100 120)
+						)
+					(if (msnGetProperty gSource 'isActive)
+						(objSendMessage gPlayerShip rescueObj (msnTranslate gSource 'msgInPosition))
+						)
+					)
+			</RescueArrived>
+
+			<RescueComplete>
+				(block (
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(rescueObj (objGetObjByID (msnGetData gSource 'rescueID)))
+					)
+					(objFireEvent shipObj 'RestoreShip {comms:True})
+					(shpCancelOrders rescueObj)
+					(shpOrder rescueObj 'escort shipObj)
+					(sysAddEncounterEventAtDist
+						(random 0 300)
+						shipObj
+						(msnGetData gSource 'pirateTable)
+						(random 100 120)
+						)
+					(if (msnGetProperty gSource 'isActive)
+						(objSendMessage gPlayerShip rescueObj (msnTranslate gSource 'msgHeadingHome))
+						)
+					)
+			</RescueComplete>
+
+			<OnSetPlayerTarget>
+				(switch
+					(= (msnGetData gSource 'state) 'search)
+						(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'markerID)))
+
+					(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'shipID)) 'dock)
+					)
+			</OnSetPlayerTarget>
+
+			<OnCompleted>
+				(block (
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(rescueObj (objGetObjByID (msnGetData gSource 'rescueID)))
+					)
+					; If we have a NPC rescue ship then send it away
+					(if rescueObj (shpOrderImmediate rescueObj 'gate))
+
+					; If the mission is not active then send the target ship away
+					(if (and shipObj (not (msnGetProperty gSource 'isActive)))
+						(block Nil
+							(shpCancelOrders shipObj)
+							(shpOrder shipObj 'wait 30)
+							(shpOrder shipObj 'gate)
+							)
+						)
+
+					; If player destroyed the freighter then blacklist
+					(if (and (= aReason 'failure) (msnGetData gSource 'playerDestroyedFreighter))
+							(block Nil
+								(typSetData &unidKorolovEscort; 'level -1)
+								(typSetData &unidKorolovEscort; 'xp -1)
+								)
+						)
+					)
+			</OnCompleted>
+
+			<OnReward>
+				(korGiveReward gSource)
+			</OnReward>
+
+			<OnDebriefed>
+				(block (
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					)
+					(if shipObj
+						(block Nil
+							(shpCancelOrders shipObj)
+							(shpOrder shipObj 'wait 30)
+							(shpOrder shipObj 'gate)
+							)
+						)
+					)
+			</OnDebriefed>
+
+			<OnTimer>
+				; OnObjReconned only works with stations so need to use this hack
+				(block (
+					(markerObj (objGetObjByID (msnGetData gSource 'markerID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					)
+					(switch
+						; If we've found the ship then update target and cancel timer
+						(ls (objGetDistance gPlayerShip shipObj) 60)
+							(block Nil
+								(msnCancelTimerEvent gSource 'OnTimer)
+								(objDestroy markerObj)
+								(msnSetData gSource 'state 'found)
+								(msnSetPlayerTarget gSource)
+								)
+
+						; When we're in range of the marker remind player to search nearby
+						(and
+							(= (msnGetData gSource 'state) 'search)
+							(ls (objGetDistance gPlayerShip markerObj) 60)
+							)
+							(block Nil
+								(msnSetData gSource 'state 'searchArea)
+								(objSendMessage gPlayerShip Nil (msnTranslate gSource 'msgSearch))
+								)
+						)
+					)
+			</OnTimer>
+
+			<OnUpdate>
+				(switch
+					(!= (sysGetNode) (msnGetProperty gSource 'nodeID))
+						Nil
+
+					(ls (msnGetData gSource 'expiresOn) (unvGetTick))
+						(block (
+							(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+							)
+							(msnCancelTimerEvent gSource 'OnUpdate)
+							(objDestroy shipObj (list Nil 'runningOutOfFuel))
+							; If we've already docked with the ship then fail now
+							; otherwise wait until player has docked
+							(if (= (msnGetData gSource 'state) 'docked)
+								(msnFailure gSource)
+								)
+							)
+					)
+			</OnUpdate>
+
+			<OnObjDestroyed>
+				(switch
+					; If the freighter enters the gate while mission is active then failure
+					(and (= (objGetID aObjDestroyed) (msnGetData gSource 'shipID))
+						(= aDestroyReason 'enteredStargate)
+						)
+						(msnFailure gSource)
+
+					(= aDestroyReason 'runningOutOfFuel)
+						(block Nil
+							(msnSetData gSource 'destID (objGetID aWreckObj))
+							(msnSetData gSource 'shipID (objGetID aWreckObj))
+							)
+
+					; If the player has triggered the pirate trap
+					(and (= (msnGetData gSource 'anomaly) 'trap) (= (msnGetData gSource 'state) 'fight))
+						(switch
+							; Success if the freigher is destroyed
+							(= (objGetID aObjDestroyed) (msnGetData gSource 'shipID))
+								(block Nil
+									(msnSetData gSource 'playerDestroyedFreighter (and gPlayerShip (= aOrderGiver gPlayerShip)))
+									(msnSuccess gSource)
+									)
+							)
+
+
+					; Otherwise, if the freighter dies, mission fails
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'shipID))
+						(block Nil
+							(msnSetData gSource 'playerDestroyedFreighter (and gPlayerShip (= aOrderGiver gPlayerShip)))
+							(msnFailure gSource)
+							)
+					)
+			</OnObjDestroyed>
+
+			<OnObjDocked>
+				(switch
+					; Player docks with freighter
+					(and gPlayerShip (= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetData gSource 'shipID))
+						)
+						(msnSetData gSource 'state 'docked)
+
+					; Freighter docks at Korolov
+					(and
+						(= (objGetID aObjDocked) (msnGetData gSource 'shipID))
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						)
+						(msnSuccess gSource)
+					)
+			</OnObjDocked>
+
+			<OnDeliveryMissionCompleted>
+				(switch
+					(= (msnGetData gSource 'anomaly) 'destroyed)
+						(block Nil
+							(msnSuccess gSource)
+							{
+								desc: (msnTranslate gSource 'ShipDestroyedPirates)
+								forceUndock: True
+								}
+							)
+
+					(= (msnGetData gSource 'anomaly) 'outOfFuel)
+						(block Nil
+							(msnFailure gSource)
+							{
+								desc: (msnTranslate gSource 'ShipOutOfFuel)
+								forceUndock: True
+								}
+							)
+					)
+			</OnDeliveryMissionCompleted>
+
+		</Events>
+
+		<Language>
+			<Text id="Name">
+				(cat "Find " (msnGetData gSource 'shipName))
+			</Text>
+
+			<Text id="Summary">
+				(cat
+					"Korolov Shipping has lost contact with " (msnGetData gSource 'shipName)
+					" while it was enroute to " (msnGetData gSource 'destName)
+					". Your mission is to locate her and provide any assistance required.\n\n"
+
+					"System: " (sysGetName) "\n"
+					"Payment: " (fmtCurrency 'credit (msnGetData gSource 'reward))
+					)
+			</Text>
+
+			<Text id="Intro">
+				(cat
+					"The command center is filled with noise as freighter captains try to find "
+					"the best escort for thier missions. A manager walks over to you: "
+					"\"Hello %name%. We have a job for you and your ship, if you're interested.\""
+					)
+			</Text>
+
+			<Text id="Briefing">
+				(cat
+					"\"We've just just lost contact with " (msnGetData gSource 'shipName)
+					" en route to " (msnGetData gSource 'destName) ". We need you"
+					" to get out there, find out what has happened to them and"
+					" provide any aid they need.\"\n\n"
+					"\"Do you wish to accept this assignment?\""
+					)
+			</Text>
+
+			<Text id="AcceptReply">
+				(cat
+					"\"Excellent. We'll pay you " (msnGetData gSource 'reward) " to "
+					"investigate, plus a bonus if you need to fight.\"\n\n"
+
+					"\"I've programmed their last known coordinates into your ship computer. "
+					"Good luck!\""
+					)
+			</Text>
+
+			<Text id="DeclineReply">
+					"\"Why are you here then? You're wasting my time...\""
+			</Text>
+
+			<Text id="InProgress">
+				(cat
+					"\"What are you doing here? We need you to check on that ship."
+					" They could be in trouble.\""
+					)
+			</Text>
+
+			<Text id="SuccessDebrief">
+				(msnTranslate gSource (cat "SuccessDebrief:" (msnGetData gSource 'anomaly)))
+			</Text>
+			<Text id="SuccessDebrief:crippled">
+				(cat
+					"\"Nice work out there! The crew of " (msnGetData gSource 'shipName)
+					" would not have lasted much longer without your help.\"\n\n"
+
+					"\"We've deposited " (msnGetData gSource 'reward)
+					" credits in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:destroyed">
+				(cat
+					"\"It's a shame the pirates got to " (msnGetData gSource 'shipName)
+					". From what we can tell they were dead before we sent you out, "
+					"so there was nothing more you could have done for them.\"\n\n"
+
+					"\"We've deposited " (msnGetData gSource 'reward)
+					" credits in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:mystery">
+				(cat
+					"\"Our technicians are going over the ship now, but it's a mystery "
+					"what happened to the crew. As far as we can tell none of the "
+					"airlocks were opened between when the left the and when you arrived.\"\n\n"
+
+					"\"We've deposited " (msnGetData gSource 'reward)
+					" credits in your account.\""
+					)
+			</Text>
+			<Text id="SuccessDebrief:outOfFuel">
+				(cat
+					"\"Nice work out there! The crew of " (msnGetData gSource 'shipName)
+					" would not have lasted much longer without your help.\"\n\n"
+
+					"\"We've deposited " (msnGetData gSource 'reward)
+					" credits in your account.\""
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				(switch
+					(msnGetData gSource 'playerDestroyedFreighter)
+						(cat
+						 	"\"Either your poor marksmanship or deliberate malice "
+							"destroyed the freighter you were sent to rescue! "
+							"You will never work for us again, captain.\""
+							)
+
+					(cat
+					 	"\"Its a shame you couldn't bring " (msnGetData gSource 'shipName)
+						" home safely. Maybe things would have been different if we had "
+						"known they were in trouble sooner.\""
+						)
+					)
+			</Text>
+
+			<Text id="SuccessMsg">
+				"Mission complete!"
+			</Text>
+			<Text id="msgSearch">
+				(cat "Search for " (msnGetData gSource 'shipName) " nearby")
+			</Text>
+			<Text id="msgInPosition">"We're starting repairs"</Text>
+			<Text id="msgHeadingHome">"Repairs complete! We're heading home!"</Text>
+
+			<Text id="ShipDestroyedPirates">
+				(cat
+					"You dock at the wreck of " (msnGetData gSource 'shipName)
+					". You find no survivors and the pirates have already stripped "
+					"everything of value."
+					)
+			</Text>
+			<Text id="ShipOutOfFuel">
+				(cat
+					"You dock at the wreck of " (msnGetData gSource 'shipName) ". "
+					"You find the frozen remains of the crew huddled together in the "
+					"center of the ship. It looks like they managed to fight off a "
+					"pirate attack only to slowly die due to life-support failure."
+					)
+			</Text>
+		</Language>
+
+	</MissionType>
+
+
+	<ShipClass UNID="&scKorolovDisabledFreighter;"
+			manufacturer=		"Earth Industries"
+			class=				"EI7000"
+			type=				"freighter"
+			level=				"5"
+			defaultSovereign=	"&svCorporate;"
+
+			attributes=			"commonwealth"
+
+			size=				"75"
+			mass=				"2100"
+			thrustRatio=		"2"
+			maxSpeed=			"12"
+			cargoSpace=			"2000"
+
+			leavesWreck=		"100"
+
+			dockingPorts=		"4"
+			dockScreen=			"Main"
+			>
+
+		<Names definiteArticle="true">
+			freighter Ammon; freighter Caelestis; freighter Fulgurator;
+			freighter Laterius; freighter Lucetius; freighter Pluvius;
+			freighter Stator; freighter Terminus; freighter Tonans;
+			freighter Victor; freighter Summanus; freighter Feretrius;
+			freighter Optimus Maximus; freighter Brixianus; freighter Ladicus;
+			freighter Parthinus; freighter Poeninus; freighter Solutorius;
+			freighter Taranis; freighter Uxellinus
+		</Names>
+
+		<!-- Configuration -->
+
+		<Armor
+			armorID=			"&itAdvancedReactiveArmor;"
+			count=				"12"
+			/>
+
+		<Devices>
+			<Device deviceID="&itTurbolaserCannon;" omnidirectional="true"/>
+			<Device deviceID="&itClass3Deflector;"/>
+		</Devices>
+
+		<Maneuver
+			maxRotationRate=	"6"
+			rotationAccel=		"1"
+			/>
+
+		<Interior>
+			<Compartment name="interior"
+					hitPoints=	"30"
+					/>
+
+			<Compartment name="main drive"
+					type=		"mainDrive"
+					hitPoints=	"70"
+
+					posX=		"-40"
+					posY=		"0"
+					sizeX=		"26"
+					sizeY=		"50"
+					/>
+
+			<Compartment name="cargo contatiners"
+					type=		"cargo"
+					hitPoints=	"50"
+
+					posX=		"6"
+					posY=		"0"
+					sizeX=		"74"
+					sizeY=		"36"
+					/>
+		</Interior>
+
+		<Image imageID="&rsEI7000Image;" imageX="0" imageY="0" imageWidth="110" imageHeight="110"/>
+
+		<Effects>
+			<Effect type="thrustMain"		posAngle="165"	posRadius="52"	posZ="-10"	rotation="180"	effect="&efMainThrusterLarge;"/>
+			<Effect type="thrustMain"		posAngle="-165"	posRadius="52"	posZ="-10"	rotation="180"	effect="&efMainThrusterLarge;"/>
+			<Effect type="thrustMain"		posAngle="165"	posRadius="52"	posZ="10"	rotation="180"	effect="&efMainThrusterLarge;"/>
+			<Effect type="thrustMain"		posAngle="-165"	posRadius="52"	posZ="10"	rotation="180"	effect="&efMainThrusterLarge;"/>
+		</Effects>
+
+		<AISettings
+			fireRateAdj=		"30"
+			fireRangeAdj=		"80"
+			fireAccuracy=		"85"
+			perception=			"4"
+		/>
+
+		<Communications>
+			<Message name="Status" key="S">
+				<OnShow>
+					(switch
+						(and (objGetData gSource 'pirateTrap) (objGetData gSource 'status))
+							Nil
+
+						True
+						)
+				</OnShow>
+				<Invoke>
+					(block (
+						(armorDamage (objGetVisibleDamage gSource))
+						(shieldLevel (objGetShieldLevel gSource))
+						)
+						(objSendMessage gSender gSource
+							(switch
+								(objGetData gSource 'pirateTrap)
+									(objTranslate gSource 'msgTrapStatus)
+
+								(objGetData gSource 'commsDown)
+									"..."
+
+								(and (= armorDamage 0) (or (= shieldLevel 100) (= shieldLevel -1)))
+									(objTranslate gSource 'Status100Percent "\"No damage\"")
+
+								(= armorDamage 0)
+									(cat "Shields down to " shieldLevel "%")
+
+								(cat "Armor is " armorDamage "% damaged")
+								)
+							)
+						)
+				</Invoke>
+			</Message>
+		</Communications>
+
+		<Events>
+			<OnCreate>
+				(block Nil
+					(shpOrder gSource 'hold)
+					(objSetData gSource 'commsDown True)
+					)
+			</OnCreate>
+
+			<OnDestroy>
+				(korOnShipDestroyed)
+			</OnDestroy>
+
+			<OnAttacked>
+				(switch
+					; If we're not attacked by the player, then ignore
+					(not (and gPlayerShip (= aOrderGiver gPlayerShip)))
+						Nil
+
+					; If we're not a pirate trap then ignore
+					(not (objGetData gSource 'pirateTrap))
+						Nil
+
+					; If we're fleeing, then we ignore everything
+					(= (objGetData gSource 'status) 'fleeing)
+						Nil
+
+					; If we're badly damaged, then flee
+					(gr (objGetVisibleDamage gSource) 75)
+						(block Nil
+							(shpCancelOrders gSource)
+							(shpOrder gSource 'gate)
+							(objSetData gSource 'status 'fleeing)
+							)
+
+					; If we're already attacking the player, then nothing
+					(= (objGetData gSource 'status) 'attacking)
+						Nil
+
+					; Otherwise a few warnings before fighting back
+					(block (
+						(lastAttack (objGetData gSource 'lastAttack))
+						(timeSinceLastAttack (if lastAttack (- (unvGetTick) lastAttack) 1000))
+						(numAttacks (objIncData gSource 'numAttacks))
+						)
+						(switch
+							(gr numAttacks 10)
+								(objFireEvent gSource 'PirateTrap)
+
+							(gr timeSinceLastAttack 150)
+								(objSendMessage gPlayerShip gSource (objTranslate gSource 'msgTrapCeaseFire))
+							)
+						)
+					)
+			</OnAttacked>
+
+			<RestoreShip>
+				(block (
+					(missionObj (objGetObjRefData gSource 'missionObj))
+					(stationObj (objGetObjByID (msnGetProperty missionObj 'ownerID)))
+					)
+					; Remove overlays
+					(enum (objGetOverlays gSource "+effect;") theOverlay
+						(objRemoveOverlay gSource theOverlay)
+						)
+
+					; Stop player from docking with ship again
+					(objSetProperty gSource 'dockingEnabled Nil)
+
+					; Restore shields
+					(objEnumItems gSource "sI" item
+						(objSetItemProperty gSource item 'enabled True)
+						)
+
+					; Restore communications
+					(if (@ gData 'comms)
+						(objSetData gSource 'commsDown Nil)
+						)
+
+					; Return to Korolov
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'dock stationObj)
+
+					; Update mission state
+					(msnSetData missionObj 'state 'returning)
+					)
+			</RestoreShip>
+
+			<PirateTrap>
+				(block (
+					(missionObj (objGetObjRefData gSource 'missionObj))
+					)
+					; Remove overlays
+					(enum (objGetOverlays gSource "+effect;") theOverlay
+						(objRemoveOverlay gSource theOverlay)
+						)
+
+					; Stop player from docking with ship again
+					(objSetProperty gSource 'dockingEnabled Nil)
+
+					; Restore shields
+					(objEnumItems gSource "sI" item
+						(objSetItemProperty gSource item 'enabled True)
+						)
+
+					; Attack player
+					(shpCancelOrders gSource)
+					(shpOrder gSource 'attack gPlayerShip)
+					(shpOrder gSource 'gate)
+					(objSetData gSource 'status 'attacking)
+
+					(objSendMessage gPlayerShip gSource (objTranslate gSource 'msgTrapAbandoned))
+
+					; Update mission state
+					(msnSetData missionObj 'state 'fight)
+					)
+			</PirateTrap>
+		</Events>
+
+		<DockScreens>
+			<Main>
+				<InitialPane>
+					(switch
+						(or (objIsUnderAttack gSource) (objIsUnderAttack gPlayerShip))
+							"UnderAttack"
+
+						(block (
+							(missionObj (objGetObjRefData gSource 'missionObj))
+							(firstVisit (not (objGetData gSource 'playerVisited)))
+							)
+							(objSetData gSource 'playerVisited True)
+							(scrSetData gScreen 'firstVisit firstVisit)
+							(cat "Anomaly_" (msnGetData missionObj 'anomaly))
+							)
+						)
+				</InitialPane>
+				<Panes>
+					<UnderAttack>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'descUnderAttack)
+						</OnPaneInit>
+						<Actions>
+							<Action id="actionUndock" default="1" cancel="1">
+								(scrExitScreen gScreen)
+							</Action>
+						</Actions>
+					</UnderAttack>
+
+					<Anomaly_crippled>
+						<OnPaneInit>
+							(block (
+								(pageNo (if (scrGetData gScreen 'curPage) (scrGetData gScreen 'curPage) 0))
+								)
+								; Next page
+								(scrSetData gScreen 'curPage (+ pageNo 1))
+								(scrSetDescTranslate gScreen (cat "desc:crippled" pageNo))
+
+								(if (= pageNo 1)
+									(block Nil
+										(scrShowAction gScreen 'actionContinue Nil)
+										(scrShowAction gScreen 'actionUndock True)
+										)
+									(block Nil
+										(scrShowAction gScreen 'actionContinue True)
+										(scrShowAction gScreen 'actionUndock Nil)
+										)
+									)
+								)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionContinue" default="1" cancel="1">
+								(scrShowPane gScreen "Anomaly_crippled")
+							</Action>
+
+							<Action id="actionUndock" default="1" cancel="1">
+								(block (
+									(missionObj (objGetObjRefData gSource 'missionObj))
+									)
+									; Stop player from docking with ship again
+									(objSetProperty gSource 'dockingEnabled Nil)
+
+									(msnFireEvent missionObj 'SendRescue)
+									(scrExitScreen gScreen)
+									)
+							</Action>
+						</Actions>
+					</Anomaly_crippled>
+
+					<Anomaly_mystery>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen "desc:mystery")
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionUndock" default="1" cancel="1">
+								(block Nil
+									(objFireEvent gSource 'RestoreShip)
+									; No crew, so diable weapons
+									(shpSetAISetting gSource 'noTargetsOfOpportunity True)
+									(scrExitScreen gScreen)
+									)
+							</Action>
+						</Actions>
+					</Anomaly_mystery>
+
+					<Anomaly_outOfFuel>
+						<OnPaneInit>
+							(block (
+								(missionObj (objGetObjRefData gSource 'missionObj))
+								(rodsNeeded (int (ceil (/ (msnGetData missionObj 'fuelNeeded) 2500))))
+								)
+								(scrEnableAction gScreen 'actionGive (objGetItems gPlayerShip "fNU L:1-5;"))
+								(if (scrGetData gScreen 'firstVisit)
+									(scrSetDescTranslate gScreen "desc:outOfFuel"
+									 	{ rodsNeeded:rodsNeeded })
+									(scrSetDescTranslate gScreen "desc:outOfFuelMore"
+									 	{ rodsNeeded:rodsNeeded })
+									)
+								)
+						</OnPaneInit>
+						<Actions>
+							<Action id="actionGive" default="1">
+								(block (
+									(missionObj (objGetObjRefData gSource 'missionObj))
+									(fuelNeeded (msnGetData missionObj 'fuelNeeded))
+									(fuelItems (objGetItems gPlayerShip "fNU L:1-5;"))
+									)
+									(enumwhile
+									 	fuelItems
+										(gr fuelNeeded 0)
+										theItem
+										(block (
+											 (fuelPerItem (itmGetTypeData theItem))
+											 (itemsNeeded (int (ceil (/ fuelNeeded fuelPerItem))))
+											 (itemsUsed (min itemsNeeded (itmGetCount theItem)))
+											 )
+											 (setq fuelNeeded (- fuelNeeded (* itemsUsed fuelPerItem)))
+											 (objRemoveItem gPlayerShip theItem itemsUsed)
+											 (msnIncData missionObj 'reward (* 5 itemsUsed (itmGetPrice theItem)))
+											 )
+										)
+									(msnSetData missionObj 'fuelNeeded fuelNeeded)
+									(if (gr fuelNeeded 0)
+										(scrShowPane gScreen 'ThanksNeedMore)
+										(scrShowPane gScreen 'Thanks)
+										)
+									)
+							</Action>
+							<Action id="actionCantHelp" cancel="1">
+								(scrShowPane gScreen "FindSome")
+							</Action>
+						</Actions>
+					</Anomaly_outOfFuel>
+
+					<ThanksNeedMore>
+						<OnPaneInit>
+							(block (
+								(missionObj (objGetObjRefData gSource 'missionObj))
+								(rodsNeeded (int (ceil (/ (msnGetData missionObj 'fuelNeeded) 2500))))
+								)
+								(scrSetDescTranslate gScreen "descThanksNeedMore"
+								 	{ rodsNeeded:rodsNeeded })
+								)
+						</OnPaneInit>
+						<Actions>
+							<Action id="actionUndock" default="1" cancel="1">
+								(scrExitScreen gScreen)
+							</Action>
+						</Actions>
+					</ThanksNeedMore>
+
+					<Thanks>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'descThanks)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionUndock" default="1" cancel="1">
+								(block (
+									(missionObj (objGetObjRefData gSource 'missionObj))
+									)
+									(objFireEvent gSource 'RestoreShip {comms:True})
+									; Add some attackers for return journey
+									(sysAddEncounterEventAtDist
+										(random 0 300)
+										gSource
+										(msnGetData missionObj 'pirateTable)
+										(random 100 120)
+										)
+									(scrExitScreen gScreen)
+									)
+							</Action>
+						</Actions>
+					</Thanks>
+
+					<FindSome>
+						<OnPaneInit>
+							(scrSetDescTranslate gScreen 'descFindSome)
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionUndock" default="1" cancel="1">
+								(scrExitScreen gScreen)
+							</Action>
+						</Actions>
+					</FindSome>
+
+					<Anomaly_trap>
+						<OnPaneInit>
+							(scrSetDesc gScreen (scrTranslate gScreen "desc:trap"))
+						</OnPaneInit>
+
+						<Actions>
+							<Action id="actionUndock" default="1" cancel="1">
+								(block Nil
+									; Player knows these are pirates now
+									(objSetSovereign gSource &svPirates;)
+									; Damage one armor segment on player ship
+									(shpDamageArmor gPlayerShip (random 0 (- (shpGetArmorCount gPlayerShip) 1)) 'blast 40)
+									(objFireEvent gSource 'PirateTrap)
+									(scrExitScreen gScreen)
+									)
+							</Action>
+						</Actions>
+					</Anomaly_trap>
+				</Panes>
+			</Main>
+		</DockScreens>
+
+		<Language>
+			<Text id="actionContinue">"[C]ontinue"</Text>
+			<Text id="actionUndock">"[U]ndock"</Text>
+			<Text id="actionGive">"\"[I] have some on my ship.\""</Text>
+			<Text id="actionCantHelp">"\"[S]orry, I don't have any.\""</Text>
+			<Text id="descUnderAttack">
+				(cat
+					"As you dock with " (objGetName gSource 4) " the combat alarm sounds again. "
+					"You realize it is far too dangerous to attempt a ship to ship docking with "
+					"hostiles still in the area."
+					)
+			</Text>
+			<Text id="desc:crippled0">
+				(cat
+					"There is no power to the airlock and you have to force it open "
+					"using manual override. Thick smoke fills the dark corridors of "
+					(objGetName gSource 4) ". Suddenly a group of figures rush out of "
+					"the smoke and pin you to the ground. For a moment you think they're "
+					"going to beat you to death, when a " (random '("man" "woman"))
+					" starts shouting and they release you.\n\n"
+
+					"\"I'm sorry captain. When you forced the airlock we thought you were "
+					"with the pirates and panicked. Please forgive us, the last thing we "
+					"want is to hurt a friend.\""
+					)
+			</Text>
+			<Text id="desc:crippled1">
+				(cat
+					"After the rest of the crew has apologised for the misunderstanding "
+					"you help them patch up the worst of the hull breaches and stabilize "
+					"life support. Reviewing the state of the engines you realise you "
+					"don't have the equipment necessary to get the ship moving again so "
+					"you contact Korolov Shipping:\n\n"
+
+					"\"Good work captain. We'll prepare a supply ship with the necessary "
+					"parts. In the meantime protect until " (objGetName gSource 4)
+					" until help arrives.\""
+					)
+			</Text>
+
+			<Text id="desc:mystery">
+				(cat
+					"The airlock opens to reveal an empty corridor. You search "
+					"the ship for an hour but can find no one on board. There are "
+					"no signs of a struggle and nothing in the ship log to indicate "
+					"what happened to the crew. The autopilot has been programmed "
+					"to dock at Korolov, so after checking with the base you "
+					"activate the autopilot and return to your ship."
+					)
+			</Text>
+
+			<Text id="desc:outOfFuel">
+				(cat
+					"You are hit by a blast of cold air as the airlock opens. "
+					"The captain is waiting on the other side wearing a faded survival suit.\n\n"
+
+					"\"Thank Domina you found us! We were attacked by pirates "
+					"&mdash; we managed to fight them off but used up all our fuel "
+					"reserves in the battle.\"\n\n"
+
+					"\"We need "
+					(if (= (@ gData 'rodsNeeded) 1) " a fuel rod "
+						(cat (@ gData 'rodsNeeded) " fuel rods "))
+					" to restart our reactor. Do you have any spare fuel to help us?\""
+					)
+			</Text>
+			<Text id="desc:outOfFuelMore">
+				(cat
+					"You grab an extra jacket before you open the airlock to "
+					(objGetName gSource 4) ". It helps with the cold, but you're glad you "
+					"don't have to stay long. The captain greets you on the other side.\n\n"
+
+					"\"We still need "
+					(if (= (@ gData 'rodsNeeded) 1) " a fuel rod "
+						(cat (@ gData 'rodsNeeded) " fuel rods "))
+					" to restart our reactor. Do you have any spare fuel to help us?\""
+					)
+			</Text>
+			<Text id="descFindSome">
+				(cat
+					"The captain's face pales. \"You better find some soon. "
+					"We're on emergency power and life support is starting to fail.\""
+					)
+			</Text>
+			<Text id="descThanksNeedMore">
+				(cat
+					"The captain thanks you, but still looks worried:\n\n"
+
+					"\"That will help us to keep going for now. But we still need "
+					(if (= (@ gData 'rodsNeeded) 1) " another fuel rod. "
+						(cat (@ gData 'rodsNeeded) " more fuel rods. "))
+					"Come back as soon as you can.\""
+					)
+			</Text>
+			<Text id="descThanks">
+				"\"Thank you! That will be enough to get us home.\""
+			</Text>
+
+			<Text id="desc:trap">
+				(cat
+					"You dock with " (objGetName gSource 4) ", but just before you "
+					"open the airlock you notice it has been damaged as if someone "
+					"had forced it open. You try contacting the crew over the comms "
+					"again &mdash; suddenly a group of pirates bursts out of the ship "
+					"and starts cutting into yours. You manage to pull away, but not "
+					"before they damage your hull."
+					)
+			</Text>
+
+			<Text id="msgTrapCeaseFire">
+				(random (list
+					"Stop shooting!"
+					"We are friends! Dock and help us!"
+					"Commonwealth help us!"
+					"Korolov friends!"
+					))
+			</Text>
+			<Text id="msgTrapStatus">
+				(random (list
+					"Pirates disabled our engines. Please help!"
+					"Korolov ship attacked by pirates. Send help!"
+					))
+			</Text>
+			<Text id="msgTrapAbandoned">
+				(random (list
+					"You'll regret this!"
+					"Ha&mdash;engines working now!"
+					"Kack!"
+					))
+			</Text>
+
+			<Text id="NiceShooting">(if (objGetData gSource 'commsDown) "")</Text>
+			<Text id="WatchYourTargets">(if (objGetData gSource 'commsDown) "")</Text>
+		</Language>
+	</ShipClass>
+
+
+	<OverlayType UNID="&ovShipDisabled;"
+			attributes=		"effect"
+			paralyze=		"true"
+			>
+	</OverlayType>
+
+	<Globals>
+		(block Nil
+			; Wrapper around sysCreateShipWreck with two new features
+			; unid can also be a ShipTable type
+			; If options is set to 'withItems we keep all the default items
+			(setq msfCreateShipwreck (lambda (unid pos sovereignID options)
+				(block (theShip)
+					(switch
+						(not (setq theShip (sysCreateShip unid pos sovereignID)))
+							Nil
+
+						(= options 'withItems)
+							(block Nil
+								(objDestroy theShip (list Nil 'runningOutOfFuel))
+								(sysFindObjectAtPos Nil "t +shipwreck;" pos)
+								)
+
+						(block (
+							(theType (objGetType theShip))
+							)
+							(objDestroy theShip)
+							(sysCreateShipWreck theType pos sovereignID)
+							)
+						)
+					)
+				))
+			)
+	</Globals>
+</TranscendenceModule>
