@@ -1,0 +1,26 @@
+<?xml version="1.0" ?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDEF400">
+	<!ENTITY dsWingmanList					"0xDDDEF401">
+	<!ENTITY dsWingmanUpgradeDevice			"0xDDDEF402">
+	<!ENTITY msMeetBob						"0xDDDEF403">
+	<!ENTITY scIAVBob						"0xDDDEF404">
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"Upgradeable Wingmen"
+		release=	"1"
+		version=	"0.1"
+		apiVersion=	"30"
+		>
+	<Library unid="&unidHumanSpaceLibrary;"/>
+
+	<Module filename="RPGCode.xml"/>
+
+	<Module filename="WingmenOverride.xml"/>
+	<Module filename="WingmenUpgrade.xml"/>
+	<Module filename="Bob.xml"/>
+
+</TranscendenceExtension>

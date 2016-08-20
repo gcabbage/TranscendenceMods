@@ -1,0 +1,405 @@
+<?xml version="1.0" ?>
+
+<TranscendenceModule>
+
+	<DockScreen UNID="&dsWingmanList;"
+			inherit=		"&dsDockScreenBase;"
+			nestedScreen=	"true"
+			>
+		<OnScreenInit>
+			(block (
+				; Find near-by wingmen
+				(wingmanList
+					(filter
+						(sysFindObject gSource "As N:120; D:homeSystem;")
+						theShip
+						(objGetProperty theShip 'playerWingman)
+						)
+					)
+				)
+				; Testing - if we don't have a wingman then create Volkov
+				(if (not wingmanList)
+					(block (theShip)
+						(setq theShip (sysCreateShip &scWolfenVolkov; gSource &svCommonwealth;))
+						(objFireEvent theShip "OrderJoinPlayer")
+						(scrExitDock gScreen)
+						)
+					)
+				(scrSetData gScreen 'wingmanList wingmanList)
+				(scrSetData gScreen 'selIndex 0)
+				(scrSetData gScreen 'selObj (@ wingmanList 0))
+				)
+		</OnScreenInit>
+		<Display>
+			<Text id="leftCol"	left="0" right="0" top="280" bottom="0" align="left" font="Medium" color="#daebff"/>
+			<Text id="rightCol"	left="0" right="0" top="280" bottom="0" align="right" font="Medium" color="#daebff"/>
+
+			<Text id="leftUpper"	left="0" right="0" top="20" bottom="0" align="left" font="Medium" color="#daebff"/>
+			<Text id="rightUpper"	left="0" right="0" top="20" bottom="0" align="right" font="Medium" color="#daebff"/>
+
+			<Image left="0" right="0" top="100" height="100" align="center" valign="center" transparent="true">
+				(shpGetImageDesc (scrGetData gScreen 'selObj))
+			</Image>
+		</Display>
+
+		<Panes>
+			<Default name="Wingmen">
+				<OnPaneInit>
+					(block (
+						(wingmanList (scrGetData gScreen 'wingmanList))
+						(selIndex (scrGetData gScreen 'selIndex))
+						(theShip (scrGetData gScreen 'selObj))
+
+						; Equipment
+						(armorItem (@ (objGetItems theShip "aI") 0))
+						(armorCount (count (objGetItems theShip "aI")))
+						(armorText (if armorItem (itmGetName armorItem 0x080) "None"))
+
+						(shieldItem (@ (objGetItems theShip "sI") 0))
+						(shieldText (if shieldItem (itmGetName shieldItem 0x00) "None"))
+
+						(otherItems (objGetItems theShip "btI"))
+						(otherText (if (@ otherItems 0)
+							(apply cat (map otherItems theItem (cat (itmGetName theItem 0x00) "\n")))
+							"None"
+							))
+
+						(primaryItems (objGetItems theShip "pI"))
+						(primaryText (if (@ primaryItems 0)
+							(apply cat (map primaryItems theItem (cat (itmGetName theItem 0x00) "\n")))
+							"None"
+							))
+						(secondaryItems (objGetItems theShip "lI"))
+						(secondaryText (if (@ secondaryItems 0)
+							(apply cat (map secondaryItems theItem (cat (itmGetName theItem 0x00) "\n")))
+							"None"
+							))
+						actionStatus
+						)
+
+						; Set the left column of stats
+						(scrSetDisplayText gScreen 'leftUpper
+							(cat
+								"{/rtf "
+									"{/f:MediumBold;/c:#79828c; Armor (" armorCount " segments)} \n"
+									armorText
+									"\n\n"
+									"{/f:MediumBold;/c:#79828c; Shields} \n"
+									shieldText
+									"\n\n"
+									"{/f:MediumBold;/c:#79828c; Other} \n"
+									otherText
+								"}"
+								)
+							)
+						; Set the right column of stats
+						(scrSetDisplayText gScreen 'rightUpper
+							(cat
+								"{/rtf "
+									"{/f:MediumBold;/c:#79828c; Weapons} \n"
+									primaryText
+									"\n"
+									"{/f:MediumBold;/c:#79828c; Launcher} \n"
+									secondaryText
+								"}"
+								)
+							)
+
+						; Use the standard ship stats display for general info
+						(rpgSetShipStatsDisplay theShip {})
+
+						; Set the description
+						(scrSetDesc gScreen
+							(objGetName theShip)
+							" flies a "
+							(objGetProperty theShip 'genericName)
+							". You met in " (sysGetName (objGetData theShip 'homeSystem))
+							)
+
+						; Initialize actions
+						(scrShowAction gScreen 'actionNextShip (ls selIndex (- (count wingmanList) 1)))
+						(scrShowAction gScreen 'actionPrevShip (gr selIndex 0))
+
+						; Primary weapon
+						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
+								category: 'weapon
+								criteria: "pUN"
+								}))
+						(scrShowAction gScreen 'actionWeapons (@ actionStatus 'visible))
+						(scrEnableAction gScreen 'actionWeapons (@ actionStatus 'enabled))
+						(scrSetActionDesc gScreen 'actionWeapons (@ actionStatus 'desc))
+
+						; Launcher
+						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
+								category: 'launcher
+								criteria: "lUN"
+								}))
+						(scrShowAction gScreen 'actionLauncher (@ actionStatus 'visible))
+						(scrEnableAction gScreen 'actionLauncher (@ actionStatus 'enabled))
+						(scrSetActionDesc gScreen 'actionLauncher (@ actionStatus 'desc))
+
+						; Other
+						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
+								category: 'other
+								criteria: "d~wUN"
+								}))
+						(scrShowAction gScreen 'actionDevice (@ actionStatus 'visible))
+						(scrEnableAction gScreen 'actionDevice (@ actionStatus 'enabled))
+						(scrSetActionDesc gScreen 'actionDevice (@ actionStatus 'desc))
+
+						)
+				</OnPaneInit>
+
+				<Actions>
+					<Action id="actionWeapons">
+						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+						 	shipObj: (scrGetData gScreen 'selObj)
+							criteria: "pUN"
+							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "pI") 0)
+							})
+					</Action>
+
+					<Action id="actionLauncher">
+						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+						 	shipObj: (scrGetData gScreen 'selObj)
+							criteria: "lUN"
+							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "lI") 0)
+							})
+					</Action>
+
+					<Action id="actionDevice">
+						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+						 	shipObj: (scrGetData gScreen 'selObj)
+							criteria: "d~wUN"
+							})
+					</Action>
+
+					<Action id="actionNextShip" minor="True">
+						(block (
+							(wingmanList (scrGetData gScreen 'wingmanList))
+							(selIndex (scrGetData gScreen 'selIndex))
+							)
+							(if (ls selIndex (- (count wingmanList) 1))
+								(block Nil
+									(setq selIndex (+ selIndex 1))
+									(scrSetData gScreen 'selIndex selIndex)
+									(scrSetData gScreen 'selObj (@ wingmanList selIndex))
+									(scrShowPane gScreen "Default")
+									)
+								)
+							)
+					</Action>
+					<Action id="actionPrevShip" minor="True">
+						(block (
+							(wingmanList (scrGetData gScreen 'wingmanList))
+							(selIndex (scrGetData gScreen 'selIndex))
+							)
+							(if (gr selIndex 0)
+								(block Nil
+									(setq selIndex (- selIndex 1))
+									(scrSetData gScreen 'selIndex selIndex)
+									(scrSetData gScreen 'selObj (@ wingmanList selIndex))
+									(scrShowPane gScreen "Default")
+									)
+								)
+							)
+					</Action>
+					<Action id="actionDone">
+						(scrExitScreen gScreen)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+
+		<Language>
+			<Text id="actionNextShip">"&gt;[RightArrow] Next Wingman"</Text>
+			<Text id="actionPrevShip">"&lt;[LeftArrow] Previous Wingman"</Text>
+			<Text id="actionWeapons">"Upgrade [W]eapon"</Text>
+			<Text id="actionLauncher">"Upgrade [L]auncher"</Text>
+			<Text id="actionDevice">"Upgrade [D]evice"</Text>
+
+			<Text id="actionInstall:noItemInCargo">
+				(switch
+					(= (@ gData 'category) 'cargoHold)
+						"You do not have any cargo expansions in your cargo hold."
+
+					(= (@ gData 'category) 'drive)
+						"You do not have any drive upgrades in your cargo hold."
+
+					(= (@ gData 'category) 'launcher)
+						"You do not have any launchers in your cargo hold."
+
+					(= (@ gData 'category) 'reactor)
+						"You do not have any reactors in your cargo hold."
+
+					(= (@ gData 'category) 'shields)
+						"You do not have any shield generators in your cargo hold."
+
+					(= (@ gData 'category) 'weapon)
+						"You do not have any weapons in your cargo hold."
+
+					"You do not have any devices in your cargo hold."
+					)
+			</Text>
+			<Text id="actionInstall:defaultAbility">
+				(cat "We install devices up to tech level " (objGetProperty (@ gData 'dockObj) 'installDeviceMaxLevel) ".")
+			</Text>
+			<Text id="actionInstall:upgradeInstallOnly">"Sorry, we only install or remove items as part of an upgrade purchase."</Text>
+
+		</Language>
+
+		<Events>
+			<OnGlobalPaneInit>
+				(if (or
+						(and (= aScreen "&dsDryDock;") (= aPane "Default"))
+						(and (= aScreen "&stCommonwealthColony;/Main") (= aPane "Default"))
+						(and (= aScreen "&stCommonwealthColonyArmed;/Main") (= aPane "Default"))
+						(and (= aScreen "&dsCommonwealthStation;") (or (= aPane "Default") (= aPane "DefaultWithInfo")))
+						(and (= aScreen "&stCommonwealthFortress;/Main") (= aPane "Default"))
+						(and (= aScreen "&stAdventurerOutfitters;/Main") (= aPane "Default"))
+						(and (= aScreen "&stArmorDealer;/Main") (= aPane "Default"))
+						(and (= aScreen "&dsArmsDealerSpecial;") (= aPane "Default"))
+						(and (= aScreen "&stMakayevFactory;/Main") (= aPane "Default"))
+						(and (= aScreen "&stTaikonVentures;/Main") (= aPane "Default"))
+						(and (= aScreen "&stWondrousDevices;/Main") (= aPane "Default"))
+						)
+						(if (filter (sysFindObject gSource "As N:120; D:homeSystem;") theShip (objGetProperty theShip 'playerWingman))
+							(scrAddAction gScreen 'myNewAction Nil "[V]iew Wingmen" (scrShowScreen gScreen "&dsWingmanList;"))
+							)
+					)
+			</OnGlobalPaneInit>
+		</Events>
+	</DockScreen>
+
+	<DockScreen UNID="&dsWingmanUpgradeDevice;"
+			type=			"itemPicker"
+			inherit=		"&dsDockScreenBase;"
+		 	nestedScreen=	"true"
+			>
+		<ListOptions
+				dataFrom=	"player"
+				list=		"*"
+				>
+			(block (
+				(criteria (if (@ gData 'criteria) (@ gData 'criteria) "dUN"))
+				)
+
+				(scrSetListFilter gScreen (lambda (theItem)
+					(and
+						(itmMatches theItem criteria)
+						(or
+							(not (@ gData 'replaceItem))
+							(not (itmIsEqual theItem (@ gData 'replaceItem) 'ignoreInstalled))
+							)
+						)
+					))
+				)
+		</ListOptions>
+
+		<OnScreenInit>
+			(block Nil
+				(scrSetData gScreen 'shipObj (@ gData 'shipObj))
+				)
+		</OnScreenInit>
+
+		<Panes>
+			<Default desc="Pick a device to offer">
+				<OnPaneInit>
+					(block (
+						(shipObj (scrGetData gScreen 'shipObj))
+						(theItem (scrGetItem gScreen))
+						theResult
+						)
+						(setq theResult (rpgInstallDevicePrep {
+							item: theItem
+							targetObj: shipObj
+							checkMilitaryID: (@ gData 'checkMilitaryID)
+							installerObj: gSource
+							totalPrice: 0
+							replaceItem: (@ gData 'replaceItem)
+							}))
+
+						(if (@ gData 'replaceItem)
+							(scrSetControlValue gScreen 'currentItem {
+								source: shipObj
+								item: (@ gData 'replaceItem)
+								})
+							)
+
+						; Set the description
+						(scrSetDesc gScreen (@ theResult 'desc))
+						(if (@ theResult 'descWarning)
+							(scrSetControlValue gScreen 'descWarning (@ theResult 'descWarning))
+							)
+
+						; Disable actions
+						(scrEnableAction gScreen 'actionInstall (@ theResult 'canInstall))
+						)
+				</OnPaneInit>
+
+				<Controls>
+					<ItemDisplay id="currentItem"/>
+					<Text id="desc"/>
+					<Text id="descWarning" style="warning"/>
+				</Controls>
+
+				<Actions>
+					<Action id="actionInstall" default="1">
+						(block (
+							(shipObj (scrGetData gScreen 'shipObj))
+							(theItem (scrGetItem gScreen))
+							(recommendedSlot {
+								deviceSlot:
+									(if (and (@ gData 'replaceItem)
+											(itmGetInstallPos (@ gData 'replaceItem))
+											)
+										(itmGetInstallPos (@ gData 'replaceItem))
+										-1
+										)
+								slotPosIndex: (@ gData 'slotPosIndex)
+								})
+							)
+
+							;	Move device to wingman ship
+							(objRemoveItem gPlayerShip theItem)
+							(objAddItem shipObj theItem)
+
+							;	Install the device
+							(shpInstallDevice shipObj theItem recommendedSlot)
+							(objCharge gPlayerShip (objGetDefaultCurrency gSource) gCost)
+							(typSetData &svPlayer; 'tutorialInstalled True)
+
+							;	If the original item is still installed, then uninstall it
+							(if (and (@ gData 'replaceItem)
+									(filter (objGetItems shipObj "dI") theItem
+										(itmIsEqual theItem (@ gData 'replaceItem))
+										)
+									)
+								(shpRemoveDevice shipObj (@ gData 'replaceItem))
+								)
+
+							;	Take any old devices and move them back to the player ship
+							(enum (objGetItems shipObj "dU") theItem
+								(block Nil
+									(objRemoveItem shipObj theItem)
+									(objAddItem gPlayerShip theItem)
+									)
+								)
+
+							;	Done
+							(scrExitScreen gScreen)
+							)
+					</Action>
+
+					<Action id="actionCancel" cancel="1">
+						(scrExitScreen gScreen)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+		<Language>
+			<Text id="actionInstall">"[I]nstall"</Text>
+		</Language>
+	</DockScreen>
+
+</TranscendenceModule>

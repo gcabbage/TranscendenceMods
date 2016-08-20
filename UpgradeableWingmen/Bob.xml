@@ -1,0 +1,198 @@
+<?xml version="1.0" ?>
+
+<TranscendenceModule>
+
+<!--
+	Add a wingman in Eridani (for testing)
+	-->
+
+	<MissionType UNID="&msMeetBob;"
+			name=				"Meet Bob the Wingman"
+			attributes=			"special"
+
+			level=				"1"
+			maxAppearing=		"1"
+			>
+
+		<Events>
+			<OnCreate>
+				(typSetData &msMeetBob; 'MissionCreated True)
+			</OnCreate>
+			<OnGlobalSystemStarted>
+				(switch
+					(!= (sysGetNode) "SE")
+						Nil
+
+					; non-player missions seem to be deleted if the player changes
+					; system after completing them, so the following doesn't
+					; actually work
+					(msnFind "* +unid:&msMeetBob;;")
+						Nil
+
+					; work around:
+					(typGetData &msMeetBob; 'MissionCreated)
+						Nil
+
+					(block (missionObj stationObj theWreck)
+						(setq stationObj (@ (sysFindObject Nil "TA +unid:&stSistersOfDomina;;") 0))
+						(setq theWreck (sysCreateShipwreck
+							&scIAVBob;
+							(sysVectorRandom stationObj 60 60 "TA")
+							&svIndependent;
+							))
+
+						(setq missionObj (msnCreate &msMeetBob; theWreck))
+						(msnSetUnavailable missionObj)
+						)
+					)
+			</OnGlobalSystemStarted>
+
+			<GetGlobalDockScreen>
+				(block (
+					(missionObj (@ (msnFind "u +unid:&msMeetBob;;") 0))
+					)
+					(if	(and
+							missionObj
+							(not (msnGetProperty missionObj 'isCompleted))
+							(= (objGetID gSource) (msnGetProperty missionObj 'ownerID))
+							)
+						(list &dsRPGDialog; (typTranslate &msMeetBob; 'AtWreck) 4)
+						)
+					)
+			</GetGlobalDockScreen>
+		</Events>
+		<Language>
+			<Text id="AtWreck">
+				(list
+					{
+						desc: (cat
+							"You dock at the wreck and find a man wearing a survival suit on board:\n\n"
+
+							"\"Thank Domina you found me! I was fleeing from a flight of pirates when "
+							 "I ran out of fuel. Would you be willing to help me restart my ship?\""
+							)
+						actions: (list
+							{
+								label: "\"[S]ure.\""
+								nextPane: 'help
+								code: (lambda ()
+										(msnSuccess (@ (msnFind "* +unid:&msMeetBob;;") 0))
+										)
+								}
+							{
+								label: "\"[N]o, I can't help you.\""
+								nextPane: 'noHelp
+								code: (lambda ()
+										(msnFailure (@ (msnFind "* +unid:&msMeetBob;;") 0))
+										)
+								}
+							)
+						}
+					{
+						id: 'noHelp
+						desc: (cat
+							"The man starts to beg as you close the airlock in his face. "
+							"He'll run out of air soon and you'll be able to loot the ship in peace."
+							)
+						nextPane: 'forceUndock
+						}
+					{
+						id: 'help
+						desc: (cat
+							"\"Thanks buddy&mdash;I owe you my life!\"\n\n"
+
+							"\"Say, would you like a wingman on your journey?\""
+							)
+						actions: (list
+							{
+								label: "\"[S]ure I could use the help.\""
+								nextPane: 'forceUndock
+								code: (lambda () (block (
+										(missionObj (@ (msnFind "* +unid:&msMeetBob;;") 0))
+										(wreckObj (objGetObjByID (msnGetProperty missionObj 'ownerID)))
+										(shipObj (sysCreateShip &scIAVBob; wreckObj &svCommonwealth;))
+										)
+										(objFireEvent shipObj "OrderJoinPlayer")
+										(objDestroy wreckObj)
+										))
+								}
+							{
+								label: "\"[N]ot from someone who runs from pirates!\""
+								nextPane: 'forceUndock
+								code: (lambda () (block (
+										(missionObj (@ (msnFind "* +unid:&msMeetBob;;") 0))
+										(wreckObj (objGetObjByID (msnGetProperty missionObj 'ownerID)))
+										(shipObj (sysCreateShip &scIAVBob; wreckObj &svCommonwealth;))
+										)
+										(objFireEvent shipObj "OrderLeavePlayer")
+										(shpOrderImmediate shipObj 'gate)
+										(objDestroy wreckObj)
+										))
+								}
+							)
+						}
+					)
+			</Text>
+		</Language>
+	</MissionType>
+
+
+	<ShipClass UNID="&scIAVBob;"
+			manufacturer=		"Revolution Designs"
+			class=				"medium IAV"
+			type=				"armed shuttle"
+			defaultSovereign=	"&svCommonwealth;"
+
+			size=				"42"
+			mass=				"50"
+			cargoSpace=			"10"
+			thrustRatio=		"6.5"
+			maxSpeed=			"16"
+
+			maxArmor=			"6000"
+			maxCargoSpace=		"50"
+			maxDevices=			"4"
+
+			attributes=			""
+
+			inherit=			"&baStdWingmanBase;"
+			>
+
+		<Armor>
+			<ArmorSection start="270" span="180" armorID="&itHeavyTitaniumPlate;" />
+			<ArmorSection start="90"  span="180" armorID="&itHeavyTitaniumPlate;" />
+		</Armor>
+
+		<Devices>
+			<Table>
+				<Device chance="30" item="&itPartisanCannon;" enhanced="10"/>
+				<Device chance="45" item="&itTurbolaserCannon;" enhanced="15"/>
+				<Device chance="25" item="&itArbalestCannon;" enhanced="5"/>
+			</Table>
+			<Device deviceID="&it15MWReactor;"/>
+		</Devices>
+
+		<Maneuver
+			maxRotationRate=	"5.0"
+			rotationAccel=		"0.5"
+			/>
+
+		<Names noArticle="true" personalName="true">Bob</Names>
+
+		<Image imageID="&rsIAVMedium;" imageWidth="64" imageHeight="64"/>
+
+		<Effects>
+			<Effect type="thrustMain"		posAngle="168"	posRadius="30"	posZ="0"	rotation="180"/>
+			<Effect type="thrustMain"		posAngle="-168"	posRadius="30"	posZ="0"	rotation="180"/>
+		</Effects>
+
+
+		<AISettings
+			fireRateAdj=		"20"
+			fireRangeAdj=		"50"
+			fireAccuracy=		"85"
+			perception=			"4"
+			/>
+
+	</ShipClass>
+</TranscendenceModule>
