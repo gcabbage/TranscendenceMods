@@ -151,7 +151,7 @@
 			thrustRatio=		"6.5"
 			maxSpeed=			"16"
 
-			maxArmor=			"6000"
+			maxArmor=			"4000"
 			maxCargoSpace=		"50"
 			maxDevices=			"4"
 			maxReactorPower=	"1000"

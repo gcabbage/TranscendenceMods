@@ -203,6 +203,7 @@
 
 		<Items>
 			<Item count="3d6" item="&itHelium3FuelRod;"/>
+			<Item count="1" item="&itMilitaryID;"/>
 		</Items>
 
 		<Image imageID="&rsMediumShips1;" imageX="96" imageY="0" imageWidth="48" imageHeight="48" imageFrameCount="0" imageTicksPerFrame="0"/>
@@ -324,6 +325,7 @@
 
 		<Items>
 			<Item count="2d6" item="&itHeliumAssembly;"/>
+			<Item count="1" item="&itMilitaryID;"/>
 		</Items>
 
 		<Image imageID="&rsMediumShips2;" imageX="320" imageY="0" imageWidth="64" imageHeight="64"/>

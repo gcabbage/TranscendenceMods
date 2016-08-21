@@ -8,6 +8,8 @@
 			; totalPrice/installPriceAdj no longer disable default install tech check
 			; maxTechLevel/techCriteria/techCriteriaOverride will always override default install tech check
 			; add scrTranslate calls so dockscreen can override default strings
+			;
+			; NOTE - probably need to add maxTechLevel option to rpgInstallDevicePrep in AutonBay
 			(setq rpgInstallDevicePrep (lambda (data)
 
 				; Data must have the following fields

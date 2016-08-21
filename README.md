@@ -32,6 +32,11 @@ Near Stars
 Simple extension to add Near Stars to base game (requires Eternity Port)
 
 
+Upgradeable Wingmen
+-------------------
+Use your spare armor and devices to upgrade your wingmen's ships.
+
+
 Testing
 -------
 A simple hacking minigame based on Bulls and Cows / Mastermind
