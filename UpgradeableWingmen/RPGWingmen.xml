@@ -230,7 +230,7 @@
 
 		<Events>
 			<OnBehavior>
-				(block (behavior theTarget nextTime maxSystemLevel armorDamage)
+				(block (behavior theTarget nextTime maxSystemLevel armorDamage ammoWeapon)
 					(setq behavior (objGetData gSource "behavior"))
 
 					(switch
@@ -277,6 +277,20 @@
 										(objSetData gSource "nextArmorRepairMsg" (add (unvGetTick) 3600))
 										)
 								)
+
+						; Check if we're out of ammo
+						(and (= behavior 'escorting)
+							(not (objIsUnderAttack gSource))
+							(setq ammoWeapon (random
+								(filter (objGetItems gSource "wI") theWeapon
+									(and
+										(itmGetProperty theWeapon 'ammoType)
+										(not (objGetItems gSource (cat "m +launchedBy:" (itmGetType theWeapon) ";")))
+										)
+									)
+								))
+							)
+							(objFireEvent gSource 'OnNeedAmmo { item:ammoWeapon })
 						)
 					)
 			</OnBehavior>
@@ -361,7 +375,7 @@
 						)
 					)
 			</OnOrdersCompleted>
-			
+
 			<OnPlayerLeftSystem>
 				(block (behavior)
 					(setq behavior (objGetData gSource "behavior"))
@@ -424,6 +438,61 @@
 					(objFireEvent gSource "OnWingmanLeftPlayer")
 					)
 			</OrderLeavePlayer>
+
+
+			<OnNeedAmmo>
+				(block (
+					(maxDist 60)
+					; Search nearby for a friendly selling ammo
+					(ammoVendor (random
+						(filter (sysFindObject gSource (cat "sTAFN:" maxDist)) theObj
+							(and
+								(not (objIsAngryAt theObj gSource))
+								(gr (objGetOpenDockingPortCount theObj) 0)
+								(filter
+									(objGetItems theObj (cat "m +launchedBy:" (itmGetType (@ gData 'item)) ";"))
+									theItemToBuy
+									(objGetSellPrice theObj theItemToBuy)
+									)
+								)
+							)
+						))
+					)
+					(if ammoVendor
+						(block Nil
+							(shpCancelOrders gSource)
+							(shpOrder gSource 'dock ammoVendor)
+							(shpOrder gSource 'wait (random 3 8))
+							(shpOrder gSource 'fireEvent gSource "OrderBuyAmmo")
+							(objSetObjRefData gSource 'dockTarget ammoVendor)
+							(objSetData gSource "behavior" 'gettingAmmo)
+							(objSendMessage gPlayerShip gSource (cat "Getting ammo from: " (objGetName ammoVendor)))
+							)
+						(objSendMessage gPlayerShip gSource "I need ammo")
+						)
+					)
+			</OnNeedAmmo>
+
+			<OrderBuyAmmo>
+				(block (
+					(dockObj (objGetObjRefData gSource 'dockTarget))
+					)
+					(objEnumItems gSource "wI" theWeapon
+						(if (itmGetProperty theWeapon 'ammoType)
+							(block (
+								(ammoHere (objGetItems dockObj (cat "m +launchedBy:" (itmGetType theWeapon) ";")))
+								(ammo (random ammoHere))
+								(price (objGetSellPrice dockObj ammo))
+								)
+								(objCharge gSource (* price (itmGetCount ammo)))
+								(objCredit dockObj (* price (itmGetCount ammo)))
+								(objRemoveItem dockObj ammo)
+								(objAddItem gSource ammo)
+								)
+							)
+						)
+					)
+			</OrderBuyAmmo>
 		</Events>
 	</ShipClass>
 

@@ -20,6 +20,7 @@
 	<Library unid="&unidHumanSpaceLibrary;"/>
 
 	<Module filename="RPGCode.xml"/>
+	<Module filename="RPGWingmen.xml"/>
 
 	<Module filename="WingmenOverride.xml"/>
 	<Module filename="WingmenUpgrade.xml"/>
