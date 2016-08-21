@@ -18,6 +18,17 @@
 			<OnCreate>
 				(typSetData &msMeetBob; 'MissionCreated True)
 			</OnCreate>
+			<OnStarted>
+				(block (stationObj theWreck)
+					(setq stationObj (sysFindObject Nil "TAN +unid:&stSistersOfDomina;;"))
+					(setq theWreck (sysCreateShipwreck
+						&scIAVBob;
+						(sysVectorRandom stationObj 60 60 "TA")
+						&svIndependent;
+						))
+					(msnSetData gSource 'wreckID (objGetID theWreck))
+					)
+			</OnStarted>
 			<OnGlobalSystemStarted>
 				(switch
 					(!= (sysGetNode) "SE")
@@ -33,17 +44,7 @@
 					(typGetData &msMeetBob; 'MissionCreated)
 						Nil
 
-					(block (missionObj stationObj theWreck)
-						(setq stationObj (@ (sysFindObject Nil "TA +unid:&stSistersOfDomina;;") 0))
-						(setq theWreck (sysCreateShipwreck
-							&scIAVBob;
-							(sysVectorRandom stationObj 60 60 "TA")
-							&svIndependent;
-							))
-
-						(setq missionObj (msnCreate &msMeetBob; theWreck))
-						(msnSetUnavailable missionObj)
-						)
+					(msnSetUnavailable (msnCreate &msMeetBob; Nil))
 					)
 			</OnGlobalSystemStarted>
 
@@ -53,8 +54,9 @@
 					)
 					(if	(and
 							missionObj
+							; need this as msnFind u returns both unavailable and completed missions
 							(not (msnGetProperty missionObj 'isCompleted))
-							(= (objGetID gSource) (msnGetProperty missionObj 'ownerID))
+							(= (objGetID gSource) (msnGetData missionObj 'wreckID))
 							)
 						(list &dsRPGDialog; (typTranslate &msMeetBob; 'AtWreck) 4)
 						)
@@ -109,7 +111,7 @@
 								nextPane: 'forceUndock
 								code: (lambda () (block (
 										(missionObj (@ (msnFind "* +unid:&msMeetBob;;") 0))
-										(wreckObj (objGetObjByID (msnGetProperty missionObj 'ownerID)))
+										(wreckObj (objGetObjByID (msnGetData missionObj 'wreckID)))
 										(shipObj (sysCreateShip &scIAVBob; wreckObj &svCommonwealth;))
 										)
 										(objFireEvent shipObj "OrderJoinPlayer")
@@ -121,7 +123,7 @@
 								nextPane: 'forceUndock
 								code: (lambda () (block (
 										(missionObj (@ (msnFind "* +unid:&msMeetBob;;") 0))
-										(wreckObj (objGetObjByID (msnGetProperty missionObj 'ownerID)))
+										(wreckObj (objGetObjByID (msnGetData missionObj 'wreckID)))
 										(shipObj (sysCreateShip &scIAVBob; wreckObj &svCommonwealth;))
 										)
 										(objFireEvent shipObj "OrderLeavePlayer")
@@ -152,6 +154,8 @@
 			maxArmor=			"6000"
 			maxCargoSpace=		"50"
 			maxDevices=			"4"
+			maxReactorPower=	"1000"
+			maxWeapons=			"2"
 
 			attributes=			""
 
@@ -185,7 +189,6 @@
 			<Effect type="thrustMain"		posAngle="168"	posRadius="30"	posZ="0"	rotation="180"/>
 			<Effect type="thrustMain"		posAngle="-168"	posRadius="30"	posZ="0"	rotation="180"/>
 		</Effects>
-
 
 		<AISettings
 			fireRateAdj=		"20"

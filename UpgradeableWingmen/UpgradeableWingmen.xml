@@ -5,8 +5,9 @@
 	<!ENTITY unidExtension					"0xDDDEF400">
 	<!ENTITY dsWingmanList					"0xDDDEF401">
 	<!ENTITY dsWingmanUpgradeDevice			"0xDDDEF402">
-	<!ENTITY msMeetBob						"0xDDDEF403">
-	<!ENTITY scIAVBob						"0xDDDEF404">
+	<!ENTITY dsWingmanUpgradeArmor			"0xDDDEF403">
+	<!ENTITY msMeetBob						"0xDDDEF404">
+	<!ENTITY scIAVBob						"0xDDDEF405">
 	]>
 
 <TranscendenceExtension UNID="&unidExtension;"

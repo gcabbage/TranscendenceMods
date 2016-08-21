@@ -3,7 +3,7 @@
 <TranscendenceModule>
 
 	<DockScreen UNID="&dsWingmanList;"
-			inherit=		"&dsDockScreenBase;"
+			inherit=		"&dsRPGDockServicesBase;"
 			nestedScreen=	"true"
 			>
 		<OnScreenInit>
@@ -51,27 +51,27 @@
 						(theShip (scrGetData gScreen 'selObj))
 
 						; Equipment
-						(armorItem (@ (objGetItems theShip "aI") 0))
-						(armorCount (count (objGetItems theShip "aI")))
+						(armorItem (shpGetArmor theShip 0))
+						(armorCount (shpGetArmorCount theShip))
 						(armorText (if armorItem (itmGetName armorItem 0x080) "None"))
 
 						(shieldItem (@ (objGetItems theShip "sI") 0))
 						(shieldText (if shieldItem (itmGetName shieldItem 0x00) "None"))
 
 						(otherItems (objGetItems theShip "btI"))
-						(otherText (if (@ otherItems 0)
-							(apply cat (map otherItems theItem (cat (itmGetName theItem 0x00) "\n")))
+						(otherText (if otherItems
+							(join (map otherItems theItem (itmGetName theItem 0x00)) "\n")
 							"None"
 							))
 
 						(primaryItems (objGetItems theShip "pI"))
-						(primaryText (if (@ primaryItems 0)
-							(apply cat (map primaryItems theItem (cat (itmGetName theItem 0x00) "\n")))
+						(primaryText (if primaryItems
+							(join (map primaryItems theItem (itmGetName theItem 0x00)) "\n")
 							"None"
 							))
 						(secondaryItems (objGetItems theShip "lI"))
-						(secondaryText (if (@ secondaryItems 0)
-							(apply cat (map secondaryItems theItem (cat (itmGetName theItem 0x00) "\n")))
+						(secondaryText (if secondaryItems
+							(join (map secondaryItems theItem (itmGetName theItem 0x00)) "\n")
 							"None"
 							))
 						actionStatus
@@ -98,7 +98,7 @@
 								"{/rtf "
 									"{/f:MediumBold;/c:#79828c; Weapons} \n"
 									primaryText
-									"\n"
+									"\n\n"
 									"{/f:MediumBold;/c:#79828c; Launcher} \n"
 									secondaryText
 								"}"
@@ -110,15 +110,21 @@
 
 						; Set the description
 						(scrSetDesc gScreen
-							(objGetName theShip)
-							" flies a "
-							(objGetProperty theShip 'genericName)
+							(objGetName theShip) " flies a " (objGetProperty theShip 'genericName)
 							". You met in " (sysGetName (objGetData theShip 'homeSystem))
 							)
 
 						; Initialize actions
 						(scrShowAction gScreen 'actionNextShip (ls selIndex (- (count wingmanList) 1)))
 						(scrShowAction gScreen 'actionPrevShip (gr selIndex 0))
+
+						(setq actionStatus (rpgCalcDockServiceReplaceAction gSource gPlayerShip armorItem {
+								category: 'armor
+								criteria: "aU"
+								}))
+						(scrShowAction gScreen 'actionArmor (@ actionStatus 'visible))
+						(scrEnableAction gScreen 'actionArmor (@ actionStatus 'enabled))
+						(scrSetActionDesc gScreen 'actionArmor (@ actionStatus 'desc))
 
 						; Primary weapon
 						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
@@ -151,6 +157,13 @@
 				</OnPaneInit>
 
 				<Actions>
+					<Action id="actionArmor">
+						(scrShowScreen gScreen "&dsWingmanUpgradeArmor;" {
+							shipObj: (scrGetData gScreen 'selObj)
+							criteria: "aU"
+							replaceItem: (shpGetArmor (scrGetData gScreen 'selObj) 0)
+							})
+					</Action>
 					<Action id="actionWeapons">
 						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
 						 	shipObj: (scrGetData gScreen 'selObj)
@@ -158,7 +171,6 @@
 							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "pI") 0)
 							})
 					</Action>
-
 					<Action id="actionLauncher">
 						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
 						 	shipObj: (scrGetData gScreen 'selObj)
@@ -166,14 +178,12 @@
 							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "lI") 0)
 							})
 					</Action>
-
 					<Action id="actionDevice">
 						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
 						 	shipObj: (scrGetData gScreen 'selObj)
 							criteria: "d~wUN"
 							})
 					</Action>
-
 					<Action id="actionNextShip" minor="True">
 						(block (
 							(wingmanList (scrGetData gScreen 'wingmanList))
@@ -214,38 +224,10 @@
 		<Language>
 			<Text id="actionNextShip">"&gt;[RightArrow] Next Wingman"</Text>
 			<Text id="actionPrevShip">"&lt;[LeftArrow] Previous Wingman"</Text>
+			<Text id="actionArmor">"Upgrade [A]rmor"</Text>
 			<Text id="actionWeapons">"Upgrade [W]eapon"</Text>
 			<Text id="actionLauncher">"Upgrade [L]auncher"</Text>
 			<Text id="actionDevice">"Upgrade [D]evice"</Text>
-
-			<Text id="actionInstall:noItemInCargo">
-				(switch
-					(= (@ gData 'category) 'cargoHold)
-						"You do not have any cargo expansions in your cargo hold."
-
-					(= (@ gData 'category) 'drive)
-						"You do not have any drive upgrades in your cargo hold."
-
-					(= (@ gData 'category) 'launcher)
-						"You do not have any launchers in your cargo hold."
-
-					(= (@ gData 'category) 'reactor)
-						"You do not have any reactors in your cargo hold."
-
-					(= (@ gData 'category) 'shields)
-						"You do not have any shield generators in your cargo hold."
-
-					(= (@ gData 'category) 'weapon)
-						"You do not have any weapons in your cargo hold."
-
-					"You do not have any devices in your cargo hold."
-					)
-			</Text>
-			<Text id="actionInstall:defaultAbility">
-				(cat "We install devices up to tech level " (objGetProperty (@ gData 'dockObj) 'installDeviceMaxLevel) ".")
-			</Text>
-			<Text id="actionInstall:upgradeInstallOnly">"Sorry, we only install or remove items as part of an upgrade purchase."</Text>
-
 		</Language>
 
 		<Events>
@@ -380,6 +362,163 @@
 
 							;	Take any old devices and move them back to the player ship
 							(enum (objGetItems shipObj "dU") theItem
+								(block Nil
+									(objRemoveItem shipObj theItem)
+									(objAddItem gPlayerShip theItem)
+									)
+								)
+
+							;	Done
+							(scrExitScreen gScreen)
+							)
+					</Action>
+
+					<Action id="actionCancel" cancel="1">
+						(scrExitScreen gScreen)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+		<Language>
+			<Text id="actionInstall">"[I]nstall"</Text>
+		</Language>
+	</DockScreen>
+
+	<DockScreen UNID="&dsWingmanUpgradeArmor;"
+			type=			"itemPicker"
+			inherit=		"&dsDockScreenBase;"
+			nestedScreen=	"true"
+			>
+		<ListOptions
+				dataFrom=	"player"
+				list=		"*"
+				>
+			(block (
+				(criteria (if (@ gData 'criteria) (@ gData 'criteria) "aU"))
+				)
+
+				(scrSetListFilter gScreen (lambda (theItem)
+					(and
+						(itmMatches theItem criteria)
+						(or
+							(not (@ gData 'replaceItem))
+							(not (itmIsEqual theItem (@ gData 'replaceItem) 'ignoreInstalled))
+							)
+						)
+					))
+				)
+		</ListOptions>
+
+		<OnScreenInit>
+			(block Nil
+				(scrSetData gScreen 'shipObj (@ gData 'shipObj))
+				)
+		</OnScreenInit>
+
+		<Panes>
+			<Default desc="Pick an armor to offer">
+				<OnPaneInit>
+					(block (
+						(shipObj (scrGetData gScreen 'shipObj))
+						(theItem (scrGetItem gScreen))
+						canInstall desc descWarning
+						)
+
+						(if (@ gData 'replaceItem)
+							(scrSetControlValue gScreen 'currentItem {
+								source: shipObj
+								item: (@ gData 'replaceItem)
+								})
+							)
+
+						(if theItem
+							(block (
+								; Ask the object if we can install the armor
+								(returnValue (objCanInstallItem shipObj theItem 0))
+								(resultCode (@ returnValue 1))
+								(resultMessage (@ returnValue 2))
+								; Ask the station if it can install the armor
+								(installStatus (objGetItemProperty gSource theItem 'installItemStatus))
+								)
+								(switch
+									(and (@ gData 'checkMilitaryID) (itmHasModifier theItem "Military") (not (objGetItems gPlayerShip "*+MilitaryID")))
+										(setq desc (cat "You must have a military ID to install " (itmGetName theItem 0x80) "."))
+
+									(and (@ gData 'checkMilitaryID) (itmHasModifier theItem "Illegal"))
+										(setq desc "We do not install illegal armor segments.")
+
+									(= resultCode 'armorTooHeavy)
+										(setq desc (cat (itmGetName theItem 3) " are too heavy for the ship's hull."))
+
+									(= resultCode 'cannotInstall)
+										(setq desc resultMessage)
+
+									(not (= resultCode 'ok))
+										(setq desc (cat "This armor segment cannot be installed. " resultMessage))
+
+									; Station cannot install armor
+									(not (@ installStatus 'canInstall))
+										(if (@ installStatus 'descID)
+											(setq desc (objTranslate gSource (@ installStatus 'descID) { item:theItem targetObj:shipObj }))
+											(setq desc (cat "We do not have the technology to install " (itmGetName theItem 0x80) "."))
+											)
+
+									(@ installStatus 'upgradeInstallOnly)
+										(setq desc "Sorry, installation services are only available for purchased upgrades.")
+
+									(gr (itmGetLevel (shpGetArmor shipObj 0)) (itmGetLevel theItem))
+										(setq desc "\"No thanks&mdash;my current armor is better than that!\"")
+
+									(gr (shpGetArmorCount shipObj) (itmGetCount theItem))
+										(setq desc (cat "\"My ship needs " (shpGetArmorCount shipObj) " armor segments.\""))
+
+									(block Nil
+										(setq desc (cat "We can install " (itmGetName theItem 0x04) "."))
+										(setq canInstall True)
+										)
+									)
+								)
+
+							(block Nil
+								(setq desc "You do not have any armor segments in your cargo hold.")
+								)
+							)
+
+
+						; Set the description
+						(scrSetDesc gScreen desc)
+						(if descWarning
+							(scrSetControlValue gScreen 'descWarning descWarning)
+							)
+
+						; Disable actions
+						(scrEnableAction gScreen 'actionInstall canInstall)
+						)
+				</OnPaneInit>
+
+				<Controls>
+					<ItemDisplay id="currentItem"/>
+					<Text id="desc"/>
+					<Text id="descWarning" style="warning"/>
+				</Controls>
+
+				<Actions>
+					<Action id="actionInstall" default="1">
+						(block (
+							(shipObj (scrGetData gScreen 'shipObj))
+							(theItem (scrGetItem gScreen))
+							(armorCount (shpGetArmorCount shipObj))
+							)
+
+							;	Move armor to wingman
+							(objRemoveItem gPlayerShip theItem armorCount)
+							(objAddItem shipObj theItem armorCount)
+
+							;	Install the armor
+							(for i 0 (- armorCount 1) (shpInstallArmor shipObj theItem i))
+
+							;	Take any old armor and move them back to the player ship
+							(enum (objGetItems shipObj "aU") theItem
 								(block Nil
 									(objRemoveItem shipObj theItem)
 									(objAddItem gPlayerShip theItem)
