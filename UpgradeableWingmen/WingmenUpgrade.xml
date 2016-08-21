@@ -17,14 +17,9 @@
 						)
 					)
 				)
-				; Testing - if we don't have a wingman then create Volkov
-				(if (not wingmanList)
-					(block (theShip)
-						(setq theShip (sysCreateShip &scWolfenVolkov; gSource &svCommonwealth;))
-						(objFireEvent theShip "OrderJoinPlayer")
-						(scrExitDock gScreen)
-						)
-					)
+				; Can't deal with an empty list yet
+				(if (not wingmanList) (scrExitDock gScreen))
+
 				(scrSetData gScreen 'wingmanList wingmanList)
 				(scrSetData gScreen 'selIndex 0)
 				(scrSetData gScreen 'selObj (@ wingmanList 0))
@@ -159,6 +154,7 @@
 				<Actions>
 					<Action id="actionArmor">
 						(scrShowScreen gScreen "&dsWingmanUpgradeArmor;" {
+							checkMilitaryID: (@ gData 'checkMilitaryID)
 							shipObj: (scrGetData gScreen 'selObj)
 							criteria: "aU"
 							replaceItem: (shpGetArmor (scrGetData gScreen 'selObj) 0)
@@ -166,6 +162,7 @@
 					</Action>
 					<Action id="actionWeapons">
 						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+							checkMilitaryID: (@ gData 'checkMilitaryID)
 						 	shipObj: (scrGetData gScreen 'selObj)
 							criteria: "pUN"
 							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "pI") 0)
@@ -173,6 +170,7 @@
 					</Action>
 					<Action id="actionLauncher">
 						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+							checkMilitaryID: (@ gData 'checkMilitaryID)
 						 	shipObj: (scrGetData gScreen 'selObj)
 							criteria: "lUN"
 							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "lI") 0)
@@ -180,6 +178,7 @@
 					</Action>
 					<Action id="actionDevice">
 						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+							checkMilitaryID: (@ gData 'checkMilitaryID)
 						 	shipObj: (scrGetData gScreen 'selObj)
 							criteria: "d~wUN"
 							})
@@ -246,7 +245,9 @@
 						(and (= aScreen "&stWondrousDevices;/Main") (= aPane "Default"))
 						)
 						(if (filter (sysFindObject gSource "As N:120; D:homeSystem;") theShip (objGetProperty theShip 'playerWingman))
-							(scrAddAction gScreen 'myNewAction Nil "[V]iew Wingmen" (scrShowScreen gScreen "&dsWingmanList;"))
+							(scrAddAction gScreen 'myNewAction Nil "[V]iew Wingmen" (scrShowScreen gScreen "&dsWingmanList;" {
+								checkMilitaryID: True
+								}))
 							)
 					)
 			</OnGlobalPaneInit>
@@ -255,7 +256,7 @@
 
 	<DockScreen UNID="&dsWingmanUpgradeDevice;"
 			type=			"itemPicker"
-			inherit=		"&dsDockScreenBase;"
+			inherit=		"&dsWingmanUpgradeBase;"
 		 	nestedScreen=	"true"
 			>
 		<ListOptions
@@ -290,7 +291,7 @@
 					(block (
 						(shipObj (scrGetData gScreen 'shipObj))
 						(theItem (scrGetItem gScreen))
-						theResult
+						theResult canInstall desc
 						)
 						(setq theResult (rpgInstallDevicePrep {
 							item: theItem
@@ -308,14 +309,25 @@
 								})
 							)
 
-						; Set the description
-						(scrSetDesc gScreen (@ theResult 'desc))
-						(if (@ theResult 'descWarning)
-							(scrSetControlValue gScreen 'descWarning (@ theResult 'descWarning))
+						(switch
+							; Can't install so keep rpgInstallDevicePrep message
+							(not (@ theResult 'canInstall))
+								(setq desc (@ theResult 'desc))
+
+							(gr (itmGetLevel (@ gData 'replaceItem)) (itmGetLevel theItem))
+								(setq desc (scrTranslate gScreen 'WantBetter { item:theItem targetObj:shipObj }))
+
+							(block Nil
+								(setq desc (scrTranslate gScreen 'WillInstall { item:theItem targetObj:shipObj }))
+								(setq canInstall True)
+								)
 							)
 
+						; Set the description
+						(scrSetDesc gScreen desc)
+
 						; Disable actions
-						(scrEnableAction gScreen 'actionInstall (@ theResult 'canInstall))
+						(scrEnableAction gScreen 'actionInstall canInstall)
 						)
 				</OnPaneInit>
 
@@ -360,13 +372,8 @@
 								(shpRemoveDevice shipObj (@ gData 'replaceItem))
 								)
 
-							;	Take any old devices and move them back to the player ship
-							(enum (objGetItems shipObj "dU") theItem
-								(block Nil
-									(objRemoveItem shipObj theItem)
-									(objAddItem gPlayerShip theItem)
-									)
-								)
+							;	Take any old devices and dispose of it (assume the wingman sold them)
+							(enum (objGetItems shipObj "dU") theItem (objRemoveItem shipObj theItem))
 
 							;	Done
 							(scrExitScreen gScreen)
@@ -380,13 +387,15 @@
 			</Default>
 		</Panes>
 		<Language>
-			<Text id="actionInstall">"[I]nstall"</Text>
+			<Text id="WantBetter">(cat "\"No thanks&mdash;my current device is better than " (itmGetName (@ gData 'item) 0x04) ".\"")</Text>
+			<Text id="WillInstall">(cat "\"I can install " (itmGetName (@ gData 'item) 0x04) " on my ship.")</Text>
 		</Language>
+
 	</DockScreen>
 
 	<DockScreen UNID="&dsWingmanUpgradeArmor;"
 			type=			"itemPicker"
-			inherit=		"&dsDockScreenBase;"
+			inherit=		"&dsWingmanUpgradeBase;"
 			nestedScreen=	"true"
 			>
 		<ListOptions
@@ -441,49 +450,64 @@
 								(installStatus (objGetItemProperty gSource theItem 'installItemStatus))
 								)
 								(switch
-									(and (@ gData 'checkMilitaryID) (itmHasModifier theItem "Military") (not (objGetItems gPlayerShip "*+MilitaryID")))
-										(setq desc (cat "You must have a military ID to install " (itmGetName theItem 0x80) "."))
+									(and (@ gData 'checkMilitaryID) (itmHasModifier theItem "Military") (not (objGetItems shipObj "*+MilitaryID")))
+										(setq desc (or
+											(objTranslate gSource 'rpg.cannotInstallDeviceWithoutMilitaryID { item:theItem targetObj:shipObj })
+											(scrTranslate gScreen 'rpg.cannotInstallDeviceWithoutMilitaryID { item:theItem targetObj:shipObj })
+											))
 
 									(and (@ gData 'checkMilitaryID) (itmHasModifier theItem "Illegal"))
-										(setq desc "We do not install illegal armor segments.")
+										(setq desc (or
+											(objTranslate gSource 'rpg.cannotInstallDeviceBecauseIllegal { item:theItem targetObj:shipObj })
+											(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseIllegal { item:theItem targetObj:shipObj })
+											))
 
 									(= resultCode 'armorTooHeavy)
-										(setq desc (cat (itmGetName theItem 3) " are too heavy for the ship's hull."))
+										(setq desc (or
+											(objTranslate gSource 'rpg.cannotInstallArmorBecauseTooHeavy { item:theItem targetObj:shipObj maxArmorMass:(objGetProperty shipObj 'maxArmorMass) })
+											(scrTranslate gScreen 'rpg.cannotInstallArmorBecauseTooHeavy { item:theItem targetObj:shipObj maxArmorMass:(objGetProperty shipObj 'maxArmorMass) })
+											))
 
 									(= resultCode 'cannotInstall)
 										(setq desc resultMessage)
 
 									(not (= resultCode 'ok))
-										(setq desc (cat "This armor segment cannot be installed. " resultMessage))
+										(setq desc (or
+											(objTranslate gSource 'rpg.cannotInstallDevice { item:theItem targetObj:shipObj })
+											(scrTranslate gScreen 'rpg.cannotInstallDevice { item:theItem targetObj:shipObj })
+											))
 
 									; Station cannot install armor
 									(not (@ installStatus 'canInstall))
 										(if (@ installStatus 'descID)
 											(setq desc (objTranslate gSource (@ installStatus 'descID) { item:theItem targetObj:shipObj }))
-											(setq desc (cat "We do not have the technology to install " (itmGetName theItem 0x80) "."))
+											(setq desc (or
+												(objTranslate gSource 'rpg.noTechToInstallDevice { item:theItem targetObj:shipObj })
+												(scrTranslate gScreen 'rpg.noTechToInstallDevice { item:theItem targetObj:shipObj })
+												))
 											)
 
 									(@ installStatus 'upgradeInstallOnly)
-										(setq desc "Sorry, installation services are only available for purchased upgrades.")
+										(setq desc (or
+											(objTranslate gSource 'rpg.cannotInstallDeviceWithoutUpgrade { item:theItem targetObj:shipObj })
+											(scrTranslate gScreen 'rpg.cannotInstallDeviceWithoutUpgrade { item:theItem targetObj:shipObj })
+											))
 
 									(gr (itmGetLevel (shpGetArmor shipObj 0)) (itmGetLevel theItem))
-										(setq desc "\"No thanks&mdash;my current armor is better than that!\"")
+										(setq desc (scrTranslate gScreen 'WantBetter { item:theItem targetObj:shipObj }))
 
 									(gr (shpGetArmorCount shipObj) (itmGetCount theItem))
-										(setq desc (cat "\"My ship needs " (shpGetArmorCount shipObj) " armor segments.\""))
+										(setq desc (scrTranslate gScreen 'WantMore { item:theItem targetObj:shipObj }))
 
 									(block Nil
-										(setq desc (cat "We can install " (itmGetName theItem 0x04) "."))
+										(setq desc (scrTranslate gScreen 'WillInstall { item:theItem targetObj:shipObj }))
 										(setq canInstall True)
 										)
 									)
 								)
 
-							(block Nil
-								(setq desc "You do not have any armor segments in your cargo hold.")
-								)
+							(setq desc "You do not have any armor segments in your cargo hold.")
 							)
-
 
 						; Set the description
 						(scrSetDesc gScreen desc)
@@ -517,13 +541,8 @@
 							;	Install the armor
 							(for i 0 (- armorCount 1) (shpInstallArmor shipObj theItem i))
 
-							;	Take any old armor and move them back to the player ship
-							(enum (objGetItems shipObj "aU") theItem
-								(block Nil
-									(objRemoveItem shipObj theItem)
-									(objAddItem gPlayerShip theItem)
-									)
-								)
+							;	Take any old armor and dispose of it (assume the wingman sold it)
+							(enum (objGetItems shipObj "aU") theItem (objRemoveItem shipObj theItem))
 
 							;	Done
 							(scrExitScreen gScreen)
@@ -536,8 +555,50 @@
 				</Actions>
 			</Default>
 		</Panes>
+
+		<Language>
+			<Text id="WantBetter">(cat "\"No thanks&mdash;my current armor is better than " (itmGetName (@ gData 'item) 0x80) ".\"")</Text>
+			<Text id="WantMore">(cat "\"My ship needs " (shpGetArmorCount (@ gData 'targetObj)) " armor segments.\"")</Text>
+			<Text id="WillInstall">(cat "\"I can install " (itmGetName (@ gData 'item) 0x04) " on my ship.")</Text>
+		</Language>
+	</DockScreen>
+
+
+	<DockScreen unid="&dsWingmanUpgradeBase;"
+			inherit="&dsDockScreenBase;"
+			>
 		<Language>
 			<Text id="actionInstall">"[I]nstall"</Text>
+			<Text id="rpg.noTechToInstallDevice">
+				(cat
+					"\"This station does not have the technology to install "
+					(itmGetName (@ gData 'item) 0x04) " on my ship.\""
+					)
+			</Text>
+			<Text id="rpg.cannotInstallDeviceBecauseAlreadyInstalled">
+				(cat "\"My ship already has " (itmGetName (@ gData 'item) 0x04) ".\"")
+			</Text>
+			<Text id="rpg.cannotInstallDeviceWithoutMilitaryID">
+				(cat "\"I don't have a military ID to install " (itmGetName (@ gData 'item) 0x80) ".\"")
+			</Text>
+			<Text id="rpg.cannotInstallDeviceBecauseIllegal">
+				"\"No thanks, that's illegal here.\""
+			</Text>
+			<Text id="rpg.cannotInstallArmorBecauseTooHeavy">
+				(cat "\"" (itmGetName (@ gData 'item) 0x81) " is too heavy for my ship's hull.\"")
+			</Text>
+			<Text id="rpg.cannotInstallDevice">
+				"\"I can't install that.\""
+			</Text>
+			<Text id="rpg.cannotInstallDeviceWithoutUpgrade">
+				"Sorry, installation services are only available for purchased upgrades."
+			</Text>
+			<Text id="rpg.cannotInstallDeviceBecauseReactorTooWeak">
+				(cat "\"My reactor is not powerful enough for " (itmGetName (@ gData 'item) 0x04) ".\"")
+			</Text>
+			<Text id="rpg.cannotInstallReactorBecauseTooStrong">
+				(cat "\"The power output of " (itmGetName (@ gData 'item) 0x04) " is too high for my ship.\"")
+			</Text>
 		</Language>
 	</DockScreen>
 
