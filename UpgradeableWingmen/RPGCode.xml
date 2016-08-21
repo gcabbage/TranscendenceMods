@@ -7,6 +7,7 @@
 			; Changes:
 			; totalPrice/installPriceAdj no longer disable default install tech check
 			; maxTechLevel/techCriteria/techCriteriaOverride will always override default install tech check
+			; add scrTranslate calls so dockscreen can override default strings
 			(setq rpgInstallDevicePrep (lambda (data)
 
 				; Data must have the following fields
@@ -77,7 +78,6 @@
 									(itmGetInstallPos (@ data 'replaceItem))
 									)
 								)
-
 							cargoNeeded itemToReplace resultMessage resultCode returnValue stationCannotInstall removeStatus
 							installText installTextData
 							)
@@ -142,6 +142,7 @@
 										(setq desc (objTranslate installerObj (@ status 'descID) { item:thisItem targetObj:targetObj }))
 										(setq desc (or
 											(objTranslate installerObj 'rpg.noTechToInstallDevice { item:thisItem targetObj:targetObj })
+											(scrTranslate gScreen 'rpg.noTechToInstallDevice { item:thisItem targetObj:targetObj })
 											(cat (strCapitalize textWe) " do not have the technology to install " itemName " on " textYourShip ".")
 											))
 										)
@@ -149,6 +150,7 @@
 								(not totalCost)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDevice { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDevice { item:thisItem targetObj:targetObj })
 										(cat (strCapitalize textWe) " cannot install " itemName " on " textYourShip ".")
 										))
 
@@ -159,6 +161,7 @@
 										)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceWithoutUpgrade { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceWithoutUpgrade { item:thisItem targetObj:targetObj })
 										(cat "Sorry, installation services are only available for purchased upgrades.")
 										))
 
@@ -170,6 +173,7 @@
 										)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceWithoutMilitaryID { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceWithoutMilitaryID { item:thisItem targetObj:targetObj })
 										(cat "You must have a military ID to use " itemName ".")
 										))
 
@@ -178,6 +182,7 @@
 										)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseIllegal { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseIllegal { item:thisItem targetObj:targetObj })
 										"We do not install illegal items."
 										))
 
@@ -187,6 +192,7 @@
 								(eq resultCode 'noDeviceSlotsLeft)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseLackOfSlots { item:thisItem targetObj:targetObj slotsRequired:(itmGetProperty thisItem 'deviceSlots) })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseLackOfSlots { item:thisItem targetObj:targetObj slotsRequired:(itmGetProperty thisItem 'deviceSlots) })
 										(if (gr (itmGetProperty thisItem 'deviceSlots) 1)
 											(cat (strCapitalize textYourShip) " does not have enough open device slots to install this device.")
 											(cat (strCapitalize textYourShip) " does not have an open device slot for this device.")
@@ -196,18 +202,21 @@
 								(eq resultCode 'reactorTooWeak)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseReactorTooWeak { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseReactorTooWeak { item:thisItem targetObj:targetObj })
 										(cat (strCapitalize textYourShip) "'s reactor is not powerful enough for this device.")
 										))
 
 								(eq resultCode 'reactorIncompatible)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallReactorBecauseTooStrong { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallReactorBecauseTooStrong { item:thisItem targetObj:targetObj })
 										(cat "The power output of " itemName " is too high for " textYourShip ".")
 										))
 
 								(eq resultCode 'noWeaponSlotsLeft)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseLackOfWeaponSlots { item:thisItem targetObj:targetObj slotsRequired:(itmGetProperty thisItem 'deviceSlots) })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseLackOfWeaponSlots { item:thisItem targetObj:targetObj slotsRequired:(itmGetProperty thisItem 'deviceSlots) })
 										(if (gr (itmGetProperty thisItem 'deviceSlots) 1)
 											(cat (strCapitalize textYourShip) " does not have enough open weapon slots to install this device.")
 											(cat (strCapitalize textYourShip) " does not have an open weapon slot for this device.")
@@ -217,6 +226,7 @@
 								(eq resultCode 'noNonWeaponSlotsLeft)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseLackOfNonWeaponSlots { item:thisItem targetObj:targetObj slotsRequired:(itmGetProperty thisItem 'deviceSlots) })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseLackOfNonWeaponSlots { item:thisItem targetObj:targetObj slotsRequired:(itmGetProperty thisItem 'deviceSlots) })
 										(if (gr (itmGetProperty thisItem 'deviceSlots) 1)
 											(cat (strCapitalize textYourShip) " does not have enough open non-weapon slots to install this device.")
 											(cat (strCapitalize textYourShip) " does not have an open non-weapon slot for this device.")
@@ -231,6 +241,7 @@
 										)
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseAlreadyInstalled { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseAlreadyInstalled { item:thisItem targetObj:targetObj })
 										(cat (strCapitalize textYourShip) " already has " itemName " (and cannot support more devices unless you remove one first).")
 										))
 
@@ -238,6 +249,7 @@
 									(block Nil
 										(setq desc (or
 											(objTranslate installerObj 'rpg.installDeviceAfterRemove { item:thisItem targetObj:targetObj itemToReplace:itemToReplace })
+											(scrTranslate gScreen 'rpg.installDeviceAfterRemove { item:thisItem targetObj:targetObj itemToReplace:itemToReplace })
 											(cat (strCapitalize textWe) " can remove " textYour " " (itmGetName itemToReplace 0x80) " and install " itemName)
 											))
 										(setq installText 'rpg.installDeviceAfterRemove)
@@ -248,12 +260,14 @@
 								(not (eq resultCode 'ok))
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDevice { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.cannotInstallDevice { item:thisItem targetObj:targetObj })
 										"This device cannot be installed."
 										))
 
 								(block Nil
 									(setq desc (or
 										(objTranslate installerObj 'rpg.installDevice { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.installDevice { item:thisItem targetObj:targetObj })
 										(cat (strCapitalize textWe) " can install " itemName " on " textYourShip)
 										))
 									(setq installText 'rpg.installDevice)
@@ -290,6 +304,7 @@
 								(block Nil
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseCannotRemove { item:thisItem targetObj:targetObj itemToReplace:itemToReplace removeStatus:removeStatus })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseCannotRemove { item:thisItem targetObj:targetObj itemToReplace:itemToReplace removeStatus:removeStatus })
 										(cat desc ". " (if (isint removeStatus) "Unfortunately, you cannot remove the device." removeStatus))
 										))
 									(setq canInstall Nil)
@@ -305,6 +320,7 @@
 								(block Nil
 									(setq desc (or
 										(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseNoRoomInCargo { item:thisItem targetObj:targetObj itemToReplace:itemToReplace removeStatus:removeStatus })
+										(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseNoRoomInCargo { item:thisItem targetObj:targetObj itemToReplace:itemToReplace removeStatus:removeStatus })
 										(cat desc ". Unfortunately, there isn't enough room in your cargo hold to do the swap.")
 										))
 									(setq canInstall Nil)
@@ -319,6 +335,7 @@
 										(block Nil
 											(setq desc (or
 												(objTranslate installerObj 'rpg.cannotInstallDeviceBecauseCannotAfford { item:thisItem targetObj:targetObj cost:(fmtCurrency currencyUsed totalCost) itemToReplace:itemToReplace removeStatus:removeStatus })
+												(scrTranslate gScreen 'rpg.cannotInstallDeviceBecauseCannotAfford { item:thisItem targetObj:targetObj cost:(fmtCurrency currencyUsed totalCost) itemToReplace:itemToReplace removeStatus:removeStatus })
 												(cat desc " for " (fmtCurrency currencyUsed totalCost) ". Unfortunately, you cannot afford the cost.")
 												))
 											(setq canInstall Nil)
@@ -337,6 +354,11 @@
 													installText
 													(struct installTextData { cost:advertisedCost buyAndInstall:(@ data 'buyAndInstall) })
 													)
+												(scrTranslate
+													gScreen
+													installText
+													(struct installTextData { cost:advertisedCost buyAndInstall:(@ data 'buyAndInstall) })
+													)
 												(cat
 													desc " for " (if (@ data 'buyAndInstall) "an additional " "")
 													advertisedCost
@@ -348,6 +370,7 @@
 
 									(setq desc (or
 										(objTranslate installerObj installText (struct installTextData { selfInstall:(eq installerObj gPlayerShip) }))
+										(scrTranslate gScreen installText (struct installTextData { selfInstall:(eq installerObj gPlayerShip) }))
 										(if (not (eq installerObj gPlayerShip))
 											(cat desc " at no charge.")
 											(cat desc ".")
