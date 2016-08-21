@@ -3,8 +3,6 @@
 <TranscendenceModule>
 <!--
 	Add maxArmor, maxCargoSpace, maxDevices, maxNonWeapons to wingmen
-	Add secondaryWeapon DeviceSlot so wingmen use missiles
-
 -->
 
 	<ShipClass UNID="&scWolfenVolkov;"
@@ -38,8 +36,6 @@
 		</Armor>
 
 		<Devices>
-			<DeviceSlot criteria="w" posAngle="0" posRadius="20" secondaryWeapon="true"/>
-
 			<Device deviceID="&itXRayLaserCannon;"/>
 			<Device deviceID="&itClass5Deflector;"/>
 			<Device deviceID="&it100MWReactor;"/>
@@ -190,7 +186,6 @@
 		</Armor>
 
 		<Devices>
-			<DeviceSlot criteria="w" posAngle="0" posRadius="20" secondaryWeapon="true"/>
 			<Device deviceID="&itDualParticleBeamWeapon;"/>
 			<Device deviceID="&itCyclotronDeflectorIV;"/>
 			<Device deviceID="&it25MWReactor;"/>
@@ -312,7 +307,6 @@
 		</Armor>
 
 		<Devices>
-			<DeviceSlot criteria="w" posAngle="0" posRadius="20" secondaryWeapon="true"/>
 			<Device deviceID="&itStarCannon;"/>
 			<Device deviceID="&itYoroiMX;"/>
 			<Device deviceID="&it150MWReactor;"/>
