@@ -21,6 +21,7 @@
 								'attackingAtWill		= attacking any target in range
 								'attackingTarget		= attacking a target
 								'escorting				= escorting the player
+								'gettingAmmo			= docking with station to get more ammo
 								'goingHome				= wingman wants to go home
 								'repairingArmor			= docking with station to repair
 								'waiting				= waiting for the player
@@ -78,19 +79,19 @@
 				<Invoke>
 					(switch
 						(eq (objGetTarget gSender) gSource)
-							(objSendMessage gSender gSource (objTranslate gSource 'IcantAttackMyself "\"Unable to comply\""))
+							(objSendMessage gSender gSource (objTranslate gSource 'IcantAttackMyself))
 
 						(and (not (objIsEnemy gPlayerShip (objGetTarget gSender)))
 								(not (objIsAngryAt (objGetTarget gSender) gPlayerShip))
 								)
-							(objSendMessage gSender gSource (objTranslate gSource 'IcantAttackFriends "\"Unable to comply\""))
+							(objSendMessage gSender gSource (objTranslate gSource 'IcantAttackFriends))
 
 						(block Nil
 							(shpCancelOrders gSource)
 							(shpOrder gSource 'attack (objGetTarget gSender))
 
 							(objSetData gSource "behavior" 'attackingTarget)
-							(objSendMessage gSender gSource (objTranslate gSource 'AttackTargetAck "\"Acknowledged\""))
+							(objSendMessage gSender gSource (objTranslate gSource 'AttackTargetAck))
 							)
 						)
 				</Invoke>
@@ -107,14 +108,14 @@
 							(or (not (setq theTarget (sysFindObject gPlayerShip "sTYAN")))
 									(gr (objGetDistance gPlayerShip theTarget) 100)
 									)
-								(objSendMessage gSender gSource (objTranslate gSource 'NoTargetInRange "\"No target in range\""))
+								(objSendMessage gSender gSource (objTranslate gSource 'NoTargetInRange))
 
 							(block Nil
 								(shpCancelOrders gSource)
 								(shpOrder gSource 'attack theTarget)
 
 								(objSetData gSource "behavior" 'attackingAtWill)
-								(objSendMessage gSender gSource (objTranslate gSource 'AttackTargetAck "\"Acknowledged\""))
+								(objSendMessage gSender gSource (objTranslate gSource 'AttackTargetAck))
 								)
 							)
 						)
@@ -138,7 +139,7 @@
 							(eq behavior 'escorting)
 								(block Nil
 									(objCommunicate gSource gSender 'FormUp)
-									(objSendMessage gSender gSource (objTranslate gSource 'FormUpAck "\"Acknowledged\""))
+									(objSendMessage gSender gSource (objTranslate gSource 'FormUpAck))
 									)
 
 							(block Nil
@@ -147,8 +148,8 @@
 
 								(objSetData gSource "behavior" 'escorting)
 								(if (or (eq behavior 'attackingTarget) (eq behavior 'attackingAtWill))
-									(objSendMessage gSender gSource (objTranslate gSource 'CancelAttackAck "\"Acknowledged\""))
-									(objSendMessage gSender gSource (objTranslate gSource 'FormUpAck "\"Acknowledged\""))
+									(objSendMessage gSender gSource (objTranslate gSource 'CancelAttackAck))
+									(objSendMessage gSender gSource (objTranslate gSource 'FormUpAck))
 									)
 								)
 							)
@@ -162,29 +163,33 @@
 				</OnShow>
 
 				<Invoke>
-					(block (behavior armorDamage shieldLevel)
-						(setq behavior (objGetData gSource "behavior"))
+					(block (
+						(behavior (objGetData gSource 'behavior))
+						(armorDamage (objGetVisibleDamage gSource))
+						(shieldLevel (objGetShieldLevel gSource))
+						)
 
 						(objSendMessage gSender gSource
 							(switch
-								(or (eq behavior 'attackingTarget) (eq behavior 'attackingAtWill))
-									(objTranslate gSource 'StatusAttackingTarget "\"Engaging target\"")
+								(or (= behavior 'attackingTarget) (= behavior 'attackingAtWill))
+									(objTranslate gSource 'StatusAttackingTarget)
 
-								(eq behavior 'goingHome)
-									(objTranslate gSource 'StatusGoingHome "\"Returning home\"")
+								(= behavior 'goingHome)
+									(objTranslate gSource 'StatusGoingHome)
 
-								(eq behavior 'repairingArmor)
-									(objTranslate gSource 'StatusRepairingArmor "\"Repairing armor\"")
+								(= behavior 'repairingArmor)
+									(objTranslate gSource 'StatusRepairingArmor)
 
-								(eq behavior 'waiting)
-									(objTranslate gSource 'StatusWaiting "\"Waiting\"")
+								(= behavior 'gettingAmmo)
+									(objTranslate gSource 'StatusGettingAmmo)
 
-								(and (eq (setq armorDamage (objGetVisibleDamage gSource)) 0)
-										(or (eq (setq shieldLevel (objGetShieldLevel gSource)) 100) (eq shieldLevel -1))
-										)
-									(objTranslate gSource 'Status100Percent "\"No damage\"")
+								(= behavior 'waiting)
+									(objTranslate gSource 'StatusWaiting)
 
-								(eq armorDamage 0)
+								(and (= armorDamage 0) (or (= shieldLevel 100) (= shieldLevel -1)))
+									(objTranslate gSource 'Status100Percent)
+
+								(= armorDamage 0)
 									(cat "Shields down to " shieldLevel "%")
 
 								(cat "Armor is " armorDamage "% damaged")
@@ -207,25 +212,49 @@
 						(shpOrder gSource 'hold)
 
 						(objSetData gSource "behavior" 'waiting)
-						(objSendMessage gSender gSource (objTranslate gSource 'WaitAck "\"Acknowledged\""))
+						(objSendMessage gSender gSource (objTranslate gSource 'WaitAck))
 						)
 				</Invoke>
 			</Message>
 		</Communications>
 
 		<Language>
+			<Text id="ArmorRepaired">			"\"Armor repairs completed\""</Text>
+			<Text id="AmmoReloaded">			"\"Weapons reloaded\""</Text>
+			<Text id="AttackTargetAck">			"\"Acknowledged\""</Text>
+			<Text id="CancelAttackAck">			"\"Acknowledged\""</Text>
+			<Text id="FormUpAck">				"\"Acknowledged\""</Text>
+			<Text id="IcantAttackFriends">		"\"Unable to comply\""</Text>
+			<Text id="IcantAttackMyself">		"\"Unable to comply\""</Text>
+			<Text id="ImFarFromHome">			"\"I'm far from home\""</Text>
+			<Text id="ImTooFarFromHome">		"\"I'm too far from home\""</Text>
+			<Text id="ImGoingHome">				"\"Going home\""</Text>
+			<Text id="ImGettingAmmo">			"\"Docking to get ammo\""</Text>
+			<Text id="ImRepairingArmor">		"\"Docking to repair armor\""</Text>
+			<Text id="MyArmorNeedsRepair">		"\"Armor repair needed\""</Text>
+			<Text id="NiceShooting">			"\"Nice shooting!\""</Text>
+			<Text id="NoTargetInRange">			"\"No target in range\""</Text>
+			<Text id="OutOfAmmo">				"\"I'm out of ammo\""</Text>
+			<Text id="Status100Percent">		"\"No damage\""</Text>
+			<Text id="StatusAttackingTarget">	"\"Engaging target\""</Text>
+			<Text id="StatusGoingHome">			"\"Returning home\""</Text>
+			<Text id="StatusRepairingArmor">	"\"Repairing armor\""</Text>
+			<Text id="StatusGettingAmmo">		"\"Getting Ammo\""</Text>
+			<Text id="StatusWaiting">			"\"Waiting\""</Text>
+			<Text id="WaitAck">					"\"Acknowledged\""</Text>
+			<Text id="WatchYourTargets">		"\"Watch your targets!\""</Text>
+			<Text id="WingmanJoined">			"\"Ready\""</Text>
+			<Text id="WingmanKilled">			"Wingman killed"</Text>
+
 			<Text id="EscortReportingIn">
 				(if (not (objGetData gSource "welcomeMsg"))
 					(block Nil
 						(objSetData gSource "welcomeMsg" True)
-						(objTranslate gSource 'WingmanJoined "\"Ready\"")
+						(objTranslate gSource 'WingmanJoined)
 						)
 					""
 					)
 			</Text>
-
-			<Text id="NiceShooting">			"\"Nice shooting!\""</Text>
-			<Text id="WatchYourTargets">		"\"Watch your targets!\""</Text>
 		</Language>
 
 		<Events>
@@ -252,7 +281,7 @@
 										(shpOrder gSource 'gate (intGetGateToSystem gSource (objGetData gSource "homeSystem")))
 
 										(objSetData gSource "behavior" 'goingHome)
-										(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImGoingHome "\"Going home\""))
+										(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImGoingHome))
 										)
 
 								; If there is a station that can repair armor, dock with it
@@ -263,7 +292,7 @@
 										(shpOrder gSource 'wait (random 3 8))
 
 										(objSetData gSource "behavior" 'repairingArmor)
-										(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImRepairingArmor "\"Docking to repair armor\""))
+										(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImRepairingArmor))
 										)
 
 								; Otherwise, tell the player that we need repairs
@@ -273,7 +302,7 @@
 											)
 										)
 									(block Nil
-										(objSendMessage gPlayerShip gSource (objTranslate gSource 'MyArmorNeedsRepair "\"Armor repair needed\""))
+										(objSendMessage gPlayerShip gSource (objTranslate gSource 'MyArmorNeedsRepair))
 										(objSetData gSource "nextArmorRepairMsg" (add (unvGetTick) 3600))
 										)
 								)
@@ -312,7 +341,7 @@
 
 					(block Nil
 						(objSetGlobalData gSource "status" 'destroyed)
-						(plyMessage gPlayer (objTranslate gSource 'WingmanKilled "Wingman killed"))
+						(plyMessage gPlayer (objTranslate gSource 'WingmanKilled))
 						)
 					)
 			</OnDestroy>
@@ -334,10 +363,10 @@
 							Nil
 
 						(geq (sysGetLevel) maxSystemLevel)
-							(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImTooFarFromHome "\"I'm too far from home\""))
+							(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImTooFarFromHome))
 
 						(eq (sysGetLevel) (subtract maxSystemLevel 1))
-							(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImFarFromHome "\"I'm far from home\""))
+							(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImFarFromHome))
 						)
 					)
 			</OnEnteredSystem>
@@ -349,7 +378,7 @@
 						(eq behavior 'repairingArmor)
 							(block Nil
 								(intArmorRepairAll gSource 25 'alwaysRepair)
-								(objSendMessage gPlayerShip gSource (objTranslate gSource 'ArmorRepaired "\"Armor repairs completed\""))
+								(objSendMessage gPlayerShip gSource (objTranslate gSource 'ArmorRepaired))
 								)
 						)
 
@@ -397,27 +426,6 @@
 					)
 			</OnPlayerLeftSystem>
 
-			<OnTranslateMessage>
-				(switch
-					(eq aMessage 'EscortReportingIn)
-						(if (not (objGetData gSource "welcomeMsg"))
-							(block Nil
-								(objSetData gSource "welcomeMsg" True)
-								(objTranslate gSource 'WingmanJoined "\"Ready\"")
-								)
-							""
-							)
-
-					(eq aMessage 'WatchYourTargets)
-						(objTranslate gSource 'WatchYourTargets "\"Watch your targets!\"")
-
-					(eq aMessage 'NiceShooting)
-						(objTranslate gSource 'NiceShooting "\"Nice shooting!\"")
-
-					Nil
-					)
-			</OnTranslateMessage>
-
 			<OrderJoinPlayer>
 				(block Nil
 					(objSetProperty gSource 'playerWingman True)
@@ -448,7 +456,7 @@
 						(filter (sysFindObject gSource (cat "sTAFN:" maxDist)) theObj
 							(and
 								(not (objIsAngryAt theObj gSource))
-								(gr (objGetOpenDockingPortCount theObj) 0)
+								(gr (objGetOpenDockingPortCount theObj) 1)
 								(filter
 									(objGetItems theObj (cat "m +launchedBy:" (itmGetType (@ gData 'item)) ";"))
 									theItemToBuy
@@ -458,17 +466,24 @@
 							)
 						))
 					)
-					(if ammoVendor
-						(block Nil
-							(shpCancelOrders gSource)
-							(shpOrder gSource 'dock ammoVendor)
-							(shpOrder gSource 'wait (random 3 8))
-							(shpOrder gSource 'fireEvent gSource "OrderBuyAmmo")
-							(objSetObjRefData gSource 'dockTarget ammoVendor)
-							(objSetData gSource "behavior" 'gettingAmmo)
-							(objSendMessage gPlayerShip gSource (cat "Getting ammo from: " (objGetName ammoVendor)))
-							)
-						(objSendMessage gPlayerShip gSource "I need ammo")
+					(switch
+						ammoVendor
+							(block Nil
+								(shpCancelOrders gSource)
+								(shpOrder gSource 'dock ammoVendor)
+								(shpOrder gSource 'wait (random 3 8))
+								(shpOrder gSource 'fireEvent gSource "OrderBuyAmmo")
+								(objSetObjRefData gSource 'dockTarget ammoVendor)
+								(objSetData gSource 'behavior 'gettingAmmo)
+								(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImGettingAmmo))
+								)
+
+							; Otherwise, tell the player that we need ammo
+							(gr (unvGetTick) (objGetData gSource 'nextAmmoMsg))
+								(block Nil
+									(objSendMessage gPlayerShip gSource (objTranslate gSource 'OutOfAmmo))
+									(objSetData gSource 'nextAmmoMsg (+ (unvGetTick) 3600))
+									)
 						)
 					)
 			</OnNeedAmmo>
@@ -488,6 +503,7 @@
 								(objCredit dockObj (* price (itmGetCount ammo)))
 								(objRemoveItem dockObj ammo)
 								(objAddItem gSource ammo)
+								(objSendMessage gPlayerShip gSource (objTranslate gSource 'AmmoReloaded))
 								)
 							)
 						)
@@ -496,4 +512,28 @@
 		</Events>
 	</ShipClass>
 
+	<Globals>
+		(block Nil
+			; Modified to check that the object has enough open docking ports
+			(setq srvFindRepairArmor (lambda (theSource maxDist minLevel)
+				(block (theServiceEntry)
+					(random
+						(filter (sysFindObject theSource (cat "sTAFN:" maxDist)) theObj
+							(and
+								(not (objIsAngryAt theObj gPlayerShip))
+								(gr (objGetOpenDockingPortCount theObj) 1)
+								(or
+									(and
+										(setq theServiceEntry (lookup (objGetStaticData theObj "NPCService") 'repairArmor 0))
+										(geq (item theServiceEntry 1) minLevel)
+										)
+									(geq (objGetProperty theObj 'repairArmorMaxLevel) minLevel)
+									)
+								)
+							)
+						)
+					)
+				))
+			)
+	</Globals>
 </TranscendenceModule>
