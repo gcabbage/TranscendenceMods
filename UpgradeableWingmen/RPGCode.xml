@@ -85,29 +85,26 @@
 							)
 
 							;	Check if the station can install the device
-							(switch
-								;	If we don't match the tech criteria then we don't have the
-								;	technology to install.
-								(and (@ data 'techCriteria)
-									(not (itmMatches thisItem (@ data 'techCriteria)))
-									)
-									(setq stationCannotInstall True)
+							(if	(or (@ data 'maxTechLevel) (@ data 'techCriteria))
 
-								;	If our max tech level is too low for the item, then we can't install
-								;	(except for specific items that we know about)
+								; If tech criteria provided then use them for check
+								(setq stationCannotInstall (or
+									;	If we don't match the tech criteria then we don't have the
+									;	technology to install.
+									(and (@ data 'techCriteria) (not (itmMatches thisItem (@ data 'techCriteria))))
 
-								(and (gr (itmGetLevel thisItem) (if (@ data 'maxTechLevel) (@ data 'maxTechLevel) 30))
-									(or (not (@ data 'techCriteriaOverride))
-										(not (itmMatches thisItem (@ data 'techCriteriaOverride)))
+									;	If our max tech level is too low for the item, then we can't install
+									;	(except for specific items that we know about)
+									(and (gr (itmGetLevel thisItem) (or (@ data 'maxTechLevel) 30))
+										(or (not (@ data 'techCriteriaOverride))
+											(not (itmMatches thisItem (@ data 'techCriteriaOverride)))
+											)
 										)
-									)
-									(setq stationCannotInstall True)
+									))
 
-								;   If we exceed the station's tech
-								(not (@ status 'canInstall))
-									(setq stationCannotInstall True)
+								;	Otherwise result depends on installDeviceStatus property
+								(setq stationCannotInstall (not (@ status 'canInstall)))
 								)
-
 
 							;	Compute the cost to install
 
@@ -148,6 +145,18 @@
 											(cat (strCapitalize textWe) " do not have the technology to install " itemName " on " textYourShip ".")
 											))
 										)
+
+								;   If we exceed the station's tech
+
+								(and (not totalCost)
+									(gr (itmGetLevel thisItem) (objGetProperty installerObj 'installDeviceMaxLevel))
+									)
+									(setq desc (or
+										(objTranslate installerObj 'rpg.noTechToInstallDevice { item:thisItem targetObj:targetObj })
+										(scrTranslate gScreen 'rpg.noTechToInstallDevice { item:thisItem targetObj:targetObj })
+										(cat (strCapitalize textWe) " do not have the technology to install " itemName " on " textYourShip ".")
+										))
+
 
 								(not totalCost)
 									(setq desc (or
