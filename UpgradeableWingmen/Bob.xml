@@ -192,10 +192,40 @@
 
 		<AISettings
 			fireRateAdj=		"20"
-			fireRangeAdj=		"50"
+			fireRangeAdj=		"70"
 			fireAccuracy=		"85"
 			perception=			"4"
+
+			combatStyle=		"advanced"
 			/>
 
+		<Events>
+			<GetGlobalAchievements>
+				(block (
+					(status (typGetData &scIAVBob; 'status))
+					theList
+					)
+
+					(if status
+						(setq theList (list
+							(list
+								(switch
+									(= status 'joined) "Joined by Bob"
+									(= status 'declined) "Declined Bob's company"
+									(= status 'destroyed) "Lost Bob"
+									(= status 'destroyedByPlayer) "Killed Bob"
+									(= status 'returnedHome) "Allowed Bob to return home"
+									(cat "ERROR: Bob status: " status)
+									)
+								Nil
+								"achievements &amp; regrets"
+								)
+							))
+						)
+
+					theList
+					)
+			</GetGlobalAchievements>
+		</Events>
 	</ShipClass>
 </TranscendenceModule>

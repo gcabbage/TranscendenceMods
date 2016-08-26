@@ -99,8 +99,10 @@
 
 		<Events>
 			<GetGlobalAchievements>
-				(block (theList status)
-				(setq status (typGetGlobalData &scWolfenVolkov; "status"))
+				(block (
+					(status (typGetData &scWolfenVolkov; 'status))
+					theList
+					)
 
 					(if status
 						(setq theList (list
@@ -149,7 +151,8 @@
 					(shpOrder gSource 'dock aTargetObj)
 					(shpOrder gSource 'wait)
 
-					(objSetData gSource "behavior" 'goingHome)
+					(objSetProperty gSource 'playerWingman Nil)
+					(objSetData gSource 'behavior 'goingHome)
 					(objSendMessage gPlayerShip gSource (objTranslate gSource 'ImGoingHome))
 					)
 			</OrderJoinHelena>
@@ -251,8 +254,10 @@
 
 		<Events>
 			<GetGlobalAchievements>
-				(block (theList status)
-					(setq status (typGetGlobalData &scRoninJenna; "status"))
+				(block (
+					(status (typGetData &scRoninJenna; 'status))
+					theList
+					)
 
 					(if status
 						(setq theList (list
@@ -370,8 +375,10 @@
 
 		<Events>
 			<GetGlobalAchievements>
-				(block (theList status)
-					(setq status (typGetGlobalData &scCenturionRama; "status"))
+				(block (
+					(status (typGetData &scCenturionRama; 'status))
+					theList
+					)
 
 					(if status
 						(setq theList (list
