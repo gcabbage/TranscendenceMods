@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<TranscendenceModule>
+
+<!-- BEHAVIORS -->
+
+	<!-- Commonwealth Traffic Behavior
+	
+		USAGE NOTES
+
+		This controls random ships that travel between Commonwealth stations.
+		To use:
+
+		1. Create the ship at a stargate
+		2. Set the event handler
+		3. Set the home station
+		4. Call "OrderBeginTraffic"
+
+		EXTRA DATA
+
+		behavior:			Ship's current behavior
+								'enteredSystem			= Ship just entered the system
+								'docked					= Ship is docked somewhere
+								'leavingSystem			= Ship is heading out of the system
+
+		home:				Ship's home station
+
+	-->
+
+	<ShipClass UNID="&evCommTrafficBehavior;"
+			class=				"(commonwealth traffic behavior)"
+			virtual=			"true"
+
+			attributes=			"behaviorClass"
+			>
+
+		<Events>
+			<OrderBeginTraffic>
+				(block (homeObj)
+					; If the home station is not set, set it now
+					(if (not (setq homeObj (objGetObjRefData gSource "home")))
+						(block Nil
+							(setq homeObj (sysFindObject gSource "TAFN +commonwealth; +primary;"))
+							(if (not homeObj)
+								(setq homeObj (sysFindObject gSource "TAFN +populated; -occupation;"))
+								)
+
+							(objSetObjRefData gSource "home" homeObj)
+							)
+						)
+
+					; Set data so we know we are traffic
+					(objSetData gSource "0010300C_traffic" True)
+
+					; Set state
+					(objSetData gSource "behavior" 'enteredSystem)
+					)
+			</OrderBeginTraffic>
+
+			<OnOrdersCompleted>
+				(block (behavior newBehavior allDests dockedAt allWrecks allLoot)
+					(setq behavior (objGetData gSource "behavior"))
+					(setq dockedAt (shpGetDockObj gSource))
+
+					; If we're docked at an object, dump any loot that we found
+					(if (and dockedAt
+							(objHasAttribute dockedAt "populated")
+
+							; Compose a list of all loot on board that the station
+							; might want to buy from us.
+
+							(setq allLoot (filter (objGetItems gSource "*~mf U") theItem
+								(objGetBuyPrice dockedAt theItem)
+								))
+							)
+						(block Nil
+							(enum allLoot theItem (objRemoveItem gSource theItem))
+							(enum allLoot theItem (objAddItem dockedAt theItem))
+							)
+						)
+
+					; Figure out what to do next
+					(switch
+
+						; Check for wrecks in the area; if we find some, then loot them
+						(and (leq (objGetDestiny gSource) 180)
+								(not (objHasAttribute gSource "freighter"))
+								(leq (random 1 100) 50)
+
+								; Compose a list of all wrecks in the area
+
+								(setq allWrecks (filter (sysFindObject gSource "TK N:100; +shipwreck; -uncharted; -locked;") theObj
+									(and
+										(not (objIsRadioactive theObj))
+										(not (objGetData theObj "0010300c_marked"))
+										)
+									))
+								)
+							(block (destObj)
+								(setq destObj (random allWrecks))
+								(shpOrder gSource 'loot destObj)
+								(objSetData destObj "0010300c_marked" True)
+								(objSetData gSource "behavior" 'looting)
+								)
+
+						; If we have no destinations or randomly, we gate out
+						(or (and (not (eq behavior 'enteredSystem)) (leq (random 1 100) 20))
+								(not
+									; Compose a list of stations that we could go to.
+									; We exclude the station that we're docked with and any
+									; stations that don't have too many dock ports open.
+
+									(setq allDests (filter (sysFindObject gSource "TAF +populated; -korolovShipping; -occupation;") theObj
+										(and (gr (objGetOpenDockingPortCount theObj) 1)
+											(or (not dockedAt) (not (eq dockedAt theObj)))
+											)
+										))
+									)
+								)
+							(block (gateObj)
+								(setq gateObj (random (sysFindObject gSource "G -uncharted;")))
+								(shpOrder gSource 'gate gateObj)
+								(objSetData gSource "behavior" 'leavingSystem)
+								)
+
+						; Otherwise, we go to another station
+						(block (destObj)
+							(setq destObj (random allDests))
+							(shpOrder gSource 'dock destObj)
+							(shpOrder gSource 'wait (random 10 60))
+							(objSetData gSource "behavior" 'docked)
+							)
+						)
+
+					; If we were docked at an object that we just looted, then destroy the object
+					(if (and (objGetData dockedAt "0010300c_marked")
+							(ls (objGetProperty dockedAt 'mass) 2000)
+							(not (objGetProperty dockedAt 'immutable))
+							)
+						(objDestroy dockedAt gSource)
+						)
+					)
+			</OnOrdersCompleted>
+		</Events>
+	</ShipClass>
+
+</TranscendenceModule>
