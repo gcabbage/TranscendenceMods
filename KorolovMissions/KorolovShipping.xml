@@ -98,7 +98,12 @@
 					(homeObj (objGetObjByID (objGetData gSource 'home)))
 					(theEscort (random (sysFindObject homeObj "sHZ O:guard;")))
 					(dest (objGetObjRefData gSource 'korolovDest))
-					(altDest (random (sysFindObject homeObj "TAF +populated; -occupation; -uncharted;")))
+					; Need to use filter as sysFindObject -data:xyz; does not work
+					(altDest (random (filter
+							(sysFindObject homeObj "TAF +populated; -occupation; -uncharted;")
+							theObj
+							(not (objGetData theObj 'noTraffic))
+							)))
 					)
 					(switch
 						; If we have a preset destination then use that

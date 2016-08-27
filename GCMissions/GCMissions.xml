@@ -54,4 +54,6 @@
 	<Module filename="CommonwealthContainerHabitat.xml"/>
 	<Module filename="Items.xml"/>
 
+	<Module filename="Commonwealth.xml"/>
+
 </TranscendenceExtension>

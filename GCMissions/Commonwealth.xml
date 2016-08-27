@@ -5,7 +5,7 @@
 <!-- BEHAVIORS -->
 
 	<!-- Commonwealth Traffic Behavior
-	
+
 		USAGE NOTES
 
 		This controls random ships that travel between Commonwealth stations.
@@ -113,6 +113,7 @@
 									(setq allDests (filter (sysFindObject gSource "TAF +populated; -korolovShipping; -occupation;") theObj
 										(and (gr (objGetOpenDockingPortCount theObj) 1)
 											(or (not dockedAt) (not (eq dockedAt theObj)))
+											(not (objGetData theObj 'noTraffic))
 											)
 										))
 									)
