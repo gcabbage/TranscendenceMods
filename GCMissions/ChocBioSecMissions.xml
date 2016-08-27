@@ -7,8 +7,8 @@
 	msCorpBioSecInvestigate3	Attack anarchist base
 	msCorpBioSecInvestigate4	End Quarantine
 
-	To Do:
-		handle main mission timeout (especially msCorpBioSecSupplies1) with sub mission failure
+	To do:
+	*	Investigate1 - additional failure messages
 	-->
 
 <TranscendenceModule>
@@ -18,8 +18,8 @@
 
 	EXTRA DATA
 
-	destID:	Destination of ship
-	reward:	Reward (in credits) for completing mission
+	destID:		Destination of ship
+	reward:		Reward (in credits) for completing mission
 	targetID:	Id of ship to destroy
 
 	======================================================================== -->
@@ -51,12 +51,12 @@
 					)
 					(switch
 						; Main mission must be active
-						(not aidMission)
+						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
 						(block Nil
 							; Copy data from parent mission
-							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'parentID (objGetID aidMission))
 							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
 							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
 
@@ -222,6 +222,9 @@
 				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
 			</OnReward>
 
+			<OnGetNextScreen>
+				(msnFireEvent (objGetObjByID (msnGetData gSource 'parentID)) 'OnSubGetNextScreen)
+			</OnGetNextScreen>
 		</Events>
 		<Language>
 			<Text id="Name">
@@ -315,8 +318,8 @@
 
 	EXTRA DATA
 
-	destID:	Destination of ship
-	reward:	Reward (in credits) for completing mission
+	destID:		Destination of ship
+	reward:		Reward (in credits) for completing mission
 	targetID:	Id of ship to destroy
 
 	======================================================================== -->
@@ -337,7 +340,7 @@
 					)
 					(switch
 						; Main mission must be active
-						(not aidMission)
+						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
 						; Pick a random stargate. It must be a certain distance from us. If we can't
@@ -348,7 +351,7 @@
 						; Otherwise, set up mission
 						(block Nil
 							; Copy data from parent mission
-							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'parentID (objGetID aidMission))
 							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
 							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
 
@@ -378,7 +381,7 @@
 					(destObj (objGetObjByID (msnGetData gSource 'destID)))
 					(distToGate (random 300 600))
 					(angleToStation (sysVectorAngle (sysVectorSubtract aOwnerObj destObj)))
-					(courseAngle (modulo 'degrees (add angleToStation (random -60 60)) 360))
+					(courseAngle (modulo 'degrees (+ angleToStation (random -60 60)) 360))
 					(interceptPos (sysVectorPolarOffset destObj courseAngle distToGate))
 					(targetObj (objGetObjByID (msnGetData gSource 'targetID)))
 					playerTravelTime freighterDist freighterPos
@@ -390,13 +393,13 @@
 
 					; Adjust travel time a bit because the player won't always travel to the
 					; intersection point.
-					(setq playerTravelTime (divide (multiply playerTravelTime 3) 2))
+					(setq playerTravelTime (divide (* playerTravelTime 3) 2))
 
 					; Compute the distance that the target freighter will travel in that time
 					(setq freighterDist (sysCalcTravelDistance 16 playerTravelTime))
 
 					; Now compute a position for the freighter
-					(setq freighterPos (sysVectorPolarOffset destObj courseAngle (add distToGate freighterDist)))
+					(setq freighterPos (sysVectorPolarOffset destObj courseAngle (+ distToGate freighterDist)))
 
 					; Create the freighter, based on the mission level.
 					(objResume targetObj)
@@ -444,7 +447,7 @@
 
 			<OnObjDestroyed>
 				(switch
-					(eq (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
 						(msnSuccess gSource 'destroyed)
 					)
 			</OnObjDestroyed>
@@ -464,14 +467,14 @@
 							(shpOrder aObjDocked 'gate (sysFindObject gSource "GN -uncharted;"))
 							; Award a bonus for keeping ship alive
 							(msnSetData gSource 'reward (int (* 1.5 (msnGetData gSource 'reward))))
-							(msnSuccess gSource 'returned)
+							(msnSuccess gSource 'bonus)
 							)
 					)
 			</OnObjDocked>
 
 			<OnObjEnteredGate>
 				(switch
-					(eq (objGetID aObj) (msnGetData gSource 'targetID))
+					(= (objGetID aObj) (msnGetData gSource 'targetID))
 						(msnFailure gSource)
 					)
 			</OnObjEnteredGate>
@@ -483,6 +486,10 @@
 			<OnReward>
 				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
 			</OnReward>
+
+			<OnGetNextScreen>
+				(msnFireEvent (objGetObjByID (msnGetData gSource 'parentID)) 'OnSubGetNextScreen)
+			</OnGetNextScreen>
 		</Events>
 
 		<Language>
@@ -532,7 +539,7 @@
 				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
 			</Text>
 			<Text id="SuccessDebrief">
-				(if (= (msnGetData gSource 'outcome) 'returned)
+				(if (= (msnGetData gSource 'outcome) 'bonus)
 					(cat
 						"\"Great work! The freighter crew is a little shaken up. Luckily for them they turned out to "
 						"be clean, but we couldn't risk them breaking quarantine before we were certain.\"\n\n"
@@ -625,6 +632,7 @@
 
 			<OnDestroy>
 			</OnDestroy>
+
 		</Events>
 
 		<Language>
@@ -661,8 +669,8 @@
 	medsXXXX:	Purchace cost of mes item XXXX
 	medsNeeded:	Number of med items required
 	destID:		ID of destination (mission owner)
-	targetID:		ID of station with supplies
-	gotMeds:		True if player has meds
+	targetID:	ID of station with supplies
+	gotMeds:	True if player has meds
 	reward:		Reward for completing mission
 
 	======================================================================== -->
@@ -670,7 +678,7 @@
 	<MissionType UNID="&msCorpBioSecSupplies1;"
 			name=				"Quarantine Investigation 1"
 			attributes=			"corporate, corporatePrivateer, corpBioSec, special, deliveryMission"
-			priority=			"8"
+			priority=			"12"
 			level=				"1-5"
 			maxAppearing=		"1"
 			>
@@ -697,11 +705,11 @@
 
 					(switch
 						; Main mission must be active
-						(not aidMission)
+						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
-						; Trigger when time is running out
-						(gr (- (msnGetData aidMission 'expiresOn) (unvGetTick)) 14000)
+						; Trigger when less than 10 minutes left
+						(gr (- (msnGetData aidMission 'expiresOn) (unvGetTick)) 18000)
 							(msnDestroy gSource)
 
 						; If we don't have a station then no mission
@@ -715,13 +723,14 @@
 							(medTypes (typFind "i +Meds; -Illegal; -NotForSale; &gt;1"))
 							; Check what items the station already has
 							(curItems (objGetItems stationObj "tU +Meds; -Illegal; -NotForSale; &gt;1"))
-							(curValue 0)
+							(curValue (+ (map curItems theItem (* (itmGetLevel theItem) (itmGetCount theItem)))))
 							)
-							(msnSetData gSource 'parentID aidMission)
-							; Count how many Medical items available at station
-							(enum curItems theItem
-								(setq curValue (+ curValue (* (itmGetLevel theItem) (itmGetCount theItem))))
-								)
+
+							(msnSetData gSource 'parentID (objGetID aidMission))
+							; Make sure player has enough time to get the meds
+							(msnSetData gSource 'travelTime (* 2 (sysCalcTravelTime (objGetDistance aOwnerObj stationObj) (shpGetMaxSpeed gPlayerShip))))
+							(msnIncData aidMission 'expiresOn (msnGetData gSource 'travelTime))
+
 							; Add extra items if needed
 							(loop	(ls curValue medsNeeded)
 								(block (theItem)
@@ -761,22 +770,30 @@
 			<OnUpdate>
 				(block (
 					(needMeds (not (objGetItems gPlayerShip "tU +Meds; -Illegal; -NotForSale; &gt;1")))
+					(aidMission (objGetObjByID (msnGetData gSource 'parentID)))
 					)
-					; Update target if needed
-					(if (= needMeds (msnGetData gSource 'gotMeds))
-						(block Nil
-							(msnSetData gSource 'gotMeds (not needMeds))
-							(msnSetPlayerTarget gSource)
-							)
+					(switch
+						; If we're out of time, then failure
+						(ls (msnGetData aidMission 'expiresOn) (unvGetTick))
+							(msnFailure gSource)
+
+						; Update target if needed
+						(= needMeds (msnGetData gSource 'gotMeds))
+							(block Nil
+								(msnSetData gSource 'gotMeds (not needMeds))
+								(msnSetPlayerTarget gSource)
+								)
 						)
 					)
 			</OnUpdate>
 
 			<OnCompleted>
-				(block Nil
+				(block (
+					(aidMission (objGetObjByID (msnGetData gSource 'parentID)))
+					)
 					; If we succeed then increase time by 10 minutes
 					(if (= aReason 'success)
-						(msnIncData (msnGetData gSource 'parentID) 'expiresOn 18000)
+						(msnIncData aidMission 'expiresOn 18000)
 						)
 					(corpBioSec_missionCompleted gSource aReason gData)
 					)
@@ -804,6 +821,14 @@
 								)))
 							)
 						)
+					; If we delivered some items then update timer
+					(if (gr meds 0)
+						(msnIncData
+							(objGetObjByID (msnGetData gSource 'parentID))
+							'expiresOn
+							(msnGetData gSource 'travelTime)
+							)
+						)
 					(plyCredit gPlayer meds)
 					(switch
 						(= meds 0)
@@ -823,6 +848,10 @@
 						)
 					)
 			</OnDeliveryMissionCompleted>
+
+			<OnGetNextScreen>
+				(msnFireEvent (objGetObjByID (msnGetData gSource 'parentID)) 'OnSubGetNextScreen)
+			</OnGetNextScreen>
 		</Events>
 
 		<Language>
@@ -863,7 +892,12 @@
 					)
 			</Text>
 			<Text id="FailureDebrief">
-				"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+				(cat
+					"The docking bay is full of exhausted medical technicians and workers "
+					"packing up equipment. The dockmaster approaches as you enter.\n\n"
+
+					"\"You're too late&mdash;you better get up to the debriefing.\""
+					)
 			</Text>
 			<Text id="NoMeds">
 				"\"What are you doing here? Go get the medicine!\""
@@ -899,7 +933,6 @@
 			priority=			"6"
 			level=				"1-5"
 			maxAppearing=		"1"
-			noFailureOnOwnerDestroyed="true"
 			>
 
 		<Events>
@@ -909,12 +942,12 @@
 					)
 					(switch
 						; Main mission must be active
-						(not aidMission)
+						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
 						(block (dest email)
 							; Copy data from parent mission
-							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'parentID (objGetID aidMission))
 							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
 							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
 
@@ -933,7 +966,7 @@
 										)
 									)
 								)
-							(if (leq (sysGetTopologyDistance (sysGetNode) (@ dest 2)) 2)
+							(if (and dest (leq (sysGetTopologyDistance (sysGetNode) (@ dest 2)) 2))
 								; Found a nearby station
 								(block Nil
 									(msnSetData gSource 'destID (@ dest 0))
@@ -1003,21 +1036,21 @@
 
 					(if (leq (random 1 100) 80)
 						(sysAddEncounterEventAtDist
-							(divide (multiply (random 25 40) travelTime) 100)
+							(divide (* (random 25 40) travelTime) 100)
 							gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
 							)
 						)
 
 					(if (leq (random 1 100) 40)
 						(sysAddEncounterEventAtDist
-							(divide (multiply 50 travelTime) 100)
+							(divide (* 50 travelTime) 100)
 							gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
 							)
 						)
 
 					(if (leq (random 1 100) 80)
 						(sysAddEncounterEventAtDist
-							(divide (multiply (random 60 75) travelTime) 100)
+							(divide (* (random 60 75) travelTime) 100)
 							gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
 							)
 						)
@@ -1032,8 +1065,11 @@
 					(= aObjDestroyed gPlayerShip)
 						(block Nil
 							(objRemoveItem gPlayerShip (msnGetData gSource 'dataROM))
-							(msnFailure gSource)
+							(msnFailure gSource 'playerKilled)
 							)
+
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(msnFailure gSource 'stationKilled)
 					)
 			</OnObjDestroyed>
 
@@ -1054,22 +1090,22 @@
 
 			<OnDeliveryMissionCompleted>
 				(if (objHasItem gPlayerShip (msnGetData gSource 'dataROM))
-					(block Nil
+					(block (
+						(destObj (objGetObjByID (msnGetData gSource 'destID)))
+						)
 						(msnSetData gSource 'gotResults True)
 						(msnSetData gSource 'destID Nil)
+						(msnSetProperty gSource 'summary (msnTranslate gSource 'Summary))
 						(msnSetPlayerTarget gSource)
-						(cat
-							"\"Thanks for bringing the data ROM. It's still faster to deliver this much data on a ship than to beam it "
-							"slowly over the system network.\""
-							)
+						(msnTranslate gSource "Delivery:Success" {
+							dest: (objGetName destObj 0x04)
+							src: (msnGetData (objGetObjByID (msnGetData gSource 'parentID)) 'shipName)
+							})
 						)
 					; If the player doesn't have the dataROM, then the mission fails.
 					(block Nil
-						(msnFailure gSource)
-						(cat
-							"\"Where is the data ROM that you were supposed to bring? I hope it did not fall into the wrong hands; "
-							"even with the encryption there is a risk that someone will crack it. I hope for your sake that doesn't happen.\""
-							)
+						(msnFailure gSource 'lostRomOut)
+						(msnTranslate gSource "Delivery:Failure")
 						)
 					)
 			</OnDeliveryMissionCompleted>
@@ -1077,15 +1113,23 @@
 			<OnObjDocked>
 				(switch
 					(and	(msnGetProperty gSource 'isActive)
-						(msnGetData gSource 'gotResults)
-						(= aObjDocked gPlayerShip)
-						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
-						(objHasItem gPlayerShip (msnGetData gSource 'dataROM))
+							(msnGetData gSource 'gotResults)
+							(= aObjDocked gPlayerShip)
+							(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+							(objHasItem gPlayerShip (msnGetData gSource 'dataROM))
 						)
 						(block Nil
 							(objRemoveItem gPlayerShip (msnGetData gSource 'dataROM))
 							(msnSuccess gSource)
 							)
+
+					; If we've lost the ROM then failure
+					(and	(msnGetProperty gSource 'isActive)
+							(msnGetData gSource 'gotResults)
+							(= aObjDocked gPlayerShip)
+							(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						)
+						(msnFailure gSource 'lostRomReturn)
 					)
 			</OnObjDocked>
 
@@ -1096,6 +1140,10 @@
 			<OnReward>
 				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
 			</OnReward>
+
+			<OnGetNextScreen>
+				(msnFireEvent (objGetObjByID (msnGetData gSource 'parentID)) 'OnSubGetNextScreen)
+			</OnGetNextScreen>
 		</Events>
 
 		<Language>
@@ -1104,9 +1152,15 @@
 			</Text>
 			<Text id="Summary">
 				(corpPriv_calcSummary gSource
-					(cat
-						"Your mission is to deliver a medical data ROM to " (msnGetData gSource 'destName)
-						" in " (sysGetName (msnGetData gSource 'destNodeID))
+					(if (msnGetData gSource 'gotResults)
+						(cat
+							"Return the medical data ROM to the "
+							(msnGetData (objGetObjByID (msnGetData gSource 'parentID)) 'shipName)
+							)
+						(cat
+							"Your mission is to deliver a medical data ROM to " (msnGetData gSource 'destName)
+							" in " (sysGetName (msnGetData gSource 'destNodeID))
+							)
 						)
 					)
 			</Text>
@@ -1143,13 +1197,72 @@
 				"\"What's wrong? You said you could handle this mission! Get back out there and finish the job!\""
 			</Text>
 			<Text id="SuccessDebrief">
-				(cat
-					"\"Nice work out there.\"\n\n"
-					"\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
+				(list
+					{
+						desc: (cat
+							"You find a group of senior medical officers waiting when you arrive for debrief. "
+							"They take the report from and quickly read through it.\n\n"
+
+							"\"Kack! We were right, the station was targeted with a bioweapon derived from an "
+							"old Resurrector Neuroplague. However, it was modified to bypass the standard "
+							"immunity enhancements used by the Commonwealth.\""
+							)
+						nextLabel: "\"[Y]ou mean you can't stop it?\""
+						}
+					{
+						desc: (cat
+							"\"What? No, don't worry about that, the problem is who...\"\n\n"
+
+							"The operations manager quickly interrupts:\n\n"
+
+							"\"Good work %name%. We've deposited " (msnGetData gSource 'reward)
+							" credits to your account.\""
+							)
+						}
 					)
 			</Text>
 			<Text id="FailureDebrief">
-				"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+				(block (
+					(outcome (msnGetData gSource 'outcome))
+					)
+					(switch
+						(= outcome 'playerKilled)	(msnTranslate gSource "Failure:playerKilled")
+						(= outcome 'stationKilled)	(msnTranslate gSource "Failure:stationKilled")
+						(= outcome 'lostRomOut)		(msnTranslate gSource "Failure:lostRomOut")
+						(= outcome 'lostRomReturn)	(msnTranslate gSource "Failure:lostRomReturn")
+						"\"What the kack happened out there? Now someone else will have to clean up your mess.\""
+						)
+					)
+			</Text>
+			<Text id="Failure:playerKilled">
+				"\"Did you get distracted out there? Oh well, weve already sent someone else to finish the job.\""
+			</Text>
+			<Text id="Failure:stationKilled">
+				(cat
+					"\"What the kack happened out there? If you had anything to do with the "
+					"destruction of a Commonwealth station there is going to be hell to pay!\""
+					)
+			</Text>
+			<Text id="Failure:lostRomOut">
+				"\"What's wrong with you!? Lives are at stake and you failed a simple delivery mission? Get out.\""
+			</Text>
+			<Text id="Failure:lostRomReturn">
+				(cat
+					"\"What's wrong with you!? You were supposed to bring the report back here. "
+					"Now we've got to send another courier and we can't afford the delay. Get out!\""
+					)
+			</Text>
+
+			<Text id="Delivery:Success">
+				(cat
+					"You deliver the medical data ROM to " (@ gData 'dest) " for analysis. "
+					"After several hours a medical technician returns the results to you:\n\n"
+
+					"\"You had better get these back to the " (@ gData 'src) " as quickly as possible.\""
+					)
+			</Text>
+			<Text id="Delivery:Failure">
+				"\"Where is the data ROM that you were supposed to bring? We cant do anything without it!\""
 			</Text>
 		</Language>
 	</MissionType>
@@ -1160,9 +1273,12 @@
 
 	EXTRA DATA
 
-	reward:	Reward (in credits) for completing mission
-	targetID:	Id of ship to destroy
-	recoveredROM:	True if player returned Tao ROM to CHOC
+	reward:			Reward (in credits) for completing mission
+	targetID:		Id of ship to destroy
+	status:			One of:
+		'search			Player is outbound
+		'return			Player has destroyed target and is returning
+		'recoveredROM	Player remembered to collect data ROM
 
 	======================================================================== -->
 
@@ -1181,7 +1297,7 @@
 					)
 					(switch
 						; Main mission must be active
-						(not aidMission)
+						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
 						; Player must have completed previous mission
@@ -1190,7 +1306,7 @@
 
 						(block Nil
 							; Copy data from parent mission
-							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'parentID (objGetID aidMission))
 							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
 							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
 
@@ -1225,34 +1341,49 @@
 					; Register for events so we know when the target is destroyed
 					(msnRegisterForEvents gSource baseObj)
 					(msnRegisterForEvents gSource gPlayerShip)
+					(msnSetData gSource 'status 'search)
 					)
 			</OnAccepted>
 
 			<OnSetPlayerTarget>
-				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+				(block (
+					(status (msnGetData gSource 'status))
+					)
+					(switch
+						(= status 'search)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+
+						(rpgSetTarget gSource aReason (objGetObjByID (msnGetProperty gSource 'ownerID)))
+						)
+					)
 			</OnSetPlayerTarget>
 
 			<OnObjDestroyed>
-				(switch
-					(eq (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
-						(msnSuccess gSource)
+				(if (= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+					(block Nil
+						(msnSetData gSource 'status 'return)
+						(msnSetPlayerTarget gSource)
+						)
 					)
 			</OnObjDestroyed>
 
 			<OnObjDocked>
 				(switch
-					; If the player has returned with the required items and destroyed targets the mission succeeds,
-					(and (= aObjDocked gPlayerShip)
+					(and (= (msnGetData gSource 'status) 'return)
+						(= aObjDocked gPlayerShip)
 						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
-						(objHasItem gPlayerShip (msnGetData gSource 'item1))
 						)
-						(block Nil
-							(objRemoveItem gPlayerShip (msnGetData gSource 'item1))
-							(msnSetData gSource 'recoveredROM True)
+						(if (objHasItem gPlayerShip (msnGetData gSource 'item1))
+							(block Nil
+								(objRemoveItem gPlayerShip (msnGetData gSource 'item1))
+								(msnSetData gSource 'status 'recoveredROM)
+								(msnSetData gSource 'reward (int (* 1.5 (msnGetData gSource 'reward))))
+								(msnSuccess gSource 'bonus)
+								)
+							(msnSuccess gSource)
 							)
 					)
 			</OnObjDocked>
-
 
 			<OnCompleted>
 				(corpBioSec_missionCompleted gSource aReason gData)
@@ -1262,6 +1393,9 @@
 				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
 			</OnReward>
 
+			<OnGetNextScreen>
+				(msnFireEvent (objGetObjByID (msnGetData gSource 'parentID)) 'OnSubGetNextScreen)
+			</OnGetNextScreen>
 		</Events>
 		<Language>
 			<Text id="Name">
@@ -1313,7 +1447,7 @@
 			</Text>
 			<Text id="SuccessDebrief">
 				(cat
-					(if (msnGetData gSource 'recoveredROM)
+					(if (= (msnGetData gSource 'status) 'recoveredROM)
 						(msnTranslate gSource "SuccessDebrief:FoundROM")
 						(msnTranslate gSource "SuccessDebrief:NoROM")
 						)
@@ -1365,7 +1499,7 @@
 					)
 					(switch
 						; Main mission must be active
-						(not aidMission)
+						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
 						(msnGetProperty aidMission 'isSuccess)
@@ -1379,7 +1513,7 @@
 
 						(block Nil
 							; Copy data from parent mission
-							(msnSetData gSource 'parentID aidMission)
+							(msnSetData gSource 'parentID (objGetID aidMission))
 							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
 							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
 
@@ -1392,13 +1526,13 @@
 
 			<OnDeclined>
 				(block Nil
-					(msnSuccess (msnGetData gSource 'parentID))
+					(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
 					(msnDestroy gSource)
 					)
 			</OnDeclined>
 			<OnAccepted>
 				(block Nil
-					(msnSuccess (msnGetData gSource 'parentID))
+					(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
 					(msnDestroy gSource)
 					)
 			</OnAccepted>

@@ -1,5 +1,8 @@
 <?xml version="1.0" ?>
-
+<!--
+	To Do:
+	*	rumors
+-->
 <TranscendenceModule>
 	<!-- CHOC BioSec cruiser
 
@@ -406,6 +409,32 @@
 				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'shipID)) 'dock)
 			</OnSetPlayerTarget>
 
+			<OnSubmissionCompleted>
+				(block Nil
+					(msnIncData gSource (@ gData 'reason))
+					(if (= (@ gData 'extra) 'bonus)
+						(msnIncData gSource (@ gData 'reason))
+						)
+					; Reset the intro flag
+					(typSetData &unidCorpBioSec; 'introData Nil)
+					(dbgOutput (msnGetData gSource 'success) " : " (msnGetData gSource 'failure))
+					)
+			</OnSubmissionCompleted>
+
+			<OnSubGetNextScreen>
+				(if (and (msnGetProperty gSource 'isFailure)
+						(or	(= aScreenType 'SuccessFollowUp)
+							(= aScreenType 'FailureFollowUp)
+						))
+					{
+						nextScreen: &dsRPGMessage;
+						nextScreenData: {
+							desc: (msnTranslate gSource "Failure:FollowUp")
+							}
+						}
+					)
+			</OnSubGetNextScreen>
+
 			<OnCompleted>
 				(block (
 					(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
@@ -503,8 +532,14 @@
 							"As the briefing ends a manager approaches you: \"Hello %name%, welcome to the BioSec "
 							"division of Corporate Hierarchy Operations Command. I have your assignment.\""
 							)
-						nextCode: (lambda () (typSetData &unidCorpBioSec; 'introData Nil))
 						}
+					)
+			</Text>
+			<Text id="Failure:FollowUp">
+				(cat
+					"\"Unfortunately we failed to find a successful treatment for the contagion and the ranking "
+					"medical officer authorised a full sterilization. As a result " (msnGetData gSource 'stationName)
+					" has been abandoned and we have been recalled by Operations Command.\""
 					)
 			</Text>
 			<Text id="QuarantineStation">
@@ -598,7 +633,7 @@
 
 			(setq corpBioSec_missionCompleted (lambda (missionObj reason data)
 				(block (
-					(parentObj (msnGetData missionObj 'parentID))
+					(parentObj (objGetObjByID (msnGetData gSource 'parentID)))
 					)
 					(if parentObj
 						(msnFireEvent parentObj 'OnSubmissionCompleted {
