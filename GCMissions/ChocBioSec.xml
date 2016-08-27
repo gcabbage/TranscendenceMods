@@ -503,7 +503,7 @@
 							"As the briefing ends a manager approaches you: \"Hello %name%, welcome to the BioSec "
 							"division of Corporate Hierarchy Operations Command. I have your assignment.\""
 							)
-						nextCode: (typSetData &unidCorpBioSec; 'introData Nil)
+						nextCode: (lambda () (typSetData &unidCorpBioSec; 'introData Nil))
 						}
 					)
 			</Text>
@@ -581,13 +581,10 @@
 					(switch
 						; If we have a translateType and translateID, then translate
 						(@ introData 'translateID)
-							(typTranslate
-								(@ introData 'translateType)
-								(@ introData 'translateID)
-								{	missionObj: gSource
-									ownerObj: ownerObj
-									}
-								)
+							(typTranslate (@ introData 'translateType) (@ introData 'translateID) {
+								missionObj: gSource
+								ownerObj: ownerObj
+								})
 
 						; If we some other data, then return that
 						introData
