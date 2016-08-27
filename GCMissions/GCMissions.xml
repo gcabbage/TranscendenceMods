@@ -20,7 +20,7 @@
 
 	<!ENTITY unidCorpBioSec					"0xDDDE0101">
 	<!ENTITY scCorpBioSec					"0xDDDE0102">
-	<!ENTITY dsCorpBioSec					"0xDDDE0103">
+	<!ENTITY evCorpBioSecQuarantine			"0xDDDE0103">
 	<!ENTITY msCorpMedicalAid				"0xDDDE0104">
 	<!ENTITY msCorpBioSecInvestigate1		"0xDDDE0105">
 	<!ENTITY tbCorpBioSecInvestigate1Ship	"0xDDDE0106">
@@ -28,7 +28,7 @@
 	<!ENTITY msCorpBioSecInvestigate3		"0xDDDE0108">
 	<!ENTITY msCorpBioSecQuarantine			"0xDDDE0109">
 	<!ENTITY tbCorpBioSecQuarantineShip		"0xDDDE010A">
-	<!ENTITY evCorpBioSecQuarantine			"0xDDDE010B">
+	<!ENTITY evCorpBioSecQuarantineShip		"0xDDDE010B">
 	<!ENTITY msCorpBioSecSupplies1			"0xDDDE010C">
 	<!ENTITY msCorpBioSecInvestigate4		"0xDDDE010E">
 

@@ -535,13 +535,13 @@
 				(if (= (msnGetData gSource 'outcome) 'returned)
 					(cat
 						"\"Great work! The freighter crew is a little shaken up. Luckily for them they turned out to "
-						"be clean, but we couldn�t risk them breaking quarantine before we were certain.\"\n\n"
+						"be clean, but we couldn't risk them breaking quarantine before we were certain.\"\n\n"
 
 						"\"I've been authorized to award you a bonus for keeping them alive. We've deposited "
 						(msnGetData gSource 'reward) " credits to your account.\""
 						)
 					(cat
-						"\"Nice work out there! It's a shame we couldn�t confirm if the crew were contagious or "
+						"\"Nice work out there! It's a shame we couldn't confirm if the crew were contagious or "
 						"not, but we cant take than risk until we understand what is happening here.\"\n\n"
 
 						"\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
@@ -561,10 +561,10 @@
 
 	<ShipTable unid="&tbCorpBioSecQuarantineShip;">
 		<LevelTable>
-			<Ship levelFrequency="cu--- -----" count="1" class="&scEI100;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
-			<Ship levelFrequency="ucu-- -----" count="1" class="&scEI200;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
-			<Ship levelFrequency="-ucu- -----" count="1" class="&scEI500;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
-			<Ship levelFrequency="--ucc ccccc" count="1" class="&scEI7000;" orders="gate" eventHandler="&evCorpBioSecQuarantine;"/>
+			<Ship levelFrequency="cu--- -----" count="1" class="&scEI100;" orders="gate" eventHandler="&evCorpBioSecQuarantineShip;"/>
+			<Ship levelFrequency="ucu-- -----" count="1" class="&scEI200;" orders="gate" eventHandler="&evCorpBioSecQuarantineShip;"/>
+			<Ship levelFrequency="-ucu- -----" count="1" class="&scEI500;" orders="gate" eventHandler="&evCorpBioSecQuarantineShip;"/>
+			<Ship levelFrequency="--ucc ccccc" count="1" class="&scEI7000;" orders="gate" eventHandler="&evCorpBioSecQuarantineShip;"/>
 		</LevelTable>
 	</ShipTable>
 
@@ -574,7 +574,7 @@
 		Has to be a ShipClass so the Communications menu will work
 		Overrides OnDestroy so player is not accused of piracy
 		-->
-	<ShipClass UNID="&evCorpBioSecQuarantine;" virtual="true" attributes="behaviorClass">
+	<ShipClass UNID="&evCorpBioSecQuarantineShip;" virtual="true" attributes="behaviorClass">
 		<Communications>
 			<Message name="Cut engines" key="C">
 				<OnShow>

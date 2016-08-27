@@ -49,18 +49,18 @@
 
 	<ShipClass UNID="&scCorpBioSec;"
 			manufacturer=		"Rasiermesser"
-			class=			"Corporate cruiser"
-			type=			""
+			class=				"Corporate cruiser"
+			type=				""
 			defaultSovereign=	"&svCorporate;"
 
 			attributes=			"corpBioSec, capitalShip, corporate, majorShip"
 			character=			"&unidCorpBioSec;"
 
 			size=				"275"
-			mass=			"25000"
+			mass=				"25000"
 			thrustRatio=		"2"
 			maxSpeed=			"20"
-			cargoSpace=		"1000"
+			cargoSpace=			"1000"
 
 			cyberDefenseLevel=	"8"
 
@@ -68,7 +68,7 @@
 			explosionType=		"&vtThermoExplosion2;"
 
 			dockingPorts=		"4"
-			dockScreen=		"Main"
+			dockScreen=			"Main"
 			>
 		<Names noArticle="true">Nightingale; Seacole; Dasha; Saunders; Cadwaladr</Names>
 
@@ -122,7 +122,7 @@
 		<AISettings
 			fireRateAdj=		"20"
 			fireAccuracy=		"95"
-			perception=		"4"
+			perception=			"4"
 			/>
 
 		<!-- Dock Screens -->
@@ -235,20 +235,6 @@
 		</Language>
 	</ShipClass>
 
-	<DockScreen UNID="&dsCorpBioSec;" inherit="&dsDockScreenBase;">
-		<Panes>
-			<Default>
-				<OnPaneInit>
-				</OnPaneInit>
-				<Actions>
-					<Action id="actionUndock" cancel="1">
-						<Exit/>
-					</Action>
-				</Actions>
-			</Default>
-		</Panes>
-	</DockScreen>
-
 
 	<!-- Mission: Medical Aid =================================================
 
@@ -267,21 +253,22 @@
 
 	<MissionType UNID="&msCorpMedicalAid;"
 			name=			"Deliver Medical Aid"
-			attributes=			"corporate, corporatePrivateer, rank1, rank2, rank3"
+			attributes=		"corporate, corporatePrivateer, rank1, rank2, rank3"
 
 			level=			"1-5"
-			maxAppearing=		"1"
+			maxAppearing=	"1"
 			>
 
 		<Events>
 			<OnCreate>
-				(block (stationList stationObj shipObj)
-					(setq stationList
-						(sysFindObject
-							aOwnerObj
-							"TAF +corporate; +populated; +majorStation; -occupation; -uncharted;"
-							)
-						)
+				(block (
+					(stationList (sysFindObject aOwnerObj "TAF +corporate; +populated; +majorStation; -occupation; -uncharted;"))
+					stationObj shipObj
+					)
+					; Avoid stations with missions or special behavior
+					(setq stationList (filter stationList station
+						(not (or (msnFind station "aouS") (objGetEventHandler station)))
+						))
 
 					; Set up the mission
 					(switch
@@ -296,8 +283,11 @@
 						; Otherwise, continue
 						(block Nil
 							; Station is quarantined
-							(objSetProperty stationObj 'playerBlacklisted True)
+							(objSetEventHandler gPlayerShip &evCorpBioSecQuarantine;)
+							(objSetEventHandler stationObj &evCorpBioSecQuarantine;)
 							(objSetProperty stationObj 'shipReinforcementEnabled Nil)
+							(objSetData stationObj 'noTraffic True)
+
 							; Dismiss all docked ships
 							(enum
 								(append
@@ -308,13 +298,15 @@
 								theShip
 								(block Nil
 									(shpCancelOrders theShip)
-									(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+									(if (not (objGetProperty theShip 'playerWingman))
+										(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+										)
 									)
 								)
 							(msnSetData gSource 'state 'Quarantine)
 							(msnSetData gSource 'stationID (objGetID stationObj))
 							(msnSetData gSource 'stationName (objGetName stationObj 0x04))
-							(msnSetData gSource 'expiresOn (+ (unvGetTick) 18000)) ; 10 minutes
+							(msnSetData gSource 'expiresOn (+ (unvGetTick) 36000)) ; 20 minutes
 							(msnAddRecurringTimerEvent gSource 300 'OnUpdate)
 
 							; Create the medical ship
@@ -344,12 +336,15 @@
 			</OnCreate>
 
 			<OnUpdate>
-				(if (ls (msnGetData gSource 'expiresOn) (unvGetTick))
-					; If we're out of time, then destroy the station and fail
-					(block Nil
-						(objSetProperty (objGetObjByID (msnGetData gSource 'stationID)) 'hp 0)
+				(switch
+					; Don't do anything if we're out of system
+					(!= (sysGetNode) (msnGetProperty gSource 'nodeID))
+						Nil
+
+					; If we're out of time, then failure
+					(ls (msnGetData gSource 'expiresOn) (unvGetTick))
 						(msnFailure gSource)
-						)
+
 					; Otherwise check for any ships trying to dock and redirect them
 					(block (
 						(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
@@ -363,7 +358,9 @@
 							theShip
 							(block Nil
 								(shpCancelOrders theShip)
-								(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+								(if (not (objGetProperty theShip 'playerWingman))
+									(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+									)
 								)
 							)
 						)
@@ -410,10 +407,19 @@
 			</OnSetPlayerTarget>
 
 			<OnCompleted>
-				(block Nil
+				(block (
+					(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
+					)
+					(objSetEventHandler gPlayerShip Nil)
+					(objSetProperty stationObj 'shipReinforcementEnabled True)
+					(objSetData stationObj 'noTraffic Nil)
+
 					(switch
+						(= aReason 'failure)
+							(objSetProperty (objGetObjByID (msnGetData gSource 'stationID)) 'hp 0)
+
 						(= aReason 'success)
-							(msnFireEvent gSource 'OnLiftQuarantine)
+							(objSetEventHandler stationObj Nil)
 						)
 					(corpPriv_missionCompleted gSource aReason gData)
 					)
@@ -422,16 +428,6 @@
 			<OnReward>
 				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
 			</OnReward>
-
-			<OnLiftQuarantine>
-				(block (
-					(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
-					)
-					(msnCancelTimerEvent gSource 'OnUpdate)
-					(objSetProperty stationObj 'playerBlacklisted Nil)
-					(objSetProperty stationObj 'shipReinforcementEnabled True)
-					)
-			</OnLiftQuarantine>
 		</Events>
 
 		<Language>
@@ -511,8 +507,67 @@
 						}
 					)
 			</Text>
+			<Text id="QuarantineStation">
+				(list
+					{
+						desc: (cat
+							"The airlock refuses to open. You check the diagnostics and "
+							"see that the station is under a biohazard quarantine."
+							)
+						nextLabel: "[U]ndock"
+						nextPane: 'forceUndock
+						}
+					)
+			</Text>
+			<Text id="LostStation">
+				(list
+					{
+						desc: (cat
+							"You are docked at the lifeless ruins of a sterilized station. "
+							"There are empty crates of medical supplies and discarded biohazard "
+							"suits littering the bay. A quarantine warning discourages you from "
+							"exploring further."
+							)
+						nextLabel: "[U]ndock"
+						nextPane: 'forceUndock
+						}
+					)
+			</Text>
 		</Language>
 	</MissionType>
+
+	<!-- BEHAVIORS -->
+
+	<Type UNID="&evCorpBioSecQuarantine;">
+		<Events>
+			<CanDockAsPlayer>
+				; When set as the player event handler we deny docking
+				(block (
+					(missionObj (@ (msnFind "ao +unid:&msCorpMedicalAid;;") 0))
+					)
+					(if (and missionObj (= (objGetID aDockTarget) (msnGetData missionObj 'stationID)))
+						"Station under quarantine. Docking request denied"
+						True
+						)
+					)
+			</CanDockAsPlayer>
+
+			<GetDockScreen>
+				; When set as the station event handler we override dockscreens
+				(switch
+					; Check in case we get called without mission
+					(not (msnFind "* +unid:&msCorpMedicalAid;;"))
+						Nil
+
+					(objGetProperty gSource 'abandoned)
+						(list &dsRPGDialog; (typTranslate &msCorpMedicalAid; 'LostStation) 10)
+
+					(list &dsRPGDialog; (typTranslate &msCorpMedicalAid; 'QuarantineStation) 10)
+					)
+			</GetDockScreen>
+		</Events>
+	</Type>
+
 
 	<Globals>
 		(block Nil
