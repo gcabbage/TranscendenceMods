@@ -433,6 +433,10 @@
 			<OnCreate>
 				(block (destObj)
 					(switch
+						; Only 10% chance of mission
+						(gr (random 1 100) 10)
+							(msnDestroy gSource)
+
 						(not (setq destObj (random (sysFindObject aOwnerObj "TAF R:200 +populated; -uncharted; -occupation; -property:playerBlacklisted;"))))
 							(msnDestroy gSource)
 

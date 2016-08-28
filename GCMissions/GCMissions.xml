@@ -30,7 +30,7 @@
 	<!ENTITY tbCorpBioSecQuarantineShip		"0xDDDE010A">
 	<!ENTITY evCorpBioSecQuarantineShip		"0xDDDE010B">
 	<!ENTITY msCorpBioSecSupplies1			"0xDDDE010C">
-	<!ENTITY msCorpBioSecInvestigate4		"0xDDDE010E">
+	<!ENTITY msCorpBioSecInspection			"0xDDDE010D">
 
 	<!ENTITY tbCorpPrivDataThieves			"0x008100E8">
 	<!ENTITY unidRumorFramework				"0xDDDEF100">
