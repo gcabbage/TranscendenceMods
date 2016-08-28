@@ -21,10 +21,8 @@
 			<OnCharacterCanBeMet>
 				(switch
 					; Must be a Corporate Privateer
-					(or (not (corpPriv_getRank))
-							(eq (corpPriv_getRank) -1))
-						True
-						;(objTranslate gSource 'NotACorporatePrivateer)
+					(or (not (corpPriv_getRank)) (= (corpPriv_getRank) -1))
+						(objTranslate gSource 'NotACorporatePrivateer)
 
 					True
 					)
@@ -132,19 +130,33 @@
 
 		<DockScreens>
 			<Main>
-				<InitialPane>
+				<OnScreenInit>
+					;	Make sure the player is allowed to talk to this character.
 					(block (
-						(firstVisit (not (typGetData (objGetProperty gSource 'character) 'firstPlayerMeetingTime)))
+						(explanation (typFireObjEvent (objGetProperty gSource 'character) gSource 'OnCharacterCanBeMet))
 						)
-						; Remember that we've met
-						(rpgCharacterSetMeeting (objGetProperty gSource 'character))
-
 						(switch
-							firstVisit
-								"Welcome"
+							;	If Nil, then the event is not handled so we continue meeting.
+							(not explanation)
+								True
 
-							"Default"
+							;	If True, then we are allowed to meet and continue.
+							(= explanation True)
+								True
+
+							;	Otherwise, we expect an explanation string.
+							(scrShowScreen gScreen &dsRPGMessage; {
+								desc: explanation
+								nextScreen: 'forceUndock
+								})
 							)
+						)
+				</OnScreenInit>
+
+				<InitialPane>
+					(if (typGetData (objGetProperty gSource 'character) 'firstPlayerMeetingTime)
+						"Default"
+						"Welcome"
 						)
 				</InitialPane>
 
@@ -156,7 +168,11 @@
 
 						<Actions>
 							<Action id="actionContinue" default="1" cancel="1">
-								(scrShowPane gScreen "Default")
+								(block Nil
+									; Remember that we've met
+									(rpgCharacterSetMeeting (objGetProperty gSource 'character))
+									(scrShowPane gScreen "Default")
+									)
 							</Action>
 						</Actions>
 					</Welcome>
@@ -249,7 +265,7 @@
 
 	stationID:			ID of quarantine station
 	stationName:		Name of quarantine station
-	shipID:			ID of BioSec cruiser
+	shipID:				ID of BioSec cruiser
 	shipName:			Name of BioSec cruiser
 
 	======================================================================== -->
@@ -285,32 +301,8 @@
 
 						; Otherwise, continue
 						(block Nil
-							; Station is quarantined
-							(objSetEventHandler gPlayerShip &evCorpBioSecQuarantine;)
-							(objSetEventHandler stationObj &evCorpBioSecQuarantine;)
-							(objSetProperty stationObj 'shipReinforcementEnabled Nil)
-							(objSetData stationObj 'noTraffic True)
-
-							; Dismiss all docked ships
-							(enum
-								(append
-									(sysFindObject stationObj "sZ O:dock;")
-									(sysFindObject stationObj "sZ O:docked;")
-									(sysFindObject stationObj "sZ O:guard;")
-									)
-								theShip
-								(block Nil
-									(shpCancelOrders theShip)
-									(if (not (objGetProperty theShip 'playerWingman))
-										(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
-										)
-									)
-								)
-							(msnSetData gSource 'state 'Quarantine)
 							(msnSetData gSource 'stationID (objGetID stationObj))
 							(msnSetData gSource 'stationName (objGetName stationObj 0x04))
-							(msnSetData gSource 'expiresOn (+ (unvGetTick) 36000)) ; 20 minutes
-							(msnAddRecurringTimerEvent gSource 300 'OnUpdate)
 
 							; Create the medical ship
 							(setq shipObj
@@ -325,18 +317,56 @@
 								'introData
 								{	translateType: &msCorpMedicalAid;	translateID: "Intro:FirstMission"	}
 								)
-
 							(shpCancelOrders shipObj)
 							(shpOrder shipObj 'hold)
+							(objSuspend shipObj)
 							(msnSetData gSource 'shipID (objGetID shipObj))
 							(msnSetData gSource 'shipName (objGetName shipObj 0x04))
 
-							(msnRegisterForEvents gSource shipObj)
-							(msnRegisterForEvents gSource gPlayerShip)
+							(msnFireEvent gSource 'Quarantine)
 							)
 						)
 					)
 			</OnCreate>
+
+			<Quarantine>
+				(block (
+					(stationObj (objGetObjByID (msnGetData gSource 'stationID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					)
+					; Station is quarantined
+					(objSetEventHandler gPlayerShip &evCorpBioSecQuarantine;)
+					(objSetEventHandler stationObj &evCorpBioSecQuarantine;)
+					(objSetProperty stationObj 'shipReinforcementEnabled Nil)
+					(objSetData stationObj 'noTraffic True)
+
+					; Dismiss all docked ships
+					(enum
+						(append
+							(sysFindObject stationObj "sZ O:dock;")
+							(sysFindObject stationObj "sZ O:docked;")
+							(sysFindObject stationObj "sZ O:guard;")
+							)
+						theShip
+						(block Nil
+							(shpCancelOrders theShip)
+							(if (not (objGetProperty theShip 'playerWingman))
+								(shpOrder theShip 'gate (sysFindObject stationObj "GN -uncharted;"))
+								)
+							)
+						)
+
+					; Resume the medical ship
+					(objResume shipObj)
+
+					(msnSetData gSource 'state 'Quarantine)
+					(msnSetData gSource 'expiresOn (+ (unvGetTick) 36000)) ; 20 minutes
+					(msnAddRecurringTimerEvent gSource 300 'OnUpdate)
+
+					(msnRegisterForEvents gSource shipObj)
+					(msnRegisterForEvents gSource gPlayerShip)
+					)
+			</Quarantine>
 
 			<OnUpdate>
 				(switch

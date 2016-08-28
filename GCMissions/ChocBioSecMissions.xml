@@ -12,15 +12,26 @@
 	-->
 
 <TranscendenceModule>
+
 	<!-- Mission: Investigate 1 =================================================
 
 	Investigate independent trader
 
 	EXTRA DATA
 
-	destID:		Destination of ship
-	reward:		Reward (in credits) for completing mission
-	targetID:	Id of ship to destroy
+	parentID:		Parent mission
+	stationID:		objID of quarantined station
+	stationName:	Name of quarantined station
+	destID:			Destination of ship
+	reward:			Reward (in credits) for completing mission
+	targetID:		objID of ship to destroy
+	wreckID:		objID of the ship wreck
+	item1:			item to recover
+	item2:			item to recover
+	status:			One of:
+		investigate:	Player must intercept target
+		search:			Player must collect evidence from wreck
+		foundItems:		Player has collected items
 
 	======================================================================== -->
 
@@ -318,9 +329,13 @@
 
 	EXTRA DATA
 
-	destID:		Destination of ship
-	reward:		Reward (in credits) for completing mission
-	targetID:	Id of ship to destroy
+	parentID:		Parent mission
+	stationID:		objID of quarantined station
+	stationName:	Name of quarantined station
+	destID:			Destination of ship
+	reward:			Reward (in credits) for completing mission
+	targetID:		objID of ship to intercept
+	shipName:		Name of the ship
 
 	======================================================================== -->
 
@@ -666,12 +681,15 @@
 
 	EXTRA DATA
 
-	medsXXXX:	Purchace cost of mes item XXXX
-	medsNeeded:	Number of med items required
-	destID:		ID of destination (mission owner)
-	targetID:	ID of station with supplies
-	gotMeds:	True if player has meds
-	reward:		Reward for completing mission
+	parentID:		Parent mission
+	stationID:		objID of quarantined station
+	stationName:	Name of quarantined station
+	medsXXXX:		Purchace cost of mes item XXXX
+	medsNeeded:		Number of med items required
+	destID:			ID of destination (mission owner)
+	targetID:		ID of station with supplies
+	gotMeds:		True if player has meds
+	reward:			Reward for completing mission
 
 	======================================================================== -->
 
@@ -923,7 +941,10 @@
 
 	EXTRA DATA
 
-	reward:	Reward (in credits) for completing mission
+	parentID:		Parent mission
+	stationID:		objID of quarantined station
+	stationName:	Name of quarantined station
+	reward:			Reward (in credits) for completing mission
 
 	======================================================================== -->
 
@@ -1204,7 +1225,7 @@
 							"They take the report from and quickly read through it.\n\n"
 
 							"\"Kack! We were right, the station was targeted with a bioweapon derived from an "
-							"old Resurrector Neuroplague. However, it was modified to bypass the standard "
+							"old Resurrector neuroplague. However, it was modified to bypass the standard "
 							"immunity enhancements used by the Commonwealth.\""
 							)
 						nextLabel: "\"[Y]ou mean you can't stop it?\""
@@ -1273,8 +1294,12 @@
 
 	EXTRA DATA
 
+	parentID:		Parent mission
+	stationID:		objID of quarantined station
+	stationName:	Name of quarantined station
 	reward:			Reward (in credits) for completing mission
-	targetID:		Id of ship to destroy
+	targetID:		objID of ship to destroy
+	item1:			item to recover
 	status:			One of:
 		'search			Player is outbound
 		'return			Player has destroyed target and is returning
@@ -1476,20 +1501,40 @@
 	</MissionType>
 
 
-	<!-- Mission: Investigate 4 =================================================
+	<!-- Mission: Inspection =================================================
 
-	End Quarantine
+	Commonwealth medics arrive to inspect the situation. Player is offered
+	a bribe to fail this mission.
 
+	EXTRA DATA
+
+	parentID:				Parent mission
+	stationID:				objID of quarantined station
+	stationName:			Name of quarantined station
+	reward:					Reward (in credits) for completing mission
+	destID:					The objID of the meeting location (gate, station, marker)
+	createdMarker:			True of destID is a marker we should delete afterwards
+	shipID:					The objID of the freighter
+	shipName:				The name of the freighter
+	playerDestroyedShip:	Player destroyed the freighter
+	state:					One of the following:
+		Nil						Mission not yet started
+		'meet					Player must meet the freighter
+		'escort					Player must escort the freighter
+		'medsDelivered			Freighter delivered supplies
+		'medsMissing			Freighter docked, but supplies missing (no response implemented)
+		'playerDelivered		Player delivered meds
+		'medsRecovered			Meds still on wreck
+		'medsLost				Meds gone from wreck
+		'shipLost				Freighter destroyed and no wreck
 	======================================================================== -->
 
-	<MissionType UNID="&msCorpBioSecInvestigate4;"
-			name=				"Quarantine Investigation 4"
+	<MissionType UNID="&msCorpBioSecInspection;"
+			name=				"Quarantine Inspection"
 			attributes=			"corporate, corporatePrivateer, corpBioSec, special"
-			priority=			"40"
+			priority=			"4"
 			level=				"1-5"
 			maxAppearing=		"1"
-			noDebrief=			"true"
-			noStats=			"true"
 			>
 
 		<Events>
@@ -1502,61 +1547,350 @@
 						(or (not aidMission) (msnGetProperty aidMission 'isCompleted))
 							(msnDestroy gSource)
 
-						(msnGetProperty aidMission 'isSuccess)
-							(msnDestroy gSource)
-
-						; Player must have completed previous mission
-						(not (msnFind "r +unid:&msCorpBioSecInvestigate2;;"))
-							(msnDestroy gSource)
-						(not (msnFind "r +unid:&msCorpBioSecInvestigate3;;"))
-							(msnDestroy gSource)
-
-						(block Nil
+						(block (destObj shipObj medItem)
 							; Copy data from parent mission
 							(msnSetData gSource 'parentID (objGetID aidMission))
 							(msnSetData gSource 'stationID (msnGetData aidMission 'stationID))
 							(msnSetData gSource 'stationName (msnGetData aidMission 'stationName))
 
+							; Search for a suitable location
+							(setq destObj (random (or
+								; First choice is a gate
+								(sysFindObject aOwnerObj "GR:300; -uncharted;")
+								; Otherwise try for a major commonwealth station
+								(sysFindObject aOwnerObj "TAFR:300; +commonwealth; +majorStation;")
+								; Or any friendly station
+								(sysFindObject aOwnerObj "TAFR:300;")
+								)))
+
+							; Or create a rendezvous in empty space
+							(if (not destObj)
+								(block Nil
+									(setq destObj (sysCreateMarker
+										"Rendezvous"
+										(sysVectorRandom aOwnerObj (random 600 800) 200 "TA")
+										&svCorporate;)
+										)
+									(msnSetData gSource 'createdMarker)
+									)
+								)
+							(msnSetData gSource 'destID (objGetID destObj))
+
+							(setq medItem (itmSetData (itmCreate &itCyanavir; 10) "CorpBioSec" gSource))
+							(msnSetData gSource 'supplies medItem)
+							(setq shipObj (sysCreateShip &scEI200; Nil &svCommonwealth;))
+							(objAddItem shipObj medItem)
+							(objSuspend shipObj)
+							(msnSetData gSource 'shipID (objGetID shipObj))
+							(msnSetData gSource 'shipName (objGetName shipObj 0x04))
+
 							; Compute reward
-							(msnSetData gSource 'reward Nil)
+							(msnSetData gSource 'reward (corpPriv_calcReward (sysGetLevel)))
 							)
 						)
 					)
 			</OnCreate>
 
-			<OnDeclined>
-				(block Nil
-					(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
-					(msnDestroy gSource)
-					)
-			</OnDeclined>
 			<OnAccepted>
-				(block Nil
-					(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
-					(msnDestroy gSource)
+				(block (
+					(destObj (objGetObjByID (msnGetData gSource 'destID)))
+					(travelTime (sysCalcTravelTime (objGetDistance gPlayerShip destObj) (shpGetMaxSpeed gPlayerShip)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					(switch
+						(objMatches destObj Nil "G")
+							(msnAddTimerEvent gSource (+ travelTime 300) "OnFreighterArrives")
+
+						(objMatches destObj Nil "T")
+							(block Nil
+								(objResume shipObj)
+								(objSetPos shipObj destObj)
+								(shpOrder shipObj 'dock destObj)
+								(shpOrder shipObj 'waitForTarget gPlayership)
+								(shpOrder shipObj 'wait 10)
+								(shpOrder shipObj 'fireEvent gSource 'OnPlayerArrived)
+								(shpOrder shipObj 'fireEvent gSource 'AttackTransport)
+								(shpOrder shipObj 'dock stationObj)
+								(shpOrder shipObj 'wait 30)
+								(shpOrder shipObj 'gate)
+								)
+						)
+					(msnSetData gSource 'state 'meet)
+					(msnRegisterForEvents gSource shipObj)
+					(msnRegisterForEvents gSource gPlayerShip)
+
+					; Player attacked on way out
+					(sysAddEncounterEventAtDist
+						(divide (* 50 travelTime) 100)
+						gPlayerShip &tbCorpPrivDataThieves; (random 60 100)
+						)
 					)
 			</OnAccepted>
+
+			<OnFreighterArrives>
+				(block (
+					(destObj (objGetObjByID (msnGetData gSource 'destID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					)
+					(plyMessage gPlayer "Transport arrived!")
+
+					(objResume shipObj destObj)
+					(shpOrder shipObj 'dock stationObj)
+					(shpOrder shipObj 'wait 30)
+					(shpOrder shipObj 'gate)
+					(msnSetData gSource 'state 'escort)
+					(msnSetPlayerTarget gSource)
+					(msnFireEvent gSource 'AttackTransport)
+					)
+			</OnFreighterArrives>
+
+			<OnPlayerArrived>
+				(block Nil
+					(msnSetData gSource 'state 'escort)
+					(msnSetPlayerTarget gSource)
+					)
+			</OnPlayerArrived>
+
+			<AttackTransport>
+				(block (
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					(stationObj (objGetObjByID (msnGetProperty gSource 'ownerID)))
+					(travelTime (sysCalcTravelTime (objGetDistance shipObj stationObj) (shpGetMaxSpeed shipObj)))
+					)
+					(sysAddEncounterEventAtDist
+						(divide (* (random 25 40) travelTime) 100)
+						shipObj &tbCorpPrivDataThieves; (random 60 100)
+						)
+
+					(if (leq (random 1 100) 40)
+						(sysAddEncounterEventAtDist
+							(divide (* 50 travelTime) 100)
+							shipObj &tbCorpPrivDataThieves; (random 60 100)
+							)
+						)
+
+					(sysAddEncounterEventAtDist
+						(divide (* (random 60 75) travelTime) 100)
+						shipObj &tbCorpPrivDataThieves; (random 60 100)
+						)
+					)
+			</AttackTransport>
+
+			<OnSetPlayerTarget>
+				(block (
+					(state (msnGetData gSource 'state))
+					)
+					(switch
+						(= state 'meet)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'destID)) 'dock)
+
+						(= state 'escort)
+							(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'shipID)) 'escort)
+
+						(rpgSetTarget gSource aReason (objGetObjByID (msnGetProperty gSource 'ownerID)) 'dock)
+						)
+					)
+			</OnSetPlayerTarget>
+
+			<OnObjDestroyed>
+				(switch
+					; If the ship dies, mission fails
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'shipID))
+						(block (
+							(bribe (* (msnGetData gSource 'reward) 10))
+							)
+							(msnSetData gSource 'playerDestroyedShip (and gPlayerShip (= aOrderGiver gPlayerShip)))
+							(objSendMessage gSource Nil (cat bribe " credits deposited to your account."))
+							(rpgMissionRewardPayment bribe)
+							(msnFailure gSource)
+							; If there was a wreck then remember it.
+							(if aWreckObj (msnSetData gSource 'wreckID (objGetID aWreckObj)))
+							)
+					)
+			</OnObjDestroyed>
+
+			<OnObjDocked>
+				(switch
+					(and
+						(= (objGetID aObjDocked) (msnGetData gSource 'shipID))
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						)
+						(block (
+							(medsNeeded (msnGetData gSource 'supplies))
+							)
+							(if (objHasItem aObjDocked medsNeeded)
+								(msnSetData gSource 'state 'medsDelivered)
+								(msnSetData gSource 'state 'medsMissing)
+								)
+							(objRemoveItem aObjDocked medsNeeded)
+							(msnSuccess gSource)
+							)
+
+					; Check if the player has the supplies
+					(and
+						(= aObjDocked gPlayerShip)
+						(= (objGetID aDockTarget) (msnGetProperty gSource 'ownerID))
+						(msnGetProperty gSource 'isFailure)
+						)
+						(block (
+							(medsNeeded (msnGetData gSource 'supplies))
+							)
+							(switch
+								(objHasItem gPlayerShip (msnGetData gSource 'supplies))
+									(block Nil
+										(objRemoveItem aObjDocked (msnGetData gSource 'supplies))
+										(msnSetData gSource 'state 'playerDelivered)
+										)
+								(and (msnGetData gSource 'wreckID) (objGetObjByID (msnGetData gSource 'wreckID)))
+									(block (
+										(wreckObj (objGetObjByID (msnGetData gSource 'wreckID)))
+										)
+										(if (objHasItem wreckObj (msnGetData gSource 'supplies))
+											(msnSetData gSource 'state 'medsRecovered)
+											(msnSetData gSource 'state 'medsLost)
+											)
+										(objRemoveItem wreckObj (msnGetData gSource 'supplies))
+										)
+								(msnSetData gSource 'state 'shipLost)
+								)
+							)
+					)
+			</OnObjDocked>
+
+			<OnCompleted>
+				(corpBioSec_missionCompleted gSource aReason gData)
+			</OnCompleted>
+
+			<OnReward>
+				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
+			</OnReward>
+
+			<OnGetNextScreen>
+				(switch
+					(= aScreenType 'AcceptFollowUp)
+						{	nextScreen: &dsRPGMessage;
+							nextScreenData: (msnTranslate gSource "AcceptFollowUp")
+							}
+
+					(= aScreenType 'SuccessFollowUp)
+						(block Nil
+							(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
+							Nil
+							)
+
+					(= aScreenType 'FailureFollowUp)
+						(block (
+							(state (msnGetData gSource 'state))
+							)
+							(switch
+								(= state 'playerDelivered)
+									(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
+
+								(= state 'medsRecovered)
+									(msnSuccess (objGetObjByID (msnGetData gSource 'parentID)))
+
+								(msnFailure (objGetObjByID (msnGetData gSource 'parentID)))
+								)
+							Nil
+							)
+					)
+			</OnGetNextScreen>
 		</Events>
 		<Language>
 			<Text id="Intro">
 				(corpBioSec_calcIntro)
 			</Text>
 			<Text id="Briefing">
-				(list
-					{
-						desc:	"All done"
-						acceptLabel: "\"[C]ontinue\""
-						declineLabel: "\"[I]s there anything else I can do to help?\""
-						}
+				(cat
+					"\"A team from Commonwealth Medical is on their way to provide deliver and "
+					"review the situation here. Your mission is to meet with them and escort them "
+					"back to the " (msnGetData (objGetObjByID (msnGetData gSource 'parentID)) 'shipName)
+					". We'll pay you " (msnGetData gSource 'reward) " credits.\""
 					)
 			</Text>
 			<Text id="AcceptReply">
-				"\"Thanks again for your help. You can return to your usual CHOC assignment now.\""
+				(cat
+					"\"Great! They'll be travelling on " (msnGetData gSource 'shipName) ". "
+					"We'll program the rendezvous into your ship's computer. Good luck!\""
+					)
+			</Text>
+			<Text id="AcceptFollowUp">
+				{	desc: (cat
+						"As you are leaving the briefing an agent you don't recognize approaches you.\n\n"
+
+						"\"Greetings %name%, you are no doubt aware that the situation on the "
+						"station is highly sensitive and we cannot allow any interference with "
+						"internal Corporate operations at this time. There will be a bonus of "
+						"ten times your usual rate if the Commonwealth team fails to arrive.\""
+						)
+					nextScreen: 'forceUndock
+					}
 			</Text>
 			<Text id="DeclineReply">
-				"\"Not at the moment. Once we've finished the clean up here we're going to investigate the Tao Station connection. Maybe we'll see you later.\""
+				"\"Why are you here then? Stop wasting our time...\""
 			</Text>
+			<Text id="SuccessDebrief">
+				(list
+					{	desc: (cat
+							"The docking bay swarms with activity. Commonwealth and Corporate medical "
+							"technicians mix freely and discuss the treatment program. A few of the "
+							"CHOC agents look uneasy at the large number of non-Corporate personnel "
+							"on board. As you head to debriefing you think someone is watching you, "
+							"but you see no one when you look around."
+						)}
+					{	desc: (cat
+							"\"Good work %name%. " (msnGetData gSource 'shipName) " brought a fresh "
+							"supply of cyanavir which we are modifying to target the neuroplague. "
+							"We'll be able to lift the quarantine as soon as everyone has received treatment.\"\n\n"
 
+							"\"We've deposited " (msnGetData gSource 'reward) " credits to your account.\""
+						)}
+					)
+			</Text>
+			<Text id="FailureDebrief">
+				(if (msnGetData gSource 'playerDestroyedShip)
+					(msnTranslate gSource "FailureDebriefBetrayal")
+					(msnTranslate gSource "FailureDebriefStandard")
+					)
+			</Text>
+			<Text id="FailureDebriefBetrayal">
+				(cat
+					"\"What the kack happened out there? That was a Commonwealth Medical "
+					"transport you hit out there. If the Commonwealth finds out what happened "
+					"you'll be in a lot of trouble&mdash;don't expect any help from us!\"\n\n"
+					(switch
+						(= (msnGetData gSource 'state) 'playerDelivered)
+							"\"At least you recovered the supplies. With those well be able to treat the remaining patients and lift the quarantine.\""
+
+						(= (msnGetData gSource 'state) 'medsRecovered)
+							"\"At least we managed to recover the supplies from the wreck. With those well be able to treat the remaining patients and lift the quarantine.\""
+
+						"\"Without the supplies the remaining patients won't survive and that is on you. We won't require your assistance any longer.\""
+						)
+					"\n\nYou check your account and find an anonymous payment of "
+					(* (msnGetData gSource 'reward) 10) " credits."
+					)
+			</Text>
+			<Text id="FailureDebriefStandard">
+				(cat
+					"\"What happened out there? The Commonwealth authorities are going to furious when "
+					"they hear " (msnGetData gSource 'shipName) " was lost while under our protection.\"\n\n"
+					(switch
+						(= (msnGetData gSource 'state) 'playerDelivered)
+							"\"At least you recovered the supplies. With those well be able to treat the remaining patients and lift the quarantine.\""
+
+						(= (msnGetData gSource 'state) 'medsRecovered)
+							"\"At least we managed to recover the supplies from the wreck. With those well be able to treat the remaining patients and lift the quarantine.\""
+
+						"\"Without the supplies the remaining patients won't survive. You are dismissed.\""
+						)
+					"\n\nYou check your account and find an anonymous payment of "
+					(* (msnGetData gSource 'reward) 10) " credits."
+					)
+			</Text>
 		</Language>
 	</MissionType>
+
 </TranscendenceModule>
