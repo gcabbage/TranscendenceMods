@@ -233,26 +233,87 @@
 			<Text id="actionDevice">"Upgrade [E]quipment"</Text>
 		</Language>
 
+		<StaticData>
+			<Data id="actionLink">
+				{
+					"&scCSCAntarctica;/Main":				("Default"	2	True)
+					"&stBattleArena;/Main":					("Default"	2	True)
+					"&stBlackMarketRigelAurelius;/Main":	("Default"	4	Nil)
+					"&stBlackMarketStation;/Main":			("Default"	4	Nil)
+					"&stBlackMarketShipyard;/Main":			("Default"	3	Nil)
+					"&stKorolovAtCharon;/Dispatch":			("Default"	2	True)
+					"&stCommonwealthColony;/Main":			("Default"	2	True)
+					"&stCommonwealthColonyArmed;/Main":		("Default"	2	True)
+					"&stCommonwealthSettlement;/Main":		("Default"	2	True)
+					"&dsDryDock;":							("Default"	1	True)
+					"&stAgriculturalStation;/Main":			("Default"	3	True)
+					"&scCSCTaskForce;/Main":				("Default"	3	True)
+					"&scCSCHospital;/Main":					("Default"	3	True)
+					"&dsCommonwealthStation;":				("Default"	3	True)
+					"&stCommonwealthFortress;/Main":		("Default"	3	True)
+					"&stMiningColony;/Main":				("Default"	3	True)
+					"&stAdventurerOutfitters;/Main":		("Default"	2	True)
+					"&stArmorDealer;/Main":					("Default"	2	True)
+					"&stMakayevFactory;/Main":				("Default"	3	True)
+					"&stTaikonVentures;/Main":				("Default"	2	True)
+					"&stWondrousDevices;/Main":				("Default"	2	True)
+					"&dsArmsDealerSpecial;":				("Default"	2	True)
+					"&stPointJuno;/Main":					("Default"	2	True)
+					"&stRasiermesserFactory;/Main":			("Default"	4	True)
+					"&stRingerShipyard;/Main":				("Default"	2	Nil)
+					"&dsStKatsArcology;":					("Default"	5	True)
+					"0x00810055":							("Default"	4	True)	; Corporate Metropolis
+					"0x009101B4/Main":						("Default"	3	True)	; stAPDTulou
+					"0x009101DC/Main":						("Default"	2	True)	; stAPDSpaceCommandBase
+					"0x009101B8":							("Default"	3	True)	; dsAPDConstellation
+					"0x009101C1":							("Default"	2	True)	; dsAPDExplorer
+					"0x009101BB":							("Default"	3	True)	; dsAPDMonastery
+					"0x009101BE":							("Default"	3	True)	; dsAPDOutpost
+					"0x00910296":							("Default"	3	True)	; dsCDM
+					"0x00910481":							("Default"	3	True)	; dsCommonwealthTradingPost
+					"0x009104A1":							("Default"	2	True)	; dsPolyarnyShipyards
+					"0x009101E7/Main":						("Default"	3	True)	; stEDMetropolis
+					"0x00910209/Main":						("Default"	2	True)	; stEDResearchLab
+					"0x009101E5":							("Default"	3	True)	; dsEDCommune
+					"0x009101F1":							("Default"	2	True)	; dsEDCruiser
+					"0x009101EE":							("Default"	3	True)	; dsEDSettlement
+					"0x009101EB":							("Default"	3	True)	; dsEDZamok
+					"0x00910221":							("Default"	2	True)	; dsNAUAtlasBase
+					"0x0091021B":							("Default"	3	True)	; dsNAUAutofac
+					"0x00910215":							("Default"	3	True)	; dsNAUEnclave
+					"0x00910218":							("Default"	3	True)	; dsNAUMetropolis
+					"0x0091021E":							("Default"	3	True)	; dsNAUTradingPost
+					"0x009104C1":							("Default"	2	True)	; dsRingersOldHabitat
+					"0x00910250":							("Default"	2	True)	; dsUASDreadnought
+					"0x0091024C":							("Default"	3	True)	; dsUASFortress
+					"0x0091024A":							("Default"	4	True)	; dsUASMetropolis
+					"0x00910248":							("Default"	3	True)	; dsUASMiningColony
+					"0x0091024E":							("Default"	3	True)	; dsUASSettlement
+					}
+			</Data>
+		</StaticData>
+
 		<Events>
 			<OnGlobalPaneInit>
-				(if (or
-						(and (= aScreen "&dsDryDock;") (= aPane "Default"))
-						(and (= aScreen "&stCommonwealthColony;/Main") (= aPane "Default"))
-						(and (= aScreen "&stCommonwealthColonyArmed;/Main") (= aPane "Default"))
-						(and (= aScreen "&dsCommonwealthStation;") (or (= aPane "Default") (= aPane "DefaultWithInfo")))
-						(and (= aScreen "&stCommonwealthFortress;/Main") (= aPane "Default"))
-						(and (= aScreen "&stAdventurerOutfitters;/Main") (= aPane "Default"))
-						(and (= aScreen "&stArmorDealer;/Main") (= aPane "Default"))
-						(and (= aScreen "&dsArmsDealerSpecial;") (= aPane "Default"))
-						(and (= aScreen "&stMakayevFactory;/Main") (= aPane "Default"))
-						(and (= aScreen "&stTaikonVentures;/Main") (= aPane "Default"))
-						(and (= aScreen "&stWondrousDevices;/Main") (= aPane "Default"))
+				(block (
+					(myAction (@ (typGetStaticData &dsWingmanList; 'actionLink) aScreen))
+					)
+					(switch
+						(not myAction)
+							Nil
+
+						(!= (@ myAction 0) aPane)
+							Nil
+
+						(filter (sysFindObject gSource "As N:120; D:homeSystem;") theShip (objGetProperty theShip 'playerWingman))
+							(scrAddAction
+								gScreen
+								'wingmanAction
+								(@ myAction 1)
+								"[V]iew Wingmen"
+								(scrShowScreen gScreen "&dsWingmanList;" {checkMilitaryID: (@ myAction 2)})
+								)
 						)
-						(if (filter (sysFindObject gSource "As N:120; D:homeSystem;") theShip (objGetProperty theShip 'playerWingman))
-							(scrAddAction gScreen 'myNewAction Nil "[V]iew Wingmen" (scrShowScreen gScreen "&dsWingmanList;" {
-								checkMilitaryID: True
-								}))
-							)
 					)
 			</OnGlobalPaneInit>
 		</Events>
