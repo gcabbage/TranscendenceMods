@@ -338,8 +338,17 @@
 								(not (objGetItems gSource (cat "m +launchedBy:" (itmGetType theWeapon) ";")))
 								)
 						)))
+					; Check for unexplored objects
+					(exploredObjs (filter (sysFindObject gSource "sTP") theObj
+							(and (not (objIsKnown theObj)) (objGetProperty theObj 'hasDockingPorts))
+						))
 					theTarget
 					)
+
+					; If we're currently joined then add any objects we see to the system map
+					(if (objGetProperty gSource 'playerWingman)
+						(enum exploredObjs theObj (objSetKnown theObj))
+						)
 
 					(switch
 						; No change if we're busy
