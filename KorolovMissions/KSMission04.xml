@@ -90,7 +90,7 @@
 								(sysGetStargateDestinationNode (objGetStargateID gateObj))
 								)
 							nodeID
-							(unvFindObj nodeID "t +friendly; +populated; +majorStation; -uncharted;")
+							(unvFindObj nodeID "t +friendly; +populated; +majorStation; -uncharted; -battleArena;")
 							)
 						))
 					(switch
