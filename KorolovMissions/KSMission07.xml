@@ -177,6 +177,12 @@
 					"Payment: None"
 					)
 			</Text>
+			<Text id="InProgress">
+				(cat
+					"\"Sorry, captain, but the Kronosaurus is hunting you! No freighter crew "
+					"will dare to travel with you while that frigate is in system. Good Luck!\""
+					)
+			</Text>
 			<Text id="SuccessMsg">
 				"Mission complete!"
 			</Text>
@@ -232,8 +238,11 @@
 	<Globals>
 		(block Nil
 			(setq chrDeployKronosaurus (lambda ()
-				(block (theMission)
-					(if (setq theMission (msnCreate &msKronosaurus; Nil))
+				(block (
+					(theStation (sysFindObject Nil "ATN +korolovShipping;"))
+					theMission
+					)
+					(if (setq theMission (msnCreate &msKronosaurus; theStation))
 						(msnAccept theMission)
 						)
 					)
