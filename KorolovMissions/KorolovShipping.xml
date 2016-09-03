@@ -65,6 +65,9 @@
 		</Communications>
 
 		<Events>
+			<OnEventHandlerInit>
+				(sysAddObjRecurringTimerEvent 60 gSource 'OnBehavior)
+			</OnEventHandlerInit>
 			<OnCreate>
 				(block (
 					; If aBaseObj is not defined then look for a korolovShipping station
@@ -73,10 +76,8 @@
 					(objSetData gSource 'korolov_traffic True)
 					(objSetData gSource 'home (objGetID homeObj))
 					(shpOrder gSource 'dock homeObj)
-					(sysAddObjRecurringTimerEvent 60 gSource "OnBehavior")
 					)
 			</OnCreate>
-
 			<OnBehavior>
 				(switch
 					(not (objGetData gSource 'korolovPlayerEscort))

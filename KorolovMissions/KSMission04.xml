@@ -232,7 +232,7 @@
 						(block Nil
 							(msnSetData gSource 'navID (msnGetData gSource 'srcID))
 							(msnSetData gSource 'navNodeID (msnGetData gSource 'srcNodeID))
-							(sysAddObjTimerEvent 90 gSource "OrderFreighter")
+							(sysAddObjTimerEvent 90 gSource 'OrderFreighter)
 							)
 					; If freighter has made it back to the starting Korolov then mission is successful
 					(and
@@ -247,22 +247,14 @@
 			</OnObjDocked>
 
 			<OnObjEnteredGate>
-				; OnObjEnteredGate gets calls twice when an object ascends through a gate
-				; first time is entering the gate (everything normal)
-				; second time is the ascension - don't want to touch that event or we'll probably crash
 				(switch
 					; No aDestNodeID means this is probably an asension event
 					(= aDestNodeID "")
 						Nil
 
-					; If the freighter is already ascended we don't have to do anything
-					(and (= (objGetID aObj) (msnGetData gSource 'freighterID)) (msnGetData gSource 'freighterAscended))
-						(dbgOutput "SHOULD NOT BE HERE??? freighter was already ascended")
-
 					; Freigher is entering gate
 					(= (objGetID aObj) (msnGetData gSource 'freighterID))
-						(block ((freighterObj (objGetObjByID (msnGetData gSource 'freighterID))))
-							(dbgOutput "freighter entering gate from " (sysGetNode) " to " aDestNodeID " at " (unvGetTick))
+						(block Nil
 							; Record where we've come from and are going to
 							(msnSetData gSource 'lastNode (sysGetNode))
 							(msnSetData gSource 'nextNode aDestNodeID)
@@ -281,34 +273,32 @@
 								; Don't do anything if the freighter is not in the system
 								(not (setq freighterObj (objGetObjByID (msnGetData gSource 'freighterID))))
 									Nil
+
 								; If we took the wrong gate then fail mission
 								(!= aDestNodeID (msnGetData gSource 'navNodeID))
 									; Could use gateTime to record when we abandoned the freighter...
-									(dbgOutput "player just went through the wrong gate: " aDestNodeID " should go to: "(msnGetData gSource 'navNodeID))
-								;	(msnFailure gSource)
+									(msnFailure gSource)
+
 								; Freighter has already jumped ahead of us
 								(msnGetData gSource 'freighterAscended)
 									(dbgOutput "player following freighter")
 
 								; If player abandons the freigher while it is under attack then fail
-;								(objGetProperty freighterObj 'underAttack)
-;									(msnFailure gSource)
+								(objGetProperty freighterObj 'underAttack)
+									(msnFailure gSource)
+
 								; Or if there were enemies near by
 ;								(sysFindObject freighterObj "sEN:100;")
 ;									(msnFailure gSource)
+
 ;								(ls (objGetDistance freighterObj aGateObj) 50)
 									(block Nil
-										(dbgOutput "player leads, time to ascend freighter")
 										(msnSetData gSource 'lastNode (sysGetNode))
 										(msnSetData gSource 'nextNode aDestNodeID)
 										(msnSetData gSource 'gateTime Nil)
 										(msnSetData gSource 'gateDist (objGetDistance freighterObj aObj))
-										; Do this last as it calls OnObjEnteredGate on the freighter obj and changes all our arguments
 										(msnSetData gSource 'ascendFlag True)
-										;(sysAscendObject freighterObj)
-										;(msnSetData gSource 'freighterAscended True)
 										)
-;								(dbgOutput "left freighter behind")
 								)
 							)
 					)
@@ -405,7 +395,6 @@
 			</OnPlayerEnteredSystem>
 
 			<OnFreighterArrives>
-				;
 				(block (
 					(gateObj (sysGetStargateLeadingToNode (msnGetData gSource 'lastNode)))
 					(freighterObj (sysDescendObject (msnGetData gSource 'freighterID) gateObj))
@@ -427,6 +416,8 @@
 					(freighterObj (objGetObjByID (msnGetData gSource 'freighterID)))
 					)
 					(shpCancelOrders freighterObj)
+					; Ascending objects removes event handler, so reset:
+					(objSetEventHandler freighterObj &evKorolovFreighterBehavior;)
 					; If we are in target system then dock at the target station, otherwise onto the next gate
 					(if (= (sysGetNode) (msnGetData gSource 'navNodeID))
 						(shpOrder freighterObj 'dock (objGetObjByID (msnGetData gSource 'navID)))
