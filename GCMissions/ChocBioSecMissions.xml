@@ -1862,10 +1862,10 @@
 					"you'll be in a lot of trouble&mdash;don't expect any help from us!\"\n\n"
 					(switch
 						(= (msnGetData gSource 'state) 'playerDelivered)
-							"\"At least you recovered the supplies. With those well be able to treat the remaining patients and lift the quarantine.\""
+							"\"At least you recovered the supplies. With those we'll be able to treat the remaining patients and lift the quarantine.\""
 
 						(= (msnGetData gSource 'state) 'medsRecovered)
-							"\"At least we managed to recover the supplies from the wreck. With those well be able to treat the remaining patients and lift the quarantine.\""
+							"\"At least we managed to recover the supplies from the wreck. With those we'll be able to treat the remaining patients and lift the quarantine.\""
 
 						"\"Without the supplies the remaining patients won't survive and that is on you. We won't require your assistance any longer.\""
 						)
@@ -1879,10 +1879,10 @@
 					"they hear " (msnGetData gSource 'shipName) " was lost while under our protection.\"\n\n"
 					(switch
 						(= (msnGetData gSource 'state) 'playerDelivered)
-							"\"At least you recovered the supplies. With those well be able to treat the remaining patients and lift the quarantine.\""
+							"\"At least you recovered the supplies. With those we'll be able to treat the remaining patients and lift the quarantine.\""
 
 						(= (msnGetData gSource 'state) 'medsRecovered)
-							"\"At least we managed to recover the supplies from the wreck. With those well be able to treat the remaining patients and lift the quarantine.\""
+							"\"At least we managed to recover the supplies from the wreck. With those we'll be able to treat the remaining patients and lift the quarantine.\""
 
 						"\"Without the supplies the remaining patients won't survive. You are dismissed.\""
 						)

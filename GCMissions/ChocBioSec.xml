@@ -291,6 +291,10 @@
 
 					; Set up the mission
 					(switch
+						; Must be a Corporate Privateer
+						(ls (corpPriv_getRank) 1)
+							(msnDestroy gSource)
+
 						; This mission works at system levels 1-5
 						(gr (sysGetLevel) 5)
 							(msnDestroy gSource)
@@ -487,9 +491,36 @@
 			<OnReward>
 				(corpPriv_giveReward gSource (msnGetData gSource 'reward))
 			</OnReward>
+
+			<GetRumors>
+				(switch
+					; Rumor can trigger up to 3 gates from source
+					(gr (sysGetTopologyDistance (msnGetProperty gSource 'nodeID) (sysGetNode)) 3)
+						Nil
+
+					(msfSimpleRumors (msnTranslate gSource 'Rumors))
+					)
+			</GetRumors>
+
 		</Events>
 
 		<Language>
+			<Text id="Rumors">
+				(list
+					(cat
+						"\"I hear that " (msnGetData gSource 'stationName) " is under quarantine. "
+						"Everyone on board is sick and there is no cure!\""
+						)
+					(cat
+						"\"The Corporate Hierarchy has " (msnGetData gSource 'stationName)
+						" on lockdown. No one is allowed on or off the station.\""
+						)
+					(cat
+						"\"I have friends on " (msnGetData gSource 'stationName) ". I hope they're OK.\""
+						)
+					)
+			</Text>
+
 			<Text id="Name">
 				(cat "Assist " (msnGetData gSource 'shipName))
 			</Text>
