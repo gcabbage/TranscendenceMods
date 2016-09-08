@@ -49,7 +49,7 @@ To Do:
 
 	<MissionType UNID="&msKorolovRescue;"
 			name=			"Korolov Rescue"
-			attributes=		"korolov, deliveryMission"
+			attributes=		"korolov, deliveryMission, special"
 
 			level=			"1-4"
 			>
@@ -81,6 +81,10 @@ To Do:
 						)
 
 					(switch
+						; Only offer one special mission per station
+						(msnFind aOwnerObj "*S +korolov; +special;")
+							(msnDestroy gSource)
+
 						; Only offer to levels 2-3
 						(not (find '(2 3) playerLevel))
 							(msnDestroy gSource)

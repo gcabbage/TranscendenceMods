@@ -94,6 +94,10 @@
 							)
 						))
 					(switch
+						; Only offer one special mission per station
+						(msnFind aOwnerObj "*S +korolov; +special;")
+							(msnDestroy gSource)
+
 						; Finite number of missions per station
 						(ls (objGetData aOwnerObj 'remainingMissions) 1)
 							(msnDestroy gSource)

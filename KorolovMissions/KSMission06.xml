@@ -27,7 +27,7 @@
 
 	<MissionType UNID="&msKorolovDelivery;"
 			name=			"Korolov delivery"
-			attributes=		"korolov, deliveryMission"
+			attributes=		"korolov, deliveryMission, special"
 
 			level=			"1-3"
 			>
@@ -55,6 +55,10 @@
 					(setq fitCount (objGetFitCount gPlayerShip (itmCreate &itKorolovShippingContainer; 2)))
 
 					(switch
+						; Only offer one special mission per station
+						(msnFind aOwnerObj "*S +korolov; +special;")
+							(msnDestroy gSource)
+
 						; Finite number of missions per station
 						(ls (objGetData aOwnerObj 'remainingMissions) 1)
 							(msnDestroy gSource)
