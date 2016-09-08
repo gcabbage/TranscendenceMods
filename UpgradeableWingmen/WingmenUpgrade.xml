@@ -241,6 +241,7 @@
 					"&stBlackMarketRigelAurelius;/Main":	("Default"	4	Nil)
 					"&stBlackMarketStation;/Main":			("Default"	4	Nil)
 					"&stBlackMarketShipyard;/Main":			("Default"	3	Nil)
+					"&stKorolovShipping;/Dispatch":			("Default"	3	True)
 					"&stKorolovAtCharon;/Dispatch":			("Default"	2	True)
 					"&stCommonwealthColony;/Main":			("Default"	2	True)
 					"&stCommonwealthColonyArmed;/Main":		("Default"	2	True)
