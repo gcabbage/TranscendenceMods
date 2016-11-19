@@ -5,6 +5,9 @@
 
 	<!ENTITY msRaisuStation					"0xDDDEF101">
 	<!ENTITY dsRaisuStation					"0xDDDEF102">
+
+	<!ENTITY rumorBenedictAndFiona			"0xDDDEF103">
+	<!ENTITY msBenedictAndFiona				"0x00200009">
 	]>
 
 <TranscendenceLibrary UNID="&unidRumorFramework;"

@@ -2,6 +2,7 @@
 <!--
 	Changes to core code:
 	* dsCommonwealthPub use new rumor framework, inherit from standard dock screens
+	* reuse dockscreen for Corporate Metropolis bar
 
 	To Do:
 	* All the pub rumors could be moved to events on the stations causing the rumors
@@ -17,7 +18,16 @@
 		<Panes>
 			<Default>
 				<OnPaneInit>
-					(scrSetDescTranslate gScreen 'descWelcome)
+					(block Nil
+						(if (@ gData 'rumorCriteria)
+							(scrSetData gScreen 'rumorCriteria (@ gData 'rumorCriteria))
+							(scrSetData gScreen 'rumorCriteria 'commonwealthPub)
+							)
+						(if (@ gData 'desc)
+							(scrSetDesc gScreen (@ gData 'desc))
+							(scrSetDescTranslate gScreen 'descWelcome)
+							)
+						)
 				</OnPaneInit>
 
 				<Actions>
@@ -26,7 +36,7 @@
 							(block Nil
 								(plyCharge gPlayer 5)
 								(msfShowRumor {
-									rumorCriteria: 'pub
+									rumorCriteria: (scrGetData gScreen 'rumorCriteria)
 									introTextID: 'descRumorIntro
 									noRumorTextID: 'descNoRumors
 									})
@@ -36,7 +46,7 @@
 					</Action>
 
 					<Action id="actionLeave" cancel="1">
-						<Exit/>
+						(scrExitScreen gScreen)
 					</Action>
 				</Actions>
 			</Default>
@@ -48,7 +58,7 @@
 
 				<Actions>
 					<Action id="actionLeave" default="1" cancel="1">
-						<Exit/>
+						(scrExitScreen gScreen)
 					</Action>
 				</Actions>
 			</NoMoney>
@@ -163,7 +173,7 @@
 		<Events>
 			<GetGlobalRumors>
 				(switch
-					(!= (@ gData 'rumorCriteria) 'pub)
+					(!= (@ gData 'rumorCriteria) 'commonwealthPub)
 						Nil
 
 					(map (typGetStaticData &dsCommonwealthPub; 'RumorTable) 'excludeNil story
@@ -181,6 +191,16 @@
 						)
 					)
 			</GetGlobalRumors>
+
+			<OnGlobalPaneInit>
+				(switch
+					; Add a pub to the Corporate Metropolis
+					(and (= aScreen "0x00810055") (= aPane "Default")) ; Corporate Metropolis
+						(scrAddAction gScreen 'myBarAction 4 "[B]ar"
+							(scrShowScreen gScreen "&dsCommonwealthPub;" {rumorCriteria: 'corporate})
+							)
+					)
+			</OnGlobalPaneInit>
 		</Events>
 	</DockScreen>
 
