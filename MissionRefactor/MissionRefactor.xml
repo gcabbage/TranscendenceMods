@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDE1000">
+
+	<!ENTITY unidBenedictStoryArc		"0x00200006">
+	<!ENTITY msBenedictsDrones			"0x00200008">
+	<!ENTITY msBenedictAndFiona			"0x00200009">
+	<!ENTITY msBenedictToKorolov		"0x0020000B">
+	<!ENTITY msBenedictTraining			"0x0020000C">
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"Mission Refactor"
+		release=	"1"
+		version=	"0.1"
+		apiVersion=	"36"
+		credits=	"Giant Cabbage"
+		>
+
+	<Library unid="&unidHumanSpaceLibrary;"/>
+
+	<Module filename="Benedict00.xml"/>
+	<Module filename="Benedict01.xml"/>
+	<Module filename="Benedict02.xml"/>
+
+</TranscendenceExtension>

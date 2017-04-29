@@ -18,6 +18,18 @@
 	<!ENTITY msCommConRescue				"0xDDDE0023">
 	<!ENTITY evCommConRescueBehavior		"0xDDDE0024">
 
+	<!ENTITY tbPirateRaider1				"0xDDDE0040">
+	<!ENTITY tbPirateRaider2				"0xDDDE0041">
+	<!ENTITY tbPirateRaider3				"0xDDDE0042">
+	<!ENTITY scViking-leader				"0xDDDE0043">
+
+	<!ENTITY msKorolovLongEscort			"0xDDDE0050">
+	<!ENTITY msKorolovPirateLeader			"0xDDDE0051">
+	<!ENTITY msKorolovDelivery				"0xDDDE0052">
+	<!ENTITY msKorolovRescue				"0xDDDE0053">
+	<!ENTITY scKorolovDisabledFreighter		"0xDDDE0054">
+	<!ENTITY ovShipDisabled					"0xDDDE0055">
+
 	<!ENTITY unidCorpBioSec					"0xDDDE0101">
 	<!ENTITY scCorpBioSec					"0xDDDE0102">
 	<!ENTITY evCorpBioSecQuarantine			"0xDDDE0103">
@@ -40,7 +52,7 @@
 		name=		"GC Missions and Rumors"
 		release=	"1"
 		version=	"0.1"
-		apiVersion=	"30"
+		apiVersion=	"36"
 		credits=	"Giant Cabbage"
 		>
 
@@ -53,6 +65,12 @@
 	<Module filename="ChocBioSecMissions.xml"/>
 	<Module filename="CommonwealthContainerHabitat.xml"/>
 	<Module filename="Items.xml"/>
+
+	<Module filename="CharonPirates.xml"/>
+	<Module filename="KSMission04.xml"/>
+	<Module filename="KSMission05.xml"/>
+	<Module filename="KSMission06.xml"/>
+	<Module filename="KSMission08.xml"/>
 
 	<Module filename="Commonwealth.xml"/>
 

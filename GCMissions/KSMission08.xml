@@ -394,8 +394,8 @@ To Do:
 					; If player destroyed the freighter then blacklist
 					(if (and (= aReason 'failure) (msnGetData gSource 'playerDestroyedFreighter))
 							(block Nil
-								(typSetData &unidKorolovEscort; 'level -1)
-								(typSetData &unidKorolovEscort; 'xp -1)
+								(typSetData &unidKorolovShipping; 'level -1)
+								(typSetData &unidKorolovShipping; 'xp -1)
 								)
 						)
 					)

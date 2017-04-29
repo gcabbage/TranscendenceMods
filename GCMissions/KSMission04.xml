@@ -521,7 +521,7 @@
 					)
 			</Text>
 			<Text id="SuccessDebrief">
-				(typTranslate &unidKorolovEscort; 'SuccessDebrief {reward:(msnGetData gSource 'reward)})
+				(korSuccessDebrief gSource)
 			</Text>
 			<Text id="msgBeginEscort">
 				(block (

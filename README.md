@@ -11,12 +11,6 @@ GC Missions
 Adds extra missions using Rumor Framework (see below)
 
 
-Korlov Missions
----------------
-Rewrite of Korolov Shipping using recent Transcendence features (MissionType,
-Language elements etc.) along with various tweaks and new missions.
-
-
 Rumor Framework
 ---------------
 Rumor system to replace the hard coded rumors used in base game

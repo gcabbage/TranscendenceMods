@@ -15,7 +15,7 @@
 		name=		"Upgradeable Wingmen"
 		release=	"1"
 		version=	"0.1.1"
-		apiVersion=	"31"
+		apiVersion=	"36"
 		>
 	<Library unid="&unidHumanSpaceLibrary;"/>
 

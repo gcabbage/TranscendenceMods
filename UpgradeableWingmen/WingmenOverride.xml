@@ -95,6 +95,34 @@
 			<Text id="WatchYourTargets">		"\"Blya! Watch your fire!\""</Text>
 			<Text id="WingmanJoined">			""</Text>
 			<Text id="WingmanKilled">			"\"Helena, I will join you now!\""</Text>
+
+			<Text id="Intro">
+				(if (= (objGetProperty gPlayerShip 'characterClass) &unidPilgrimClass;)
+					(cat
+						"As the crowd breaks up, a tall man in a faded flight suit walks up to you:\n\n"
+						"\"My name is Volkov. You are going to the Core, is true? "
+						"I also want to go and I would fly with you, if you're willing.\""
+						)
+					(cat
+						"As the crowd breaks up, a tall man in a faded flight suit walks up to you:\n\n"
+						"\"My name is Volkov. You are leaving the system, is true? "
+						"I also want to go and I would fly with you, if you're willing.\""
+						)
+					)
+			</Text>
+			<Text id="AcceptReply">
+				(cat
+					"Volkov nods his head, more in relief than in joy.\n\n"
+					"\"Good. I will see you out there!\""
+					)
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					"Volkov grimaces in disappointment and a profound grief fills his eyes. "
+					"He begins to plead, but then turns away in resignation. As he walks away he "
+					"whispers to himself: \"Helena...\" And then he is gone."
+					)
+			</Text>
 		</Language>
 
 		<Events>
@@ -250,6 +278,34 @@
 			<Text id="WatchYourTargets">		"\"Hey, watch it!\""</Text>
 			<Text id="WingmanJoined">			"\"Ready for action, boss\""</Text>
 			<Text id="WingmanKilled">			"You have a sad feeling for a moment, then it passes"</Text>
+
+			<Text id="Intro">
+				(list
+					{
+						desc: (cat
+							"A young woman in a flight-suit and Commonwealth insignia sits next to you:\n\n"
+							"\"I've seen you in action out there&#x97;you're not too bad for an old-timer.\""
+							)
+						}
+					{
+						desc: (cat
+							"\"I'm a pretty good pilot myself. What do you think about you and me "
+							"taking on the bad guys together\""
+							)
+						acceptLabel: "\"[O]K, you can come along.\""
+						declineLabel: "\"[S]orry, kid, I travel alone.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				"\"Awesome! You won't regret it, I promise!\""
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					"\"Yeah, well, I didn't think it would work out either.\""
+					" She leaves you and starts to talk to another pilot at the bar."
+					)
+			</Text>
 		</Language>
 
 		<Events>
@@ -371,6 +427,42 @@
 			<Text id="WatchYourTargets">		""</Text>
 			<Text id="WingmanJoined">			"\"To hell with destiny!\""</Text>
 			<Text id="WingmanKilled">			"Rama has met his destiny"</Text>
+
+			<Text id="Intro">
+				(list
+					{
+						desc: (cat
+							"You talk to Rama, a silver-haired pilot who seems to be wearing blaster armor under his flight-suit. "
+							"You trade stories about flying and fighting, but when you mention your journey to the Core, "
+							"he grows quiet and stares off into space."
+							)
+						}
+					{
+						desc: (cat
+							"Rama talks about his ship instead: \"I've made a lot of modifications to her over the years. "
+							"You should see her in a fight: fast and tight as a lightship, but heavily armed. "
+							"She's saved my life a hundred times.\""
+							)
+						acceptLabel: "\"Why don't you travel with me to the [C]ore?\""
+						declineLabel: "\"Well, nice talking with you. [B]ye.\""
+						}
+					)
+			</Text>
+			<Text id="AcceptReply">
+				(cat
+					"Rama pauses for a long time, and when he speaks it is in a whisper. "
+					"\"When I became a man, I went to see a monk about my future. "
+					"He told me that I was destined to die on a journey to the Core.\""
+					" And then, Rama laughs and dispatches the rest of his drink. "
+					"\"But I no longer fear my destiny. I will go with you\""
+					)
+			</Text>
+			<Text id="DeclineReply">
+				(cat
+					"As you get up to leave, Rama grabs your arm and says, "
+					"\"Perhaps we will see each other again.\""
+					)
+			</Text>
 		</Language>
 
 		<Events>

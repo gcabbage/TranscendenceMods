@@ -29,15 +29,7 @@
 			</OnCharacterCanBeMet>
 
 			<OnGlobalSystemStopped>
-				; Don't ascend if any missions are open or active
-				(block (shipObj)
-					(setq shipObj (objGetObjByID (typGetData &unidCorpBioSec; 'objID)))
-					(if shipObj
-						(if (not (msnFind shipObj "aoS"))
-							(rpgCharacterAscend &unidCorpBioSec;)
-							)
-						)
-					)
+				(rpgCharacterAscend &unidCorpBioSec;)
 			</OnGlobalSystemStopped>
 		</Events>
 

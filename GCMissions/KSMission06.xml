@@ -156,12 +156,12 @@
 					(switch
 						; Penalty if player was late
 						(= gData 'late)
-							(typIncData &unidKorolovEscort; 'xp -50)
+							(typIncData &unidKorolovShipping; 'xp -50)
 						; Blacklist if player lost / stole cargo
 						(= gData 'lost)
 							(block Nil
-								(typSetData &unidKorolovEscort; 'level -1)
-								(typSetData &unidKorolovEscort; 'xp -1)
+								(typSetData &unidKorolovShipping; 'level -1)
+								(typSetData &unidKorolovShipping; 'xp -1)
 								)
 						)
 					)
