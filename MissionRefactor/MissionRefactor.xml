@@ -2,7 +2,11 @@
 
 <!DOCTYPE TranscendenceExtension
 	[
-	<!ENTITY unidExtension					"0xDDDE1000">
+	<!ENTITY unidExtension				"0xDDDE1000">
+
+	<!ENTITY msKorolovAtCharon			"0xDDDE1001">
+	<!ENTITY evKorolovAtCharon			"0xDDDE1002">
+	<!ENTITY msKorolovAtCharonRevenge	"0xDDDE1003">
 
 	<!ENTITY unidBenedictStoryArc		"0x00200006">
 	<!ENTITY msBenedictsDrones			"0x00200008">
@@ -24,5 +28,9 @@
 	<Module filename="Benedict00.xml"/>
 	<Module filename="Benedict01.xml"/>
 	<Module filename="Benedict02.xml"/>
+
+	<Module filename="CharonFortress.xml"/>
+	<Module filename="KSMissionC01.xml"/>
+	<Module filename="KSMissionC02.xml"/>
 
 </TranscendenceExtension>
