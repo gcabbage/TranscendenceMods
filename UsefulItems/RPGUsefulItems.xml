@@ -302,7 +302,7 @@
 							})
 						(scrSetDesc gScreen (@ result 'desc))
 
-						(if (and (objHasItem theShip useItem 1) (not (@ result 'forceStop)))
+						(if (and (objHasItem theShip useItem 1) (not (@ result 'nextScreen)))
 							(scrShowAction gScreen 'actionDone Nil)
 							(scrShowAction gScreen 'actionContinue Nil)
 							)
@@ -319,10 +319,24 @@
 					</Action>
 					<Action id="actionDone" default="1" cancel="1">
 						(block (
-							(doubleExit (@ gData 'screenSet))
+							(result (scrGetData gScreen 'usageResult))
 							)
-							(scrExitScreen gScreen)
-							(if doubleExit
+							(if (@ gData 'screenSet)
+								(scrExitScreen gScreen)
+								)
+							(switch
+								(= (@ result 'nextScreen) 'forceUndock)
+									(scrExitScreen gScreen 'forceUndock)
+
+								(= (@ result 'nextScreen) 'forceExit)
+									(scrExitScreen gScreen)
+
+								(@ result 'nextScreen)
+									(block Nil
+										(scrExitScreen gScreen)
+										(scrShowScreen gScreen (@ result 'nextScreen) (@ result 'nextScreenData))
+										)
+
 								(scrExitScreen gScreen)
 								)
 							)
@@ -429,7 +443,7 @@
 							})
 						(scrSetDesc gScreen (@ result 'desc))
 
-						(if (and (objHasItem theShip useItem 1) (not (@ result 'forceStop)))
+						(if (and (objHasItem theShip useItem 1) (not (@ result 'nextScreen)))
 							(scrShowAction gScreen 'actionDone Nil)
 							(scrShowAction gScreen 'actionContinue Nil)
 							)
@@ -445,13 +459,26 @@
 					<Action id="actionContinue" default="1" cancel="1">
 						(scrShowPane gScreen 'DeviceSelect)
 					</Action>
-
 					<Action id="actionDone" default="1" cancel="1">
 						(block (
-							(doubleExit (@ gData 'screenSet))
+							(result (scrGetData gScreen 'usageResult))
 							)
-							(scrExitScreen gScreen)
-							(if doubleExit
+							(if (@ gData 'screenSet)
+								(scrExitScreen gScreen)
+								)
+							(switch
+								(= (@ result 'nextScreen) 'forceUndock)
+									(scrExitScreen gScreen 'forceUndock)
+
+								(= (@ result 'nextScreen) 'forceExit)
+									(scrExitScreen gScreen)
+
+								(@ result 'nextScreen)
+									(block Nil
+										(scrExitScreen gScreen)
+										(scrShowScreen gScreen (@ result 'nextScreen) (@ result 'nextScreenData))
+										)
+
 								(scrExitScreen gScreen)
 								)
 							)

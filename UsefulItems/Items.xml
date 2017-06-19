@@ -10,6 +10,8 @@
 	<!ENTITY dsRPGUseItemOnCargo			"0xDDDEF605">
 	<!ENTITY baStdArmorRepair				"0xDDDEF610">
 	<!ENTITY baStdPasteBarrel				"0xDDDEF611">
+
+	<!ENTITY dsExileStarportChampagne		"0xDDDEF6A1">
 	]>
 
 <TranscendenceExtension UNID="&unidExtension;"
@@ -20,6 +22,7 @@
 		>
 	<Library unid="&unidHumanSpaceLibrary;"/>
 
+	<Module filename="MiscItems.xml"/>
 	<Module filename="RPGShipScreens.xml"/>
 	<Module filename="RPGUsefulItems.xml"/>
 	<Module filename="UsefulItems.xml"/>

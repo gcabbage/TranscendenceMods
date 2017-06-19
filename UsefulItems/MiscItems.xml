@@ -1,0 +1,91 @@
+<?xml version="1.0" ?>
+
+<TranscendenceModule>
+
+	<!-- itExileStarportChampagne -->
+
+	<ItemType UNID="&itExileStarportChampagne;"
+			name=				"[case(s) of ]Exile Starport Champagne"
+			level=				"5"
+			value=				"300"
+			mass=				"50"
+			frequency=			"uncommon"
+			numberAppearing=	"1d4"
+			attributes=			"Consumable; consumerGood, Food; Lux, Usable"
+
+			description=		"Popularized by the 3DV epic, 'Exile Starport', this champagne is trendy and very expensive."
+
+			sortName=			"Exile Starport Champagne, case of"
+			>
+
+		<Image imageID="&rsItems1;" imageX="288" imageY="0" imageWidth="96" imageHeight="96"/>
+
+		<Events>
+			<CanUseOnItem>
+				(if (itmMatches (@ gData 'itemToUseOn) "aI")
+					{
+						canUse: True
+						desc: (itmTranslate gItem 'descUsage.OK {
+							active: (itmGetName gItem 0)
+							})
+						}
+					)
+			</CanUseOnItem>
+
+			<OnUseOnItem>
+				(if (itmMatches (@ gData 'itemToUseOn) "aI")
+					(block Nil
+						(objRemoveItem gPlayerShip gItem 1)
+						{
+							desc: (itmTranslate gItem 'descResult)
+							nextScreen: &dsExileStarportChampagne;
+							}
+						)
+					"ERROR"
+					)
+			</OnUseOnItem>
+		</Events>
+
+		<Language>
+			<Text id="descUsage.OK">
+				You can use the %active% on %static%.
+			</Text>
+			<Text id="descResult">
+				You apply the Champagne to your ship's armor. It does not appear
+				to have any effect, but you decide it is time to rename your ship.
+			</Text>
+		</Language>
+	</ItemType>
+		
+	<DockScreen UNID="&dsExileStarportChampagne;"
+			inherit=			"&dsDockScreenBase;"
+			nestedScreen=		"true"
+			>
+
+		<Panes>
+			<Default showTextInput="true">
+				<OnPaneInit>
+					(scrSetDescTranslate gScreen 'descWelcome)
+				</OnPaneInit>
+				<Actions>
+					<Action id="actionContinue" default="1">
+						(block Nil
+							(objSetName gPlayerShip (scrGetInputText gScreen) 0x80)
+							(scrExitScreen gScreen)
+							)
+					</Action>
+					<Action id="actionCancel" cancel="1">
+						(scrExitScreen gScreen)
+					</Action>
+				</Actions>
+			</Default>
+		</Panes>
+
+		<Language>
+			<Text id="descWelcome">
+				What do you want to call your ship?
+			</Text>
+		</Language>
+	</DockScreen>
+	
+</TranscendenceModule>

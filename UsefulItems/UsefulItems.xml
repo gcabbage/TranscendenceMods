@@ -574,7 +574,7 @@
 					(objRemoveItem gPlayerShip gItem 1)
 					(itmSetKnown gItem)
 					{
-						forceStop: True
+						nextScreen: 'exitScreen
 						desc: (itmTranslate gItem resultID)
 						}
 					)
@@ -732,7 +732,7 @@
 						(objRemoveItem gPlayerShip gItem 1)
 						(itmSetKnown gItem)
 						{
-							forceStop: True
+							nextScreen: 'forceUndock
 							desc: (typTranslate &itRadioactiveWaste; resultID)
 							}
 						)

@@ -22,6 +22,13 @@
 
 				<OnPaneInit>
 					(block (thisItem desc)
+						(if (scrGetData gScreen 'cursor)
+							(block Nil
+								(scrSetListCursor gScreen (scrGetData gScreen 'cursor))
+								(scrSetData gScreen 'cursor Nil)
+								)
+							)
+
 						(setq thisItem (scrGetItem gScreen))
 						(switch
 							(not thisItem)
@@ -32,7 +39,7 @@
 
 							(setq gMaxCount (itmGetCount thisItem))
 							)
-
+							
 						(if thisItem
 							(block Nil
 								(setq desc (cat "Unit mass: " (strMassString (itmGetMass thisItem))))
@@ -45,6 +52,8 @@
 
 						; Enable/disable actions
 						(scrEnableAction gScreen 0 (gr gMaxCount 0))
+						
+						(scrEnableAction gScreen 'actionUse (or (itmMatches thisItem 'u) (itmHasAttribute thisItem 'Usable)))
 						)
 				</OnPaneInit>
 
@@ -69,10 +78,13 @@
 							)
 					</Action>
 
-					<Action name="Use" key="U">
-						(scrShowScreen gScreen &dsRPGUseItem; {
-							useItem: (scrGetItem gScreen)
-							})
+					<Action name="Use" key="U" id="actionUse" default="1">
+						(block Nil
+							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
+							(scrShowScreen gScreen &dsRPGUseItem; {
+								useItem: (scrGetItem gScreen)
+								})
+							)
 					</Action>
 
 					<Action name="Done" cancel="1" key="D">
