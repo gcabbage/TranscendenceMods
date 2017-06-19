@@ -29,28 +29,28 @@
 						(useItem (scrGetData gScreen 'useItem))
 						(theShip gPlayerShip)
 
-                        (screenSet (list
-                            {
-                                screen: &dsRPGUseItem;
-                                label: (scrTranslate gScreen 'screenSetUseItem)
-                                mainScreen: True
-                                }
-                            {
-                                screen: &dsRPGUseItemOnArmor;
-                                label: (scrTranslate gScreen 'screenSetUseItemOnArmor)
-                                data: { useItem: useItem }
-                                }
-                            {
-                                screen: &dsRPGUseItemOnDevice;
-                                label: (scrTranslate gScreen 'screenSetUseItemOnDevice)
-                                data: { useItem: useItem }
-                                }
+						(screenSet (list
+							{
+								screen: &dsRPGUseItem;
+								label: (scrTranslate gScreen 'screenSetUseItem)
+								mainScreen: True
+								}
+							{
+								screen: &dsRPGUseItemOnArmor;
+								label: (scrTranslate gScreen 'screenSetUseItemOnArmor)
+								data: { useItem: useItem }
+								}
+							{
+								screen: &dsRPGUseItemOnDevice;
+								label: (scrTranslate gScreen 'screenSetUseItemOnDevice)
+								data: { useItem: useItem }
+								}
 							{
 								screen: &dsRPGUseItemOnCargo;
-                                label: (scrTranslate gScreen 'screenSetUseItemOnCargo)
-                                data: { useItem: useItem }
+								label: (scrTranslate gScreen 'screenSetUseItemOnCargo)
+								data: { useItem: useItem }
 								}
-                            ))
+							))
 						)
 
 						(scrSetControlValue gScreen 'useItem {
@@ -60,10 +60,10 @@
 
 						(scrSetDescTranslate gScreen 'descUseItem)
 
-                        ;   Define the screen set
-                        
-                        (scrSetData gScreen 'screenSet screenSet)
-                        (rpgInitScreenSet screenSet)
+						;   Define the screen set
+						
+						(scrSetData gScreen 'screenSet screenSet)
+						(rpgInitScreenSet screenSet)
 						)
 				</OnPaneInit>
 
@@ -73,22 +73,22 @@
 
 				<Actions>
 					<Action id="actionArmor">
-                        (scrShowScreen gScreen &dsRPGUseItemOnArmor; {
+						(scrShowScreen gScreen &dsRPGUseItemOnArmor; {
 							useItem: (scrGetData gScreen 'useItem)
-                            screenSet: (scrGetData gScreen 'screenSet)
-                            })
+							screenSet: (scrGetData gScreen 'screenSet)
+							})
 					</Action>
 					<Action id="actionDevice">
-                        (scrShowScreen gScreen &dsRPGUseItemOnDevice; {
+						(scrShowScreen gScreen &dsRPGUseItemOnDevice; {
 							useItem: (scrGetData gScreen 'useItem)
-                            screenSet: (scrGetData gScreen 'screenSet)
-                            })
+							screenSet: (scrGetData gScreen 'screenSet)
+							})
 					</Action>
 					<Action id="actionCargo">
-                        (scrShowScreen gScreen &dsRPGUseItemOnCargo; {
+						(scrShowScreen gScreen &dsRPGUseItemOnCargo; {
 							useItem: (scrGetData gScreen 'useItem)
-                            screenSet: (scrGetData gScreen 'screenSet)
-                            })
+							screenSet: (scrGetData gScreen 'screenSet)
+							})
 					</Action>
 				</Actions>
 			</Default>
@@ -102,9 +102,9 @@
 			<Text id="descUseItem">How do you want to use this item?</Text>
 
 			<Text id="screenSetUseItem">Main page</Text>
-            <Text id="screenSetUseItemOnArmor">Armor page</Text>
-            <Text id="screenSetUseItemOnDevice">Device page</Text>
-            <Text id="screenSetUseItemOnCargo">Cargo page</Text>
+			<Text id="screenSetUseItemOnArmor">Armor page</Text>
+			<Text id="screenSetUseItemOnDevice">Device page</Text>
+			<Text id="screenSetUseItemOnCargo">Cargo page</Text>
 		</Language>
 	</DockScreen>
 
@@ -131,10 +131,6 @@
 				list=		"aI"
 				noEmptySlots="true"
 				/>
-
-		<InitialPane>
-			"DeviceSelect"
-		</InitialPane>
 
 		<Panes>
 		</Panes>
@@ -167,10 +163,6 @@
 				list=		"dI"
 				noEmptySlots="true"
 				/>
-
-		<InitialPane>
-			"DeviceSelect"
-		</InitialPane>
 
 		<Panes>
 		</Panes>
@@ -221,9 +213,31 @@
 					(scrAddListFilter gScreen 'filterAmmo "Ammo" (lambda (theItem)
 							(and (itmMatches theItem "mU") (not (itmIsEqual theItem useItem)))
 							))
+
+					;	Do not need to reproduce details shown in itemPicker list
+					(scrSetData gScreen 'hideCurrent True)
 					)
 			</OnDisplayInit>
 		</Display>
+
+		<Panes>
+		</Panes>
+
+		<Language>
+		</Language>
+	</DockScreen>
+
+<!-- BASE CLASSES -->
+
+	<DockScreen UNID="&dsRPGUseItemBase;"
+			inherit=			"&dsDockScreenBase;"
+			nestedScreen=		"true"
+			name=				"=(itmGetName (or (@ gData 'useItem) gItem) 'capitalize)"
+			>
+
+		<OnScreenInit>
+			(scrSetData gScreen 'useItem (or (@ gData 'useItem) gItem 1))
+		</OnScreenInit>
 
 		<Panes>
 			<Default>
@@ -234,13 +248,19 @@
 						(theItem (scrGetItem gScreen))
 						(useInfo (itmFireEvent useItem 'CanUseOnItem { itemToUseOn: theItem } ))
 						)
-						
-						;	Set the description
 
+						;	Set the description
 						(scrSetControlValue gScreen 'useItem {
 							title: (itmGetName useItem 'capitalize)
 							desc: (itmGetProperty useItem 'description)
 							})
+
+						(if (not (scrGetData gScreen 'hideCurrent))
+							(scrSetControlValue gScreen 'currentItem {
+								source: theShip
+								item: theItem
+								})
+							)
 
 						(switch
 							(@ useInfo 'desc)
@@ -262,6 +282,7 @@
 
 				<Controls>
 					<ItemDisplay id="useItem"/>
+					<ItemDisplay id="currentItem"/>
 				</Controls>
 
 				<Actions>
@@ -288,143 +309,6 @@
 				</Actions>
 			</Default>
 
-			<ShowResult>
-				<OnPaneInit>
-					(block (
-						(useItem (scrGetData gScreen 'useItem))
-						(theItem (scrGetItem gScreen))
-						(theShip gPlayerShip)
-						(result (scrGetData gScreen 'usageResult))
-						)
-						(scrSetControlValue gScreen 'useItem {
-							title: (itmGetName useItem 'capitalize)
-							desc: (itmGetProperty useItem 'description)
-							})
-						(scrSetDesc gScreen (@ result 'desc))
-
-						(if (and (objHasItem theShip useItem 1) (not (@ result 'nextScreen)))
-							(scrShowAction gScreen 'actionDone Nil)
-							(scrShowAction gScreen 'actionContinue Nil)
-							)
-						)
-				</OnPaneInit>
-
-				<Controls>
-					<ItemDisplay id="useItem"/>
-				</Controls>
-
-				<Actions>
-					<Action id="actionContinue" default="1" cancel="1">
-						(scrShowPane gScreen 'Default)
-					</Action>
-					<Action id="actionDone" default="1" cancel="1">
-						(block (
-							(result (scrGetData gScreen 'usageResult))
-							)
-							(if (@ gData 'screenSet)
-								(scrExitScreen gScreen)
-								)
-							(switch
-								(= (@ result 'nextScreen) 'forceUndock)
-									(scrExitScreen gScreen 'forceUndock)
-
-								(= (@ result 'nextScreen) 'forceExit)
-									(scrExitScreen gScreen)
-
-								(@ result 'nextScreen)
-									(block Nil
-										(scrExitScreen gScreen)
-										(scrShowScreen gScreen (@ result 'nextScreen) (@ result 'nextScreenData))
-										)
-
-								(scrExitScreen gScreen)
-								)
-							)
-					</Action>
-				</Actions>
-			</ShowResult>
-		</Panes>
-
-		<Language>
-			<Text id="actionUse">[U]se on this Item</Text>
-		</Language>
-	</DockScreen>
-
-<!-- BASE CLASSES -->
-
-	<DockScreen UNID="&dsRPGUseItemBase;"
-			inherit=			"&dsDockScreenBase;"
-			nestedScreen=		"true"
-			name=				"=(itmGetName (or (@ gData 'useItem) gItem) 'capitalize)"
-			>
-
-		<OnScreenInit>
-			(scrSetData gScreen 'useItem (or (@ gData 'useItem) gItem 1))
-		</OnScreenInit>
-
-		<Panes>
-			<DeviceSelect>
-				<OnPaneInit>
-					(block (
-						(useItem (scrGetData gScreen 'useItem))
-						(theShip gPlayerShip)
-						(theItem (scrGetItem gScreen))
-						(useInfo (itmFireEvent useItem 'CanUseOnItem { itemToUseOn: theItem } ))
-						)
-
-						;	Set the description
-						(scrSetControlValue gScreen 'useItem {
-							title: (itmGetName useItem 'capitalize)
-							desc: (itmGetProperty useItem 'description)
-							})
-
-						(scrSetControlValue gScreen 'currentItem {
-							source: theShip
-							item: theItem
-							})
-
-						(scrSetDesc gScreen (or
-							(@ useInfo 'desc)
-							(scrTranslate gScreen 'descCanNotUse {
-								active: (itmGetName useItem 'article)
-								static: (itmGetName theItem 'article)
-								})
-							))
-						(scrEnableAction gScreen 'actionUse (@ useInfo 'canUse))
-
-						(rpgInitScreenSet (@ gData 'screenSet))
-						)
-				</OnPaneInit>
-
-				<Controls>
-					<ItemDisplay id="useItem"/>
-					<ItemDisplay id="currentItem"/>
-				</Controls>
-
-				<Actions>
-					<Action id="actionUse" default="1">
-						(block (
-							(useItem (scrGetData gScreen 'useItem))
-							(theItem (scrGetItem gScreen))
-							(theCursor (scrGetListCursor gScreen))
-							result
-							)
-							;	Use the item
-							(setq result (itmFireEvent useItem 'OnUseOnItem {
-								itemToUseOn: theItem
-								}))
-
-							;	Restore the cursor position
-							(scrSetListCursor gScreen theCursor)
-							
-							;	Store result and display it
-							(scrSetData gScreen 'usageResult result)
-							(scrShowPane gScreen 'ShowResult)
-							)
-					</Action>
-				</Actions>
-			</DeviceSelect>
-
 			<ShowResult noListNavigation="true">
 				<OnPaneInit>
 					(block (
@@ -437,10 +321,14 @@
 							title: (itmGetName useItem 'capitalize)
 							desc: (itmGetProperty useItem 'description)
 							})
-						(scrSetControlValue gScreen 'currentItem {
-							source: theShip
-							item: theItem
-							})
+
+						(if (not (scrGetData gScreen 'hideCurrent))
+							(scrSetControlValue gScreen 'currentItem {
+								source: theShip
+								item: theItem
+								})
+							)
+
 						(scrSetDesc gScreen (@ result 'desc))
 
 						(if (and (objHasItem theShip useItem 1) (not (@ result 'nextScreen)))
@@ -457,7 +345,7 @@
 
 				<Actions>
 					<Action id="actionContinue" default="1" cancel="1">
-						(scrShowPane gScreen 'DeviceSelect)
+						(scrShowPane gScreen 'Default)
 					</Action>
 					<Action id="actionDone" default="1" cancel="1">
 						(block (
@@ -769,9 +657,9 @@
 	</Type>
 
 <!-- CODE -->
-    
-    <Globals>
-        (block Nil
+	
+	<Globals>
+		(block Nil
 			;	Just a wrapper to save some typing
 			(setq itmTranslate (lambda (theItem textID data default)
 				(typTranslate (itmGetType theItem) textID data default)
