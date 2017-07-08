@@ -1,0 +1,22 @@
+Function Help
+-------------
+
+Test mod for converting the online function help into a web-friendly format
+
+Usage:
+1) Delete Debug.log file
+2) Start a new game with "Print Funtion Help" mod
+3) Quit
+4) Run postproc.sh
+
+Output:
+function_list.txt - Normal text
+function_list.rst - reStructuredText
+
+
+Note - postproc.sh is a shell script using sed to:
+1) Remove timestamps from the debug.log
+2) Extract relevant text to the function_list.* files
+
+If don't have a shell environment, then one is available with git:
+https://git-scm.com/

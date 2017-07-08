@@ -1,0 +1,80 @@
+<?xml version="1.0" ?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDEFFFF">
+	<!ENTITY unidPrintHelp					"0xDDDEFFFE">
+
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"Print Funtion Help"
+		release=	"1"
+		version=	"1.0"
+		apiVersion=	"37"
+		>
+
+	<Type unid="&unidPrintHelp;">"
+		<Events>
+			<OnGlobalUniverseCreated>
+				(block (
+					(allHelp (map (sysGlobals) f (list f (fncHelp (eval f)))))
+					(noHelp (map allHelp 'excludeNil h (if (not (@ h 1)) (@ h 0))))
+					(curHelp (map allHelp 'excludeNil h (if (not (find (@ h 1) "DEPRECATED")) (@ h 1))))
+					(oldHelp (map allHelp 'excludeNil h (if (find (@ h 1) "DEPRECATED") (join h " "))))
+					re
+					)
+					(printTo 'log "_FL#0")
+					(printTo 'log "*************")
+					(printTo 'log "Function List")
+					(printTo 'log "*************")
+					(printTo 'log "")
+					(enum curHelp h (printTo 'log h))
+
+					(printTo 'log "********************")
+					(printTo 'log "Deprecated functions")
+					(printTo 'log "********************")
+					(printTo 'log "")
+					(enum oldHelp h (printTo 'log h))
+
+					(printTo 'log "_FL#1")
+
+					(printTo 'log "**********")
+					(printTo 'log "RST output")
+					(printTo 'log "**********")
+					(printTo 'log "")
+					(enum curHelp h (enum (split h "\n") line
+						(switch
+							;	Function help starts with open parenthesis
+							;	Add blank line and make this a new section
+							(setq re (subset (regex line "({$?}+" 'subex) 1))
+								(block Nil
+									(printTo 'log "")
+									(printTo 'log line)
+									(printTo 'log (join (map (make 'sequence (count line)) i '=)))
+									)
+
+							;	Argument list (alphanum, 2+ spaces, description)
+							;	Convert this line to a bullet list, with alphanum in monospace font
+							(setq re (subset (regex line "{  +}{{$A0}+}{  +}{{$A0}{$?}+}" 'subex) 1))
+								(printTo 'log (join (set@ re 1 (cat "- ``" (@ re 1) "``"))))
+
+							;	Argument list (single quote, alphanum, 1+ spaces, description)
+							(setq re (subset (regex line "{  +}{'{$A0}+}{ +}{{$A0}{$?}+}" 'subex) 1))
+								(printTo 'log (join (set@ re 1 (cat "- ``" (@ re 1) "``"))))
+
+							;	Argument list (single quote, alphanum)
+							(setq re (subset (regex line "{  +}{'{$A0}+}" 'subex) 1))
+								(printTo 'log (join (set@ re 1 (cat "- ``" (@ re 1) "``"))))
+
+							;	Otherwise write unmodified
+							(printTo 'log line)
+							)
+						))
+					(printTo 'log "_FL#2")
+					)
+			</OnGlobalUniverseCreated>
+		</Events>
+	</Type>
+
+</TranscendenceExtension>
