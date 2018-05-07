@@ -4,23 +4,25 @@
 
 	<!-- Player ship's cargo hold -->
 
+	<!-- Player ship's cargo hold -->
+
 	<DockScreen UNID="&dsCargoHold;"
 			name=				"Ship's Cargo Hold"
 			desc=				"Interior of Ship"
+			type=				"itemPicker"
 			inherit=			"&dsDockScreenBase;"
 			nestedScreen=		"true"
 			>
 
-		<Display type="itemPicker"
-				dataFrom=	"player"
-				list=		"*U"
-				>
-		</Display>
+		<ListOptions
+			dataFrom=	"player"
+			list=		"*U"
+			/>
 
 		<Panes>
 			<Default>
 				<OnPaneInit>
-					(block (thisItem desc maxCount)
+					(block (thisItem maxCount)
 						(if (scrGetData gScreen 'cursor)
 							(block Nil
 								(scrSetListCursor gScreen (scrGetData gScreen 'cursor))
@@ -32,14 +34,14 @@
 						(setq maxCount (itmGetCount thisItem))
 
 						(switch
-							(= maxCount 0)
+							(not thisItem)
 								(scrSetDescTranslate gScreen 'descCargoEmpty)
-							
+
 							(= maxCount 1)
 								(scrSetDescTranslate gScreen 'descCargoItem {
 									unitMass: (strMassString (itmGetMass thisItem))
 									})
-								
+
 							(scrSetDescTranslate gScreen 'descCargoItems {
 								unitMass: (strMassString (itmGetMass thisItem))
 								count: maxCount
@@ -48,17 +50,33 @@
 							)
 
 						;	Remember some calculations for later
-						
 						(scrSetData gScreen 'maxCount maxCount)
 
 						;	Enable/disable actions
-
+						(scrShowAction gScreen 'actionUse 
+							(or
+								(and
+									(objGetItemProperty gPlayerShip thisItem 'canBeUsed)
+									(objGetItemProperty gPlayerShip thisItem 'hasUseScreen)
+									)
+								(itmHasAttribute thisItem 'Usable)
+								)
+							)
 						(scrEnableAction gScreen 'actionJettisonItem (gr maxCount 0))
-						(scrEnableAction gScreen 'actionUse (or (itmMatches thisItem 'u) (itmHasAttribute thisItem 'Usable)))
 						)
 				</OnPaneInit>
 
 				<Actions>
+					<Action id="actionUse" default="1">
+						(block Nil
+							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
+							; (scrShowItemUseScreen gScreen thisItem)
+							(scrShowScreen gScreen &dsRPGUseItem; {
+								useItem: (scrGetItem gScreen)
+								})
+							)
+					</Action>
+
 					<Action id="actionJettisonItem">
 						(block (
 							(maxCount (scrGetData gScreen 'maxCount))
@@ -68,26 +86,17 @@
 									(scrShowPane gScreen "JettisonQuantity")
 
 								(block (itemsToJettison)
-									; Create cargo crate
+									;	Create cargo crate
 									(if (not gDest)
 										(setq gDest (sysCreateStation &stGenericCargoCrate; (sysVectorPolarOffset gPlayerShip 0 0)))
 										)
 
-									; Dump items
+									;	Dump items
 									(setq itemsToJettison (scrRemoveItem gScreen 1))
 									(rpgJettisonItem gDest itemsToJettison)
 									(scrShowPane gScreen "Default")
 									)
 								)
-							)
-					</Action>
-
-					<Action id="actionUse" default="1">
-						(block Nil
-							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
-							(scrShowScreen gScreen &dsRPGUseItem; {
-								useItem: (scrGetItem gScreen)
-								})
 							)
 					</Action>
 
@@ -115,7 +124,7 @@
 							(useCount (scrGetCounter gScreen))
 							(maxCount (scrGetData gScreen 'maxCount))
 							)
-							
+
 							(switch
 								(= useCount 0)
 									(scrShowPane gScreen "Default")
@@ -130,7 +139,7 @@
 										)
 
 									;	Dump items
-									(setq itemsToJettison (scrRemoveItem gScreen count))
+									(setq itemsToJettison (scrRemoveItem gScreen useCount))
 									(rpgJettisonItem gDest itemsToJettison)
 									(scrShowPane gScreen "Default")
 									)

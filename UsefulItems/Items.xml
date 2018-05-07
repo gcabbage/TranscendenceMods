@@ -3,13 +3,6 @@
 <!DOCTYPE TranscendenceExtension
 	[
 	<!ENTITY unidExtension					"0xDDDEF600">
-	<!ENTITY dsRPGUseItem					"0xDDDEF601">
-	<!ENTITY dsRPGUseItemBase				"0xDDDEF602">
-	<!ENTITY dsRPGUseItemOnArmor			"0xDDDEF603">
-	<!ENTITY dsRPGUseItemOnDevice			"0xDDDEF604">
-	<!ENTITY dsRPGUseItemOnCargo			"0xDDDEF605">
-	<!ENTITY baStdArmorRepair				"0xDDDEF610">
-	<!ENTITY baStdPasteBarrel				"0xDDDEF611">
 
 	<!ENTITY dsExileStarportChampagne		"0xDDDEF6A1">
 	]>
@@ -17,14 +10,13 @@
 <TranscendenceExtension UNID="&unidExtension;"
 		name=		"Useable Items"
 		release=	"1"
-		version=	"0.1.0"
-		apiVersion=	"36"
+		version=	"0.2.0"
+		apiVersion=	"38"
 		>
 	<Library unid="&unidHumanSpaceLibrary;"/>
 
 	<Module filename="MiscItems.xml"/>
 	<Module filename="RPGShipScreens.xml"/>
 	<Module filename="RPGUsefulItems.xml"/>
-	<Module filename="UsefulItems.xml"/>
 
 </TranscendenceExtension>

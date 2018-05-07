@@ -1,9 +1,0 @@
-fmtCurrency does not work with floating inputs
-
-no attribute tag for Abbasid, stHimalRefuge, stVentariColony. Many tags inconsistent (capitalisation etc)
-
-<MissionType> OnCompleted may be called while player is out of system (i.e. fail after out-of-system) causes issues if clean-up code needs to access space objects not present
-
-stContainerHabitat has more hit points (250) than stCommonwealthSlums (150)
-
-<Communications> tag does not work with <Type ..> used as object event handler

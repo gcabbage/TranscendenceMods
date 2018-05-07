@@ -8,12 +8,7 @@ https://github.com/kronosaur/Transcendence
 
 GC Missions
 -----------
-Adds extra missions using Rumor Framework (see below)
-
-
-Rumor Framework
----------------
-Rumor system to replace the hard coded rumors used in base game
+Old/broken missions (some using prototype Rumor Framework). Not yet updated to work with 1.8b2
 
 
 Sovereign Reputation

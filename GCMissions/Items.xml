@@ -97,10 +97,10 @@
 		<Image imageID="&rsItems1;" imageX="288" imageY="0" imageWidth="96" imageHeight="96"/>
 
 		<StaticData>
-			<00182001_Donation>
+			<Data id="sisters.donation">
 				;		attd	rel		text (same as sung coffin)
 				'(Nil	-1		100		"We will take care of these lost children and teach them the way of Domina. Trust your fate to Domina.")
-			</00182001_Donation>
+			</Data>
 		</StaticData>
 
 		<Events>
