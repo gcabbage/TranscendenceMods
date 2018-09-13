@@ -1,7 +1,6 @@
-_FL#1
-**********
-RST output
-**********
+*************
+Function List
+*************
 
 
 (!= x1 x2 ... xn) -> True if any arguments are not equal
@@ -10,49 +9,55 @@ RST output
 (* x1 x2 ... xn) -> z
 =====================
 
-(+ x1 x2 ... xn) -> z
-=====================
+(+ x1 [x2 ... xn]) -> sum (int32 or real)
+=========================================
 
 (- x1 x2 ... xn) -> z
 =====================
  (- x) -> -x
 
-(/ x y) -> z
-============
-
-(< x1 x2 ... xn) -> True if x1 < x2 < ... < xn
-==============================================
-
-(<= x1 x2 ... xn) -> True if x1 <= x2 <= ... <= xn
-==================================================
-
-(= x1 x2 ... xn) -> True if all arguments are equal
-===================================================
-
-(> x1 x2 ... xn) -> True if x1 > x2 > ... > xn
-==============================================
-
-(>= x1 x2 ... xn) -> True if x1 >= x2 >= ... >= xn
-==================================================
-
-(@ list index) -> item index from list
-======================================
-
-(abs x) -> z
-============
-
-(add x1 x2 ... xn) -> z
+(/ x y) -> x / y (real)
 =======================
 
-(and exp1 exp2 ... expn) -> True/Nil
-====================================
-Returns Nil if any argument is Nil, otherwise returns last argument
+(< [x1 x2 ... xn]) -> True if x1 < x2 < ... < xn
+================================================
 
-(append a b [...]) -> lists are concatenated
+(<= [x1 x2 ... xn]) -> True if x1 <= x2 <= ... <= xn
+====================================================
+
+(= [x1 x2 ... xn]) -> True if all arguments are equal
+=====================================================
+
+(> [x1 x2 ... xn]) -> True if x1 > x2 > ... > xn
+================================================
+
+(>= [x1 x2 ... xn]) -> True if x1 >= x2 >= ... >= xn
+====================================================
+
+(@ list index) -> item index from list (0-based)
+================================================
+
+(@ struct key) -> value corresponding to key from struct
+========================================================
+
+(abs x) -> absolute value (int32 or real)
+=========================================
+
+(acos x ['degrees]) -> inverse cosine (real)
 ============================================
 
-(apply exp arg1 arg2 ... argn list) -> Result
-=============================================
+(add x1 [x2 ... xn]) -> sum (after converting arguments to int32)
+=================================================================
+
+(and [exp1 exp2 ... expn]) -> True/Nil
+======================================
+Returns Nil if any argument is Nil, otherwise returns last argument
+
+(append [list1 list2 ...]) -> concatenated list
+===============================================
+
+(apply function [arg1 arg2 ... argn] argList) -> Result of function with arguments arg1... followed by contents of argList
+==========================================================================================================================
 
 (armGetRepairCost type) -> Cost to repair 1 hit point
 =====================================================
@@ -60,14 +65,22 @@ Returns Nil if any argument is Nil, otherwise returns last argument
 (armGetRepairTech type) -> Tech level required to repair
 ========================================================
 
-(block localsList exp1 exp2 ... expn) -> value of expn
-======================================================
+(asin x ['degrees]) -> inverse sine (real)
+==========================================
 
-(cat s1 s2 ... sn) -> string
-============================
+(atan y [x] ['degrees]) -> inverse tangent (real)
+=================================================
 
-(ceil x) -> y
-=============
+(block [localsList exp1 exp2 ... expn]) -> value of expn
+========================================================
+Evaluates a series of expressions and returns the value of the last one.
+LocalsList is a list of local variables and/or lists consisting of a local variable and the initial value to assign it.If an expression evaluates to an error, returns that error and doesn't evaluate the rest.
+
+(cat [string1 string2 ... stringn]) -> concatenated string
+==========================================================
+
+(ceil x) -> x rounded up, i.e. towards positive infinity (real)
+===============================================================
 
 (cnvDrawImage x y imageDesc [screen] [ID]) -> True/Nil
 ======================================================
@@ -81,28 +94,43 @@ Returns Nil if any argument is Nil, otherwise returns last argument
 (cnvDrawText x y [width] text font color alignment [screen] [ID]) -> True/Nil
 =============================================================================
 font:
-   - ``'Small``
-   - ``'Medium``
-   - ``'MediumBold``
-   - ``'MediumHeavyBold``
-   - ``'Large``
-   - ``'LargeBold``
-   - ``'Header``
-   - ``'HeaderBold``
-   - ``'SubTitle``
-   - ``'SubTitleBold``
-   - ``'SubTitleHeavyBold``
-   - ``'Title``
+'Small
+'Medium
+'MediumBold
+'MediumHeavyBold
+'Large
+'LargeBold
+'Header
+'HeaderBold
+'SubTitle
+'SubTitleBold
+'SubTitleHeavyBold
+'Title
 alignment:
-   - ``'left``
-   - ``'center``
+'left
+'center
    - ``'right``
 
-(convertTo type value) -> result
-================================
+(convertTo dataType value) -> result
+====================================
+dataType: 'error|'int32|'list|'nil|'real|'string|'true
 
-(count list) -> number of items
-===============================
+(cos x ['degrees]) -> cosine (real)
+===================================
+
+(count list|string|struct) -> number of items or characters
+===========================================================
+
+(dbgGet property) -> value
+==========================
+property:
+'debugMode
+'showBounds
+'showLineOfFire
+'showNavPaths
+
+(dbgIsActive) -> True if in debug mode, else Nil
+================================================
 
 (dbgLog [string]*) -> True if in debug mode, else Nil
 =====================================================
@@ -110,8 +138,15 @@ alignment:
 (dbgOutput [string]*) -> True if in debug mode, else Nil
 ========================================================
 
-(divide x y) -> z
-=================
+(dbgSet property value) -> True/Nil
+===================================
+property:
+'showBounds True/Nil
+'showLineOfFire True/Nil
+'showNavPaths True/Nil
+
+(divide x y) -> x / y after converting arguments to int32, rounded toward 0
+===========================================================================
 
 (double x) -> x as a double
 ===========================
@@ -121,29 +156,47 @@ alignment:
 
 (enum list itemVar exp) -> value
 ================================
-Iterate itemVar over list evaluating exp
+Iterate itemVar over list evaluating exp. Returns the last value of exp.
 
 (enumwhile list condition itemVar exp) -> value
 ===============================================
-Iterate itemVar over list evaluating exp while condition is True
+Iterate itemVar over list evaluating exp while condition is True. Returns the last value of exp.
 
-(eq x1 x2 ... xn) -> True if all arguments are equal
-====================================================
+(eq [x1 x2 ... xn]) -> True if all arguments are equal
+======================================================
 
-(errblock localsList exp1 exp2 ... expn expErr) -> value of expn or expErr if error occurs
-==========================================================================================
+(errblock localsList [exp1 exp2 ... expn] expErr) -> value of expn or expErr if error occurs
+============================================================================================
+Like block, except it evaluates and returns the last expression only if one of the other expressions evaluates to an error.
+LocalsList must contain at least one variable. If the first variable is not assigned within localsList, it will be set
+to the error while evaluating expErr.
 
 (error msg) -> error
 ====================
 
+(eval exp) -> result
+====================
+Evaluates the expression. If it's a string, result is the value of the corresponding symbol.
+If it's a quoted expression, the expression is evaluated.
+If it's a list, each item is evaluated, then it's evaluated as a function call.
+
+(exp x) -> e^x (real)
+=====================
+
 (filter list var boolean-exp) -> filtered list
 ==============================================
+Iterates var over list, evaluating boolean-exp. Returns a list containing the items for which boolean-exp is non-Nil.
 
-(find source target ['ascending|'descending] [keyIndex]) -> position of target in source (0-based)
-==================================================================================================
+(find string target) -> position of target in string (0-based)
+==============================================================
 
-(floor x) -> y
-==============
+(find source-list target ['ascending|'descending] [keyIndex]) -> position of target in source-list (0-based)
+============================================================================================================
+The 'ascending or 'descending argument makes the function more efficient if the list is long and sorted in the specified direction.
+Specifying an integer keyIndex causes it to compare that item of each list within source-list with the target instead.
+
+(floor x) -> x rounded down, i.e. towards negative infinity (real)
+==================================================================
 
 (fmtCompose text [data]) -> string
 ==================================
@@ -151,14 +204,16 @@ Iterate itemVar over list evaluating exp while condition is True
 (fmtCurrency currency [amount]) -> string
 =========================================
 
-(fmtNoun name nameFlags count formatFlags) -> string
-====================================================
+(fmtNoun namePattern [nameFlags] count formatFlags) -> string
+=============================================================
 
 (fmtNumber [type] value) -> string
 ==================================
 type:
-   - ``'integer``
-   - ``'power``
+'integer
+'power
+'real
+'regenRate
    - ``'speed``
 
 (fmtPower powerInKWs) -> string
@@ -176,7 +231,7 @@ type:
 (gamSave [options]) -> True/Nil
 ===============================
 options:
-   - ``'checkpoint`` (or Nil)
+'checkpoint (or Nil)
    - ``'missionCheckpoint``
 
 (gamSetCrawlImage imageUNID) -> True/Nil
@@ -188,23 +243,26 @@ options:
 (gamSetCrawlText text) -> True/Nil
 ==================================
 
-(geq a b) -> True if a >= b
-===========================
+(geq [x1 x2 ... xn]) -> True if x1 >= x2 >= ... >= xn
+=====================================================
 
 (getAPIVersion) -> version
 ==========================
 
-(gr a b) -> True if a > b
-=========================
+(gr [x1 x2 ... xn]) -> True if x1 > x2 > ... > xn
+=================================================
 
-(help) -> all functions
-=======================
+(help) -> this help
+===================
 
-(help partial-name) -> all functions starting with name
-=======================================================
+(help '*) -> all functions
+==========================
 
-(help function-name) -> help on function
-========================================
+(help 'partial-string) -> all functions starting with partial-string
+====================================================================
+
+(help 'function-name) -> help on function-name
+==============================================
 
 (if condition exp1 [exp2]) -> exp1 if condition True, otherwise exp2
 ====================================================================
@@ -293,48 +351,102 @@ criteria as itmGetTypes
 (itmGetMaxAppearing item|type) -> max number that appear randomly
 =================================================================
 
-(itmGetName item|type flags) -> name of item
-============================================
+(itmGetName item|type [flags]) -> name of item
+==============================================
 flags
-   0x001 capitalize
-   0x002 pluralize
-   0x004 prefix with 'the' or 'a'
-   0x008 prefix with count (or 'a')
-   0x010 prefix with count
-   0x020 no modifiers
-   0x040 prefix with 'the' or 'this' or 'these'
-   0x080 short form of name
-   0x100 actual name
+0x0001 'capitalize      capitalize first letter
+0x0002 'plural          pluralize name
+0x0004 'article         prefix with 'the' or 'a'
+0x0008 'count           prefix with count or singular article
+0x0010 'countOnly       prefix with count or nothing
+0x0020 'noModifiers     no modifiers ('damaged' etc)
+0x0040 'demonstrative   prefix with 'the' or 'this' or 'these'
+0x0080 'short           use short name
+0x0100 'actual          actual name (not unidentified name)
+0x0200 'noEvent         do not fire GetName event
+0x0400 'titleCapitalize capitalize as a title
+0x0800 'installedState  prefix with 'installed' if necessary
+0x1000 'countAlways     always prefix with count
+0x40000 'noDeterminer    no prefix, but pluralize if necessary
+0x80000 'noQuotes        replace double-quotes with single-quotes
+ 0x100000 'escapeQuotes    use for dock screens
 
 (itmGetPrice item|type [currency]) -> price of a single item
 ============================================================
 
 (itmGetProperty item|type property) -> value
 ============================================
-property
-   - ``'blindingImmune``
-   - ``'canBeDisabled``
-   - ``'category``
-   - ``'charges``
-   - ``'components``
-   - ``'currency``
-   - ``'damaged``
-   - ``'description``
-   - ``'deviceDamageImmune``
-   - ``'deviceDisruptImmune``
-   - ``'disintegrationImmune``
-   - ``'disrupted``
-   - ``'EMPImmune``
-   - ``'hp``
-   - ``'installed``
-   - ``'known``
-   - ``'maxCharges``
-   - ``'maxHP``
-   - ``'omnidirectional``
-   - ``'radiationImmune``
-   - ``'repairCost``
-   - ``'repairLevel``
-   - ``'shatterImmune``
+property (instance)
+'canBeUsed
+'charges
+'damaged
+'description
+'disrupted
+'hasUseScreen
+'installed
+'level
+'reference
+'rootName
+'used
+property (device)
+'canBeDamaged
+'canBeDisabled
+'canBeDisrupted
+'external
+'power
+property (weapon)
+'ammoTypes
+'averageDamage       Average damage per shot
+'balance
+'balanceDamage
+'balanceCost
+'balanceExcludeCost
+'damage              Average damage per 180 ticks
+'damagePerProjectile
+'damageWMD180        Average WMD damage per 180 ticks
+'effectiveRange
+'fireArc
+'fireDelay           Number of ticks between shots
+'fireRate
+'linkedFireOptions
+'maxDamage           Maximum damage per shot
+'minDamage           Minimum damage per shot
+'multiShot
+'omnidirectional
+'repeating
+'stdCost
+property (armor)
+'blindingImmune
+'completeHP
+'damageAdj
+'deviceDamageImmune
+'deviceDisruptImmune
+'disintegrationImmune
+'EMPImmune
+'hp
+'hpBonus
+'maxHP
+'radiationImmune
+'repairCost
+'repairLevel
+'shatterImmune
+'stdHP
+property (all)
+'category
+'componentPrice
+'components
+'currency
+'currencyName
+'description
+'frequency
+'known
+'level
+'maxCharges
+'maxLevel
+'minLevel
+'massBonusPerCharge
+'valueBonusPerCharge
+'weaponTypes
 
 (itmGetStaticData item attrib) -> data
 ======================================
@@ -348,33 +460,33 @@ property
 (itmGetTypes criteria) -> list of itemUNIDs
 ===========================================
 criteria
-   - ``*``                  Include all item categories
-   - ``a``                  Include armor devices
-   - ``b``                  Include misc devices
-   - ``c``                  Include cargo hold devices
-   - ``d``                  Include all devices
-   - ``f``                  Include fuel
-   - ``l``                  Include launcher devices
-   - ``m/M``                Include missiles and ammo / missiles only
-   - ``p``                  Include primary weapon devices
-   - ``r``                  Include reactor devices
-   - ``s``                  Include shield devices
-   - ``t``                  Include misc items
-   - ``u``                  Include useful items
-   - ``v``                  Include drive devices
-   - ``w``                  Include all weapon devices
-   - ``V``                  Include virtual items
-   - ``~``                  Exclude category
-   - ``^``                  Require category
-   - ``+/-xyz``             Require / exclude items with attribute
-   - ``+/-UNID:xyz``        Require / exclude items with unid
-   - ``+/-launchedBy:xyz``  Require / exclude ammo launched by unid
-   - ``+/-damageType:xyz``  Require / exclude weapons with damage
-   - ``F:xyz``              Only items with the given frequency
-   - ``L:x-y``              Only Items of level x to y
+*                  Include all item categories
+a                  Include armor devices
+b                  Include misc devices
+c                  Include cargo hold devices
+d                  Include all devices
+f                  Include fuel
+l                  Include launcher devices
+m/M                Include missiles and ammo / missiles only
+p                  Include primary weapon devices
+r                  Include reactor devices
+s                  Include shield devices
+t                  Include misc items
+u                  Include useful items
+v                  Include drive devices
+w                  Include all weapon devices
+V                  Include virtual items
+~                  Exclude category
+^                  Require category
++/-xyz             Require / exclude items with attribute
++/-UNID:xyz        Require / exclude items with unid
++/-launchedBy:xyz  Require / exclude ammo launched by unid
++/-damageType:xyz  Require / exclude weapons with damage
+F:xyz              Only items with the given frequency
+L:x-y              Only Items of level x to y
 comparison criteria supported: < <= = => >
-   < x                Only items with level less than x
-   <$ x               Only items costing less than x
+< x                Only items with level less than x
+<$ x               Only items costing less than x
    <# x               Only items massing less than x
 
 (itmGetUseScreen item|type) -> screenUNID
@@ -400,8 +512,9 @@ options
 (itmIsKnown item|type) -> True/Nil
 ==================================
 
-(itmMatches item|type criteria) -> True/Nilcriteria as itmGetTypes
-==================================================================
+(itmMatches item|type criteria) -> True/Nil
+===========================================
+criteria as itmGetTypes
 
 (itmSetCount item count) -> item
 ================================
@@ -418,11 +531,11 @@ options
 (itmSetProperty item property value) -> item
 ============================================
 property
-   - ``'charges`` charges
-   - ``'damaged`` [True|Nil]
-   - ``'disrupted`` [True|Nil|ticks]
-   - ``'incCharges`` charges
-   - ``'installed`` [True|Nil]
+'charges charges
+'damaged [True|Nil]
+'disrupted [True|Nil|ticks]
+'incCharges charges
+   - ``'installed`` [True|Nil]   'level level
 
 (itmSetReference item) -> True/Nil
 ==================================
@@ -439,8 +552,8 @@ property
 (lambda args-list exp) -> lambda function
 =========================================
 
-(leq a b) -> True if a <= b
-===========================
+(leq [x1 x2 ... xn]) -> True if x1 <= x2 <= ... <= xn
+=====================================================
 
 (list i1 i2 ... in) -> list
 ===========================
@@ -457,14 +570,17 @@ property
 (lnkReplace list index item) -> list
 ====================================
 
+(log x [base]) -> z
+===================
+
 (lookup source target ['ascending|'descending] [keyIndex]) -> found entry
 =========================================================================
 
 (loop condition exp) -> evaluate exp until condition is Nil
 ===========================================================
 
-(ls a b) -> True if a < b
-=========================
+(ls [x1 x2 ... xn]) -> True if x1 < x2 < ... < xn
+=================================================
 
 (make 'sequence count) -> list from 1 to count
 ==============================================
@@ -522,14 +638,17 @@ delay in ticks
 (msnFind [source] criteria) -> list of missionObjs
 ==================================================
 criteria
-   - ``*``                  Include all missions states
-   - ``a``                  Include active player missions
-   - ``o``                  Include open missions
-   - ``r``                  Include already debriefed (recorded) missions
-   - ``u``                  Include non-player missions
-   - ``S``                  Only missions owned by source
-   - ``+/-{attrib}``        Require/exclude missions with given attribute
-   - ``+/-ownerID:{id}``    Require/exclude missions with given owner
+*                  Include all missions states
+a                  Include active player missions
+c                  Include completed missions (not necessarily debriefed)
+o                  Include open missions
+r                  Include already debriefed (recorded) missions
+u                  Include non-player missions
+D                  Only missions debriefed by source
+P                  Return only the mission with highest priority
+S                  Only missions owned by source
++/-{attrib}        Require/exclude missions with given attribute
++/-ownerID:{id}    Require/exclude missions with given owner
    - ``+/-unid:{unid}``     Require/exclude missions of given unid
 
 (msnFireEvent missionObj event [data]) -> result of event
@@ -544,30 +663,38 @@ criteria
 (msnGetProperty missionObj property) -> value
 =============================================
 property
-   - ``'acceptedOn``        Tick on which player accepted mission (or Nil)
-   - ``'canBeDeclined``     Mission can be declined by player
-   - ``'canBeDeleted``      Mission can be deleted by player
-   - ``'debrieferID``       ID of the object that will debrief the player
-   - ``'forceUndockAfterDebrief``  Force undock after showing debrief screen
-   - ``'id``                Mission object ID
-   - ``'isActive``          Is an active player mission
-   - ``'isCompleted``       Is a completed mission (player or non-player)
-   - ``'isDebriefed``       Player has been debriefed
-   - ``'isDeclined``        Player has declined mission
-   - ``'isFailure``         Mission has failed
-   - ``'isIntroShown``      Player has been shown intro text
-   - ``'isOpen``            Mission is available to player
-   - ``'isRecorded``        Mission has been completed and debriefed
-   - ``'isSuccess``         Mission has succeeded
-   - ``'isUnavailable``     Mission is unavailable to player
-   - ``'name``              The name of the mission
-   - ``'nodeID``            ID of the mission's owner system
-   - ``'ownerID``           ID of the mission's owner object
-   - ``'summary``           A summary description of the mission
+'acceptedOn        Tick on which player accepted mission (or Nil)
+'canBeDeclined     Mission can be declined by player
+'canBeDeleted      Mission can be deleted by player
+'debrieferID       ID of the object that will debrief the player
+'forceUndockAfterDebrief  Force undock after showing debrief screen
+'hasDebrief        Mission has a debrief phase
+'id                Mission object ID
+'isActive          Is an active player mission
+'isCompleted       Is a completed mission (player or non-player)
+'isDebriefed       Player has been debriefed
+'isDeclined        Player has declined mission
+'isFailure         Mission has failed
+'isIntroShown      Player has been shown intro text
+'isOpen            Mission is available to player
+'isRecorded        Mission has been completed and debriefed
+'isSuccess         Mission has succeeded
+'isUnavailable     Mission is unavailable to player
+'maxAppearing      Max number of this type that can exist
+'name              The name of the mission
+'nodeID            ID of the mission's owner system
+'ownerID           ID of the mission's owner object
+'priority          Mission priority
+'summary           A summary description of the mission
+'totalAccepted     Count of this type accepted by player
+'totalExisting     Count of this type currently existing in universe
    - ``'unid``              Mission type UNID
 
 (msnGetStaticData missionObj attrib) -> data
 ============================================
+
+(msnGetTypeData missionObj attrib) -> data
+==========================================
 
 (msnIncData missionObj attrib [increment]) -> new value
 =======================================================
@@ -590,12 +717,15 @@ property
 (msnSetProperty obj property value) -> True/Nil
 ===============================================
 property
-   - ``'debrieferID`` obj
-   - ``'isDebriefed`` True|Nil
-   - ``'isDeclined`` True|Nil
-   - ``'isIntroShown`` True|Nil
-   - ``'name`` newName
+'debrieferID obj
+'isDebriefed True|Nil
+'isDeclined True|Nil
+'isIntroShown True|Nil
+'name newName
    - ``'summary`` newSummary
+
+(msnSetTypeData missionObj attrib data)
+=======================================
 
 (msnSetUnavailable missionObj)
 ==============================
@@ -624,14 +754,15 @@ property
 (objAddConnection obj1 connectType obj2 [options]) -> connectionID
 ==================================================================
 connectType:
-   - ``'hinge``
-   - ``'rod``
+'hinge
+'rod
+'spine
 options:
-   - ``'pos1``: position relative to obj1
-   - ``'pos2``: position relative to obj2
+'pos1: position relative to obj1
+'pos2: position relative to obj2
 
-(objAddItem obj item|type [count]) -> True/Nil
-==============================================
+(objAddItem obj item|type [count]) -> item
+==========================================
 
 (objAddItemEnhancement obj item enhancementType [lifetime]) -> enhancementID
 ============================================================================
@@ -651,6 +782,9 @@ options:
 (objAddSubordinate obj subordinate) -> True/Nil
 ===============================================
 
+(objAddTradeOrder obj service criteria priceAdj) -> True/Nil
+============================================================
+
 (objCalcBestTarget obj [objList]) -> targetObj (or Nil)
 =======================================================
 
@@ -663,35 +797,39 @@ options:
 (objCanInstallItem obj item [armorSeg|deviceSlot]) -> (True/Nil resultCode resultString [itemToReplace])
 ========================================================================================================
 resultCode
-   - ``'ok``
-   - ``'armorTooHeavy``
-   - ``'cannotInstall``
-   - ``'noDeviceSlotsLeft``
-   - ``'noNonWeaponSlotsLeft``
-   - ``'noWeaponSlotsLeft``
-   - ``'notInstallable``
-   - ``'notCompatible``
-   - ``'reactorIncompatible``
-   - ``'reactorOverloaded``
-   - ``'reactorTooWeak``
-   - ``'replacementRequired``
+'ok
+'armorTooHeavy
+'cannotInstall
+'noDeviceSlotsLeft
+'noNonWeaponSlotsLeft
+'noWeaponSlotsLeft
+'notInstallable
+'notCompatible
+'reactorIncompatible
+'reactorOverloaded
+'reactorTooWeak
+'replacementRequired
+   - ``'tooMuchCargo``
 
 (objChangeEquipmentStatus obj equipment command [duration] [options]) -> True/Nil
 =================================================================================
 equipment
-   - ``'Autopilot``
-   - ``'GalacticMap``
-   - ``'FriendlyFireLock``
-   - ``'LRS``
-   - ``'SRS``
-   - ``'SRSEnhancer``
-   - ``'SystemMap``
-   - ``'TargetingComputer``
+'Autopilot
+'GalacticMap
+'FriendlyFireLock
+'LRS
+'MiningComputer
+'ProtectWingmen
+'SRS
+'SRSEnhancer
+'SystemMap
+'TargetingComputer
+'TradingComputer
 command
-   - ``'damage``
-   - ``'install``
-   - ``'remove``
-   - ``'repair``
+'damage
+'install
+'remove
+'repair
 duration is in ticks
 options
    - ``'noMessage``
@@ -708,11 +846,14 @@ options
 (objCommunicate obj senderObj msg [obj] [data]) -> result
 =========================================================
 msg
-   - ``'AbortAttack``
-   - ``'AttackTarget``
-   - ``'FormUp``
-   - ``'QueryAttackStatus``
+'AbortAttack
+'AttackTarget
+'FormUp
+'QueryAttackStatus
    - ``'Wait``
+
+(objCreateReflection missile [pos] [angle]) -> reflection
+=========================================================
 
 (objCredit obj [currency] amount) -> new balance
 ================================================
@@ -720,15 +861,15 @@ msg
 (objDamage obj weaponType objSource [pos] [options]) -> result
 ==============================================================
 result:
-   - ``'noDamage``
-   - ``'absorbedByShields``
-   - ``'armorHit``
-   - ``'structuralHit``
-   - ``'destroyed``
+'noDamage
+'absorbedByShields
+'armorHit
+'structuralHit
+'destroyed
 options:
-   - ``'fullResult``           Return result as struct
-   - ``'ignoreOverlays``       Hit shields and below
-   - ``'ignoreShields``        Hit armor and below
+'fullResult           Return result as struct
+'ignoreOverlays       Hit shields and below
+'ignoreShields        Hit armor and below
    - ``'noHitEffect``          No hit effect created
 
 (objDepleteShields obj) -> True/Nil
@@ -752,6 +893,12 @@ criteria as objGetItems
 
 (objFireOverlayEvent obj overlayID event [data]) -> result of event
 ===================================================================
+
+(objFirePowerInvoke obj power [target] ['noInvokeCheck]) -> result of event
+===========================================================================
+
+(objFireWeapon obj weapon target [fireDelay] [checkFireDelay]) -> True/Nil
+==========================================================================
 
 (objFixParalysis obj) -> True/Nil
 =================================
@@ -791,8 +938,22 @@ options:
 (objGetCargoSpaceLeft obj) -> space left in kg
 ==============================================
 
+(objGetCharacterData obj attrib) -> data
+========================================
+
 (objGetCombatPower obj) -> 0-100
 ================================
+
+(objGetCondition obj [condition]) -> True/Nil
+=============================================
+condition:
+'blind
+'disarmed
+'lrsBlind
+'paralyzed
+'radioactive
+'spinning
+   - ``'timeStopped``
 
 (objGetDamageType obj) -> damage type
 =====================================
@@ -809,8 +970,8 @@ options:
 (objGetDisposition obj targetObj) -> disposition of obj towards targetObj
 =========================================================================
 disposition:
-   - ``'enemy``
-   - ``'friend``
+'enemy
+'friend
    - ``'neutral``
 
 (objGetDistance obj destObj) -> distance in light-seconds
@@ -819,17 +980,20 @@ disposition:
 (objGetEquipmentStatus obj equipment) -> status
 ===============================================
 equipment
-   - ``'Autopilot``
-   - ``'GalacticMap``
-   - ``'FriendlyFireLock``
-   - ``'LRS``
-   - ``'SRS``
-   - ``'SRSEnhancer``
-   - ``'SystemMap``
-   - ``'TargetingComputer``
+'Autopilot
+'GalacticMap
+'FriendlyFireLock
+'LRS
+'MiningComputer
+'ProtectWingmen
+'SRS
+'SRSEnhancer
+'SystemMap
+'TargetingComputer
+'TradingComputer
 status
-   - ``'damaged``
-   - ``'notInstalled``
+'damaged
+'notInstalled
    - ``'ready``
 
 (objGetEventHandler obj) -> unid or Nil
@@ -846,27 +1010,32 @@ status
 
 (objGetItemProperty obj item property) -> value
 ===============================================
-property
-   - ``'enabled``
-   - ``'fireArc``
-   - ``'hp``
-   - ``'installDevicePrice``
-   - ``'installItemStatus``
-   - ``'linkedFireOptions``
-   - ``'maxHP``
-   - ``'pos``
-   - ``'removeDevicePrice``
-   - ``'removeDeviceStatus``
-   - ``'secondary``
+property (install/remove)
+'installDevicePrice   Price to install the given device
+'installDeviceStatus  {canInstall, price, descID, upgradeOnly}
+'installItemStatus    {canInstall, price, descID, upgradeOnly}
+'removeDevicePrice    Price to remove the given device
+'removeItemStatus     {canRemove, price, descID, upgradeOnly}
+property (device)
+'capacitor
+'enabled
+'linkedFireOptions
+'pos
+'secondary
+'temperature
+property (armor)
+'completeSet     True if part of a complete set
+'hp              Current hit points
+'primeSegment    True if first segment in a set
 All properties for itmGetProperty are also valid.
 
 (objGetItems obj criteria) -> list of items
 ===========================================
 criteria as itmGetTypes plus
-   - ``I``                  Only installed devices
-   - ``D``                  Only damaged items
-   - ``N``                  Only undamaged items
-   - ``S``                  Only usable items
+I                  Only installed devices
+D                  Only damaged items
+N                  Only undamaged items
+S                  Only usable items
    - ``U``                  Only uninstalled items
 
 (objGetLevel obj) -> level
@@ -881,15 +1050,15 @@ criteria as itmGetTypes plus
 (objGetName obj [flags]) -> Name of the object
 ==============================================
 flags
-   0x001 capitalize    capitalize first letter
-   0x002 plural        pluralize name
-   0x004 article       prefix with 'the' or 'a'
-   0x008 count         prefix with count or singular article
-   0x010 countOnly     prefix with count or nothing
-   0x020 noModifiers   no modifiers ('damaged' etc)
-   0x040 demonstrative prefix with 'the' or 'this' or 'these'
-   0x080 short         use short name
-   0x100 actual        actual name (not unidentified name)
+0x001 'capitalize    capitalize first letter
+0x002 'plural        pluralize name
+0x004 'article       prefix with 'the' or 'a'
+0x008 'count         prefix with count or singular article
+0x010 'countOnly     prefix with count or nothing
+0x020 'noModifiers   no modifiers ('damaged' etc)
+0x040 'demonstrative prefix with 'the' or 'this' or 'these'
+0x080 'short         use short name
+   0x100 'actual        actual name (not unidentified name)
 
 (objGetNamedItems obj name) -> list of items
 ============================================
@@ -918,11 +1087,11 @@ flags
 (objGetOverlayProperty obj overlayID property) -> value
 =======================================================
 property
-   - ``'counter``
-   - ``'counterLabel``
-   - ``'pos``
-   - ``'rotation``
-   - ``'type``
+'counter
+'counterLabel
+'pos
+'rotation
+'type
 
 (objGetOverlayRotation obj overlayID) -> rotation
 =================================================
@@ -942,107 +1111,121 @@ property
 (objGetProperty obj property) -> value
 ======================================
 property (all)
-   - ``'ascended``
-   - ``'category`` -> 'beam | 'effect | 'marker | 'missile | 'ship | 'station
-   - ``'commsKey``
-   - ``'currency`` -> currency type UNID
-   - ``'cyberDefenseLevel``
-   - ``'destiny``
-   - ``'dockingPorts`` -> list of structs with the keys:
-   objID: ID of docked object, if any
-   pos: port position
-   status: 'empty | 'inUse
-   - ``'hasDockingPorts``
-   - ``'id``
-   - ``'installArmorMaxLevel``
-   - ``'installDeviceMaxLevel``
-   - ``'installDeviceUpgradeOnly`` -> true if it only installs devices as part of a purchase
-   - ``'known``
-   - ``'level``
-   - ``'mass`` -> hull mass in tons
-   - ``'paintLayer`` -> 'background | 'space | 'stations | 'ships | 'effects | 'overhang
-   - ``'playerMissionsGiven``
-   - ``'radioactive``
-   - ``'refuelMaxLevel``
-   - ``'removeDeviceMaxLevel``
-   - ``'repairArmorMaxLevel``
-   - ``'scale`` -> 'star | 'world | 'station | 'ship | 'flotsam
-   - ``'sovereign``
-   - ``'stealth``
-   - ``'underAttack``
+'ascended
+'category -> 'beam | 'effect | 'marker | 'missile | 'ship | 'station
+'commsKey
+'currency -> currency type UNID
+'currencyName
+'cyberDefenseLevel
+'damageDesc -> { shieldLevel:n armorIntegrity:n HullIntegrity:n }
+'destiny
+'dockingPorts -> list of structs with the keys:
+objID: ID of docked object, if any
+pos: port position
+status: 'empty | 'inUse
+'hasDockingPorts
+'id
+'installArmorMaxLevel
+'installDeviceMaxLevel
+'installDeviceUpgradeOnly -> true if it only installs devices as part of a purchase
+'known
+'level
+'mass -> hull mass in tons
+'namePattern
+'paintLayer -> 'background | 'space | 'stations | 'ships | 'effects | 'overhang
+'playerMissionsGiven
+'radioactive
+'refuelMaxLevel
+'removeDeviceMaxLevel
+'repairArmorMaxLevel
+'scale -> 'star | 'world | 'station | 'ship | 'flotsam
+'sovereign
+'stealth
+'underAttack
 property (ships)
-   - ``'alwaysLeaveWreck``
-   - ``'availableDeviceSlots``
-   - ``'availableNonWeaponSlots``
-   - ``'availableWeaponSlots``
-   - ``'blindingImmune``
-   - ``'cargoSpace`` -> in tons
-   - ``'character``
-   - ``'characterClass``
-   - ``'deviceDamageImmune``
-   - ``'deviceDisruptImmune``
-   - ``'disintegrationImmune``
-   - ``'dockedAtID``
-   - ``'dockingEnabled``
-   - ``'DockingPortCount``
-   - ``'drivePowerUse`` -> in kW
-   - ``'EMPImmune``
-   - ``'fuelCapacity`` -> in He3 fuel rods
-   - ``'fuelCapacityExact`` -> 2500 = 1 He3 fuel rod
-   - ``'fuelCriteria`` -> criteria string
-   - ``'fuelEfficiency`` -> 15 = standard, more is better
-   - ``'fuelEfficiencyBonus`` -> increased efficiency over standard, in %
-   - ``'fuelLeft`` -> in He3 fuel rods
-   - ``'fuelLeftExact`` -> 2500 = 1 He3 fuel rod
-   - ``'healerLeft``
-   - ``'interiorHP``
-   - ``'maxInteriorHP``
-   - ``'maxFuel`` -> in He3 fuel rods
-   - ``'maxFuelExact`` -> 2500 = 1 He3 fuel rod
-   - ``'maxSpeed`` -> in % c
-   - ``'openDockingPortCount``
-   - ``'operatingSpeed`` -> 'emergency | 'full | 'half | 'quarter
-   - ``'playerWingman``
-   - ``'power`` -> max reactor output in kW
-   - ``'powerUse`` -> current power draw in kW
-   - ``'radiationImmune``
-   - ``'rotation`` -> current facing in degrees, counterclockwise from right
-   - ``'rotationSpeed`` -> in degrees per tick, clockwise positive
-   - ``'selectedLauncher``
-   - ``'selectedMissile``
-   - ``'selectedWeapon``
-   - ``'shatterImmune``
-   - ``'thrust`` -> in GN
-   - ``'thrustToWeight`` -> acceleration, 1 = 500 m/s^2 (ships stats show this / 1000)
+'alwaysLeaveWreck
+'availableDeviceSlots
+'availableNonWeaponSlots
+'availableWeaponSlots
+'blindingImmune
+'cargoSpace -> in tons
+'character
+'characterClass   (player ship only)
+'deviceDamageImmune
+'deviceDisruptImmune
+'disintegrationImmune
+'dockedAtID
+'dockingEnabled
+'DockingPortCount
+'drivePowerUse -> in kW
+'EMPImmune
+'fuelCapacity -> in He3 fuel rods
+'fuelCapacityExact -> 2500 = 1 He3 fuel rod
+'fuelCriteria -> criteria string
+'fuelEfficiency -> 15 = standard, more is better
+'fuelEfficiencyBonus -> increased efficiency over standard, in %
+'fuelLeft -> in He3 fuel rods
+'fuelLeftExact -> 2500 = 1 He3 fuel rod
+'healerLeft
+'hp
+'hullPrice -> in object's default currency
+'interiorHP
+'maxHp
+'maxInteriorHP
+'maxFuel -> in He3 fuel rods
+'maxFuelExact -> 2500 = 1 He3 fuel rod
+'maxSpeed -> in % c
+'openDockingPortCount
+'operatingSpeed -> 'emergency | 'full | 'half | 'quarter
+'playerBlacklisted
+'playerWingman
+'power -> max reactor output in kW
+'powerUse -> current power draw in kW
+'price -> total price in default currency
+'radiationImmune
+'rotation -> current facing in degrees, counterclockwise from right
+'rotationSpeed -> in degrees per tick, clockwise positive
+'selectedLauncher
+'selectedMissile
+'selectedWeapon
+'shatterImmune
+'showMapLabel
+'thrust -> in GN
+'thrustToWeight -> acceleration, 1 = 500 m/s^2 (ships stats show this / 1000)
 property (stations)
-   - ``'abandoned``
-   - ``'active``
-   - ``'angry``
-   - ``'barrier``
-   - ``'destNodeID``
-   - ``'destStargateID``
-   - ``'dockingPortCount``
-   - ``'hp``
-   - ``'ignoreFriendlyFire``
-   - ``'immutable``
-   - ``'maxHP``
-   - ``'maxStructuralHP``
-   - ``'openDockingPortCount``
-   - ``'orbit``
-   - ``'parallax``
-   - ``'playerBlacklisted``
-   - ``'shipConstructionEnabled``
-   - ``'shipReinforcementEnabled``
-   - ``'showMapLabel``
-   - ``'stargateID``
-   - ``'structuralHP``
+'abandoned
+'active
+'angry
+'barrier
+'destNodeID
+'destStargateID
+'dockingPortCount
+'explored -> True if the player has docked with the station
+'hp
+'ignoreFriendlyFire
+'immutable
+'maxHP
+'maxStructuralHP
+'openDockingPortCount
+'orbit
+'parallax
+'playerBlacklisted
+'rotation
+'rotationSpeed
+'shipConstructionEnabled
+'shipReinforcementEnabled
+'showMapLabel
+'stargateID
+'structuralHP
+'subordinates
+'superior
 property (missiles)
-   - ``'lifeLeft``
-   - ``'rotation``
-   - ``'sourceObj``
-   - ``'target``
+'lifeLeft
+'rotation
+'sourceObj
+'target
 property (markers)
-   - ``'style`` -> 'smallCross
+'style -> 'smallCross
 NOTE: All type properties (accessed via typGetProperty) are also valid object properties.
 
 (objGetRefuelItemAndPrice obj objToRefuel) -> (item price)
@@ -1087,8 +1270,17 @@ NOTE: All type properties (accessed via typGetProperty) are also valid object pr
 (objHasAttribute obj attrib) -> True/Nil
 ========================================
 
-(objHasItem obj item [count]) -> number of items (or Nil)
-=========================================================
+(objHasItem obj item [count] [options]) -> number of items (or Nil)
+===================================================================
+options:
+'ignoreCharges
+'ignoreData
+'ignoreDisruption
+'ignoreEnhancements
+'ignoreInstalled
+
+(objHasTradeService obj service) -> True/Nil
+============================================
 
 (objIncData obj attrib [increment]) -> new value
 ================================================
@@ -1153,8 +1345,8 @@ Chance to execute code is: 90 + 10 * (aiLevel - cyberDefenseLevel)
 (objRegisterForSystemEvents target range) -> True/Nil
 =====================================================
 
-(objRemoveItem obj item [count]) -> True/Nil
-============================================
+(objRemoveItem obj item [count] [options]) -> True/Nil
+======================================================
 
 (objRemoveItemEnhancement obj item enhancementID) -> True/Nil
 =============================================================
@@ -1170,6 +1362,12 @@ Chance to execute code is: 90 + 10 * (aiLevel - cyberDefenseLevel)
 
 (objSendMessage obj sender text) -> True/Nil
 ============================================
+
+(objSendMessageTranslate obj sender textID [data]) -> True/Nil
+==============================================================
+
+(objSetCharacterData obj attrib data) -> True/Nil
+=================================================
 
 (objSetData obj attrib data) -> True/Nil
 ========================================
@@ -1189,15 +1387,15 @@ Chance to execute code is: 90 + 10 * (aiLevel - cyberDefenseLevel)
 (objSetItemProperty obj item property value [count]) -> item
 ============================================================
 property
-   - ``'charges`` charges
-   - ``'damaged`` [True|Nil]
-   - ``'disrupted`` [True|Nil|ticks]
-   - ``'enabled`` [True|Nil|'silentDisabled|'silentEnabled]
-   - ``'fireArc`` Nil|(min max)|'omnidirectional
-   - ``'hp`` hitPoints
-   - ``'incCharges`` charges
-   - ``'linkedFireOptions`` list-of-options
-   - ``'pos`` (angle radius [z])
+'charges charges
+'damaged [True|Nil]
+'disrupted [True|Nil|ticks]
+'enabled [True|Nil|'silentDisabled|'silentEnabled]
+'fireArc Nil|(min max)|'omnidirectional
+'hp hitPoints
+'incCharges charges
+'linkedFireOptions list-of-options
+'pos (angle radius [z])
    - ``'secondary`` [True|Nil]
 
 (objSetKnown obj) -> True/Nil
@@ -1206,13 +1404,13 @@ property
 (objSetName obj name [flags]) -> True/Nil
 =========================================
 flags
-   0x0001 Definite article
-   0x0002 Pluralize first word
-   0x0004 Add 'es' to pluralize
-   0x0008 Custom plural after semicolon
-   0x0010 Pluralize second word
-   0x0020 Reverse 'a' vs 'an'
-   0x0040 No article
+0x0001 Definite article
+0x0002 Pluralize first word
+0x0004 Add 'es' to pluralize
+0x0008 Custom plural after semicolon
+0x0010 Pluralize second word
+0x0020 Reverse 'a' vs 'an'
+0x0040 No article
    0x0080 Personal name
 
 (objSetObjRefData obj attrib obj) -> True/Nil
@@ -1230,9 +1428,9 @@ flags
 (objSetOverlayProperty obj overlayID property value)
 ====================================================
 property:
-   - ``'counter``
-   - ``'counterLabel``
-   - ``'pos`` position
+'counter
+'counterLabel
+'pos position
    - ``'rotation`` angle
 
 (objSetOverlayRotation obj overlayID rotation)
@@ -1244,41 +1442,45 @@ property:
 (objSetProperty obj property value) -> True/Nil
 ===============================================
 property (ships)
-   - ``'alwaysLeaveWreck`` True|Nil
-   - ``'dockingEnabled`` True|Nil
-   - ``'commsKey`` key
-   - ``'known`` True|Nil
-   - ``'operatingSpeed`` 'full|'half|'quarter|'emergency
-   - ``'playerWingman`` True|Nil
-   - ``'rotation`` angle
-   - ``'selectedMissile`` type|item
-   - ``'selectedWeapon`` type|item
-   - ``'sovereign`` type
+'alwaysLeaveWreck True|Nil
+'dockingEnabled True|Nil
+'commsKey key
+'known True|Nil
+'operatingSpeed 'full|'half|'quarter|'emergency
+'playerBlacklisted True|Nil
+'playerWingman True|Nil
+'rotation angle
+'selectedMissile type|item
+'selectedWeapon type|item
+'showMapLabel True|Nil
+'sovereign type
 property (stations)
-   - ``'angry`` True|Nil|ticks
-   - ``'barrier`` True|Nil
-   - ``'ignoreFriendlyFire`` True|Nil
-   - ``'hp`` hitPoints
-   - ``'immutable`` True|Nil
-   - ``'known`` True|Nil
-   - ``'maxHP`` hitPoints
-   - ``'maxStructuralHP`` hitPoints
-   - ``'orbit`` orbit|Nil
-   - ``'paintLayer`` 'overhang|Nil
-   - ``'parallax`` factor
-   - ``'playerBlacklisted`` True|Nil
-   - ``'shipConstructionEnabled`` True|Nil
-   - ``'shipReinforcementEnabled`` True|Nil
-   - ``'sovereign`` type
+'angry True|Nil|ticks
+'barrier True|Nil
+'explored True|Nil
+'hp hitPoints
+'ignoreFriendlyFire True|Nil
+'immutable True|Nil
+'known True|Nil
+'maxHP hitPoints
+'maxStructuralHP hitPoints
+'orbit orbit|Nil
+'paintLayer 'overhang|Nil
+'parallax factor
+'playerBlacklisted True|Nil
+'shipConstructionEnabled True|Nil
+'shipReinforcementEnabled True|Nil
+'showMapLabel True|Nil
+'sovereign type
    - ``'structuralHP`` hitPoints
 
 (objSetShowAsDestination obj [options]) -> True/Nil
 ===================================================
 options:
-   - ``'autoClear``            Clear when in SRS range
-   - ``'autoClearOnDestroy``   Clear when destroyed
-   - ``'autoClearOnDock``      Clear when player docks
-   - ``'showDistance``         Show distance
+'autoClear            Clear when in SRS range
+'autoClearOnDestroy   Clear when destroyed
+'autoClearOnDock      Clear when player docks
+'showDistance         Show distance
    - ``'showHighlight``        Show target highlight
 
 (objSetTradeDesc obj currency [maxCurrency replenishCurrency]) -> True/Nil
@@ -1309,8 +1511,9 @@ Returns first non-Nil argument
 (plyChangeShip player newShip [options]) -> True/Nil
 ====================================================
 options:
-   - ``'noOrderTransfer``
-   - ``'oldShipWaits``
+'noOrderTransfer
+'oldShipWaits
+'transferEquipment
 
 (plyCharge player [currency] charge) -> credits left
 ====================================================
@@ -1318,17 +1521,17 @@ options:
 (plyComposeString player string [arg1 arg2 ... argn]) -> text
 =============================================================
 When composing the string the following substitutions are made:
-   - ``%name%``         player name
-   - ``%he%``           he or she
-   - ``%his%``          his or her (matching case)
-   - ``%hers%``         his or hers (matching case)
-   - ``%him%``          him or her (matching case)
-   - ``%sir%``          sir or ma'am (matching case)
-   - ``%man%``          man or woman (matching case)
-   - ``%brother%``      brother or sister (matching case)
-   - ``%son%``          son or daughter (matching case)
-   - ``%%``             %
-   - ``%1%``            arg1
+%name%         player name
+%he%           he or she
+%his%          his or her (matching case)
+%hers%         his or hers (matching case)
+%him%          him or her (matching case)
+%sir%          sir or ma'am (matching case)
+%man%          man or woman (matching case)
+%brother%      brother or sister (matching case)
+%son%          son or daughter (matching case)
+%%             %
+%1%            arg1
    - ``%2%``            ...
 
 (plyCredit player [currency] credit) -> credits left
@@ -1340,9 +1543,9 @@ When composing the string the following substitutions are made:
 (plyEnableMessage player messageID True/Nil) -> True/Nil
 ========================================================
 messageID:
-   - ``'allHints``
-   - ``'allMessages``
-   - ``'enabledHints``
+'allHints
+'allMessages
+'enabledHints
    (plus all messageIDs for plyIsMessageEnabled)
 
 (plyGetCredits player [currency]) -> credits left
@@ -1354,21 +1557,21 @@ messageID:
 (plyGetItemStat player stat criteria|type) -> value
 ===================================================
 stat:
-   - ``'itemsBoughtCount``
-   - ``'itemsBoughtValue``
-   - ``'itemsDamagedHP``
-   - ``'itemsFiredCount``
-   - ``'itemsSoldCount``
+'itemsBoughtCount
+'itemsBoughtValue
+'itemsDamagedHP
+'itemsFiredCount
+'itemsSoldCount
    - ``'itemsSoldValue``
 
 (plyGetKeyEventStat player stat nodeID typeCriteria) -> value
 =============================================================
 stat:
-   - ``'enemyObjsDestroyed``
-   - ``'friendlyObjsDestroyed``
-   - ``'missionCompleted``
-   - ``'missionFailure``
-   - ``'missionSuccess``
+'enemyObjsDestroyed
+'friendlyObjsDestroyed
+'missionCompleted
+'missionFailure
+'missionSuccess
    - ``'objsDestroyed``
 
 (plyGetRedirectMessage player) -> text or Nil
@@ -1377,14 +1580,14 @@ stat:
 (plyGetStat player stat) -> value
 =================================
 stat:
-   - ``'bestEnemyShipDestroyed``
-   - ``'enemyShipsDestroyed``
-   - ``'enemyStationsDestroyed``
-   - ``'friendlyShipsDestroyed``
-   - ``'friendlyStationsDestroyed``
-   - ``'resurrectCount``
-   - ``'score``
-   - ``'systemData``
+'bestEnemyShipDestroyed
+'enemyShipsDestroyed
+'enemyStationsDestroyed
+'friendlyShipsDestroyed
+'friendlyStationsDestroyed
+'resurrectCount
+'score
+'systemData
    - ``'systemsVisited``
 
 (plyIncScore player scoreInc) -> score
@@ -1393,16 +1596,16 @@ stat:
 (plyIsMessageEnabled player messageID) -> True/Nil
 ==================================================
 messageID:
-   - ``'autopilotHint``
-   - ``'commsHint``
-   - ``'dockHint``
-   - ``'enableDeviceHint``
-   - ``'fireMissileHint``
-   - ``'galacticMapHint``
-   - ``'gateHint``
-   - ``'mapHint``
-   - ``'refuelHint``
-   - ``'switchMissileHint``
+'autopilotHint
+'commsHint
+'dockHint
+'enableDeviceHint
+'fireMissileHint
+'galacticMapHint
+'gateHint
+'mapHint
+'refuelHint
+'switchMissileHint
    - ``'useItemHint``
 
 (plyMessage player message) -> True/Nil
@@ -1432,7 +1635,7 @@ messageID:
 (printTo output [string]*) -> True
 ==================================
 output is one or more of:
-   - ``'console``
+'console
    - ``'log``
 
 (quote exp) -> unevaluated exp
@@ -1462,8 +1665,11 @@ output is one or more of:
 (resGetImageProperty imageDesc property) -> value
 =================================================
 property
-   - ``'height``
+'height
    - ``'width``
+
+(rollChance percentChance [rolls]) -> True/Nil
+==============================================
 
 (rollDice count sides [bonus]) -> value
 =======================================
@@ -1508,11 +1714,19 @@ filter can be lambda function or item criteria
 (scrGetListEntry screen) -> entry
 =================================
 
+(scrGetProperty screen property) -> value
+=========================================
+property
+   - ``'counter``   'description   'inFirstOnInit   'input
+
+(scrGetReturnData screen attrib) -> data
+========================================
+
 (scrGetScreen gScreen) -> screenDesc
 ====================================
 screenDesc:
-   - ``'screen``: Current screen
-   - ``'pane``: Current pane
+'screen: Current screen
+'pane: Current pane
    - ``'data``: Associated data
 
 (scrIncData screen attrib [increment]) -> value
@@ -1572,14 +1786,20 @@ screenDesc:
 (scrSetListFilter screen filter) -> True/Nil
 ============================================
 
+(scrSetReturnData screen attrib data) -> True/Nil
+=================================================
+
 (scrShowAction screen actionID shown) -> True/Nil
 =================================================
+
+(scrShowItemUseScreen screen item) -> True/Nil
+==============================================
 
 (scrShowPane screen pane) -> True/Nil
 =====================================
 
-(scrShowScreen screenGlobal screen [pane] [data]) -> True/Nil
-=============================================================
+(scrShowScreen screen screen [pane] [data]) -> True/Nil
+=======================================================
 
 (scrTranslate screen textID [data]) -> text or Nil
 ==================================================
@@ -1614,15 +1834,16 @@ screenDesc:
 (shpCanRemoveDevice ship item) -> resultCode
 ============================================
 resultCode
-   - ``0``        OK
-   - ``1``        Too much cargo to remove cargo hold
-   - ``2``        Device not installed
+0        OK
+1        Too much cargo to remove cargo hold
+2        Device not installed
+3        Replace only
    - ``string``   custom fail reason
 
 (shpConsumeFuel ship fuel [useType]) -> fuelLeft
 ================================================
 useType:
-   - ``'consume``
+'consume
    - ``'drain``
 
 (shpDamageArmor ship armorSegment damageType damage ['noSRSFlash]) -> damage done
@@ -1661,8 +1882,8 @@ useType:
 (shpGetFuelNeeded ship item) -> items needed
 ============================================
 
-(shpGetImageDesc class [rotationAngle]) -> imageDesc
-====================================================
+(shpGetImageDesc class [options|rotationAngle]) -> imageDesc
+============================================================
 
 (shpGetItemDeviceName ship item) -> device name of item (or -1)
 ===============================================================
@@ -1712,52 +1933,52 @@ useType:
 (shpOrder ship order [target] [count]) -> True/Nil
 ==================================================
 order:
-   - ``'aim``            obj               Aim, but do not fire
-   - ``'approach``       obj [dist]        Approach target
-   - ``'attack``         obj [time]        Attack target
-   - ``'attackArea``     obj dist [time]   Attack around target
-   - ``'attackHold``     obj [time]
-   - ``'attackNearestEnemy``               Attack nearest enemy
-   - ``'attackPlayerOnReturn``             Wait and attack player
-   - ``'attackStation``  obj [?]           Attack target station
-   - ``'bombard``        obj [time]        Hold and attack target
-   - ``'dock``           obj               Dock with target
-   - ``'escort``         obj [ang] [dist]  Escort target
-   - ``'fireEvent``      obj event         Fire event on target
-   - ``'follow``         obj               Follow without defending
-   - ``'followPlayerThroughGate``
-   - ``'gate``           [obj]             Gate out of system
-   - ``'gateOnStationDestroyed``           Flee if station destroyed
-   - ``'gateOnThreat``                     Flee if threatened
-   - ``'goto``           obj [dist]        Goto target
-   - ``'gotoPos``        pos               Goto position
-   - ``'guard``          obj               Guard target
-   - ``'hold``           [time]            Stay in place
-   - ``'holdAndAttack``  obj [time]
-   - ``'holdCourse``     course dist       Hold course
-   - ``'loot``           obj               Loot target
-   - ``'mine``           obj               Mine asteroids [base]
-   - ``'navPath``        navID             Follow nav path ID
-   - ``'orbit``          obj dist [time]   Orbit target
-   - ``'patrol``         obj [dist]        Patrol around target
-   - ``'scavenge``                         Scavenge for scraps
-   - ``'sendMessage``    obj msg           Send message to target
-   - ``'sentry``         obj [time]        Guard target (turrets)
-   - ``'tradeRoute``                       Move between stations
-   - ``'turnTo``         ang               Turn to face angle
-   - ``'wait``           [time]            Wait, do not attack
-   - ``'waitForEnemy``   [time]            Wait until enemy in LRS
-   - ``'waitForPlayer``                    Wait for player to return
-   - ``'waitForTarget``  obj [dist] [time] Wait until target in range
-   - ``'waitForThreat``  [time]
-   - ``'waitForUndock``  obj [time]        Wait for target to undock
+'aim            obj               Aim, but do not fire
+'approach       obj [dist]        Approach target
+'attack         obj [time]        Attack target
+'attackArea     obj dist [time]   Attack around target
+'attackHold     obj [time]
+'attackNearestEnemy               Attack nearest enemy
+'attackPlayerOnReturn             Wait and attack player
+'attackStation  obj [?]           Attack target station
+'bombard        obj [time]        Hold and attack target
+'dock           obj               Dock with target
+'escort         obj [ang] [dist]  Escort target
+'fireEvent      obj event         Fire event on target
+'follow         obj               Follow without defending
+'followPlayerThroughGate
+'gate           [obj]             Gate out of system
+'gateOnStationDestroyed           Flee if station destroyed
+'gateOnThreat                     Flee if threatened
+'goto           obj [dist]        Goto target
+'gotoPos        pos               Goto position
+'guard          obj               Guard target
+'hold           [time]            Stay in place
+'holdAndAttack  obj [time]
+'holdCourse     course dist       Hold course
+'loot           obj               Loot target
+'mine           obj               Mine asteroids [base]
+'navPath        navID             Follow nav path ID
+'orbit          obj dist [time]   Orbit target
+'patrol         obj [dist]        Patrol around target
+'scavenge                         Scavenge for scraps
+'sendMessage    obj msg           Send message to target
+'sentry         obj [time]        Guard target (turrets)
+'tradeRoute                       Move between stations
+'turnTo         ang               Turn to face angle
+'wait           [time]            Wait, do not attack
+'waitForEnemy   [time]            Wait until enemy in LRS
+'waitForPlayer                    Wait for player to return
+'waitForTarget  obj [dist] [time] Wait until target in range
+'waitForThreat  [time]
+'waitForUndock  obj [time]        Wait for target to undock
    - ``'wander``                           Wander, avoiding enemies
 
 (shpOrderImmediate ship order [target] [count]) -> True/Nil
 ===========================================================
 
-(shpRechargeShield ship hpToRecharge) -> True/Nil
-=================================================
+(shpRechargeShield ship [hpToRecharge]) -> shield hp
+====================================================
 
 (shpRefuelFromItem ship item) -> True/Nil
 =========================================
@@ -1771,28 +1992,28 @@ order:
 (shpSetAISetting ship setting value)
 ====================================
 setting:
-   - ``'combatStyle``
-      = 'advanced
-      = 'chase
-      = 'flyby
-      = 'noRetreat
-      = 'standard
-      = 'standOff
-   - ``'aggressor`` (True/Nil)
-   - ``'ascendOnGate`` (True/Nil)
-   - ``'flockFormation`` (True/Nil)
-   - ``'ignoreShieldsDown`` (True/Nil)
-   - ``'noAttackOnThreat`` (True/Nil)
-   - ``'noDogfights`` (True/Nil)
-   - ``'noFriendlyFire`` (True/Nil)
-   - ``'noFriendlyFireCheck`` (True/Nil)
-   - ``'noNavPaths`` (True/Nil)
-   - ``'noOrderGiver`` (True/Nil)
-   - ``'noTargetsOfOpportunity`` (True/Nil)
-   - ``'combatSeparation`` {pixels}
-   - ``'fireAccuracy`` {percent}
-   - ``'fireRangeAdj`` {percent}
-   - ``'fireRateAdj`` {value; 10 = normal; 20 = twice as slow}
+'combatStyle
+= 'advanced
+= 'chase
+= 'flyby
+= 'noRetreat
+= 'standard
+= 'standOff
+'aggressor (True/Nil)
+'ascendOnGate (True/Nil)
+'flockFormation (True/Nil)
+'ignoreShieldsDown (True/Nil)
+'noAttackOnThreat (True/Nil)
+'noDogfights (True/Nil)
+'noFriendlyFire (True/Nil)
+'noFriendlyFireCheck (True/Nil)
+'noNavPaths (True/Nil)
+'noOrderGiver (True/Nil)
+'noTargetsOfOpportunity (True/Nil)
+'combatSeparation {pixels}
+'fireAccuracy {percent}
+'fireRangeAdj {percent}
+'fireRateAdj {value; 10 = normal; 20 = twice as slow}
    - ``'perception`` {value}
 
 (shpSetCommandCode ship code) -> True/Nil
@@ -1804,14 +2025,17 @@ setting:
 (shuffle list) -> shuffled list
 ===============================
 
+(sin x ['degrees]) -> z
+=======================
+
 (sort list ['ascending|'descending] [keyIndex]) -> sorted list
 ==============================================================
 
 (sovGetDisposition sovereignID targetSovereignID) -> disposition of sovereign to target
 =======================================================================================
 output is one of:
-   - ``'enemy``
-   - ``'neutral``
+'enemy
+'neutral
    - ``'friend``
 
 (sovGetName sovereignID [flags]) -> name
@@ -1826,8 +2050,8 @@ output is one of:
 (sovSetDisposition sovereignID targetSovereignID disposition)
 =============================================================
 disposition:
-   0 / 'enemy
-   1 / 'neutral
+0 / 'enemy
+1 / 'neutral
    2 / 'friend
 
 (split string [characters]) -> list
@@ -1878,23 +2102,25 @@ disposition:
 (strFind string target) -> pos of target in string (0-based)
 ============================================================
 
-(struct key1 value1 key2 value2 ...) -> struct
-==============================================
-
-(struct (key1 value1) (key2 value2) ..) -> struct
+(struct key1 value1 [ key2 value2 ...]) -> struct
 =================================================
 
-(struct { key1:value1 key2:value2 ... } ...) -> struct
-======================================================
+(struct (key1 value1) [ (key2 value2) ...]) -> struct
+=====================================================
 
-(struct key1 value1 key2 value2 ...) -> struct
+(struct struct1 [struct2 ...]) -> struct
+========================================
+{ key1:value1 [key2:value2 ...] } -> struct
+Creates a data structure. Keys must be strings, but this is assumed when using {} syntax. Use (@ struct key) to access data.
+
+(structAppend key1 value1 [ key2 value2 ...]) -> struct
+=======================================================
+
+(structAppend (key1 value1) [ (key2 value2) ...]) -> struct
+===========================================================
+
+(structAppend struct1 [struct2 ...]) -> struct
 ==============================================
-
-(struct (key1 value1) (key2 value2) ..) -> struct
-=================================================
-
-(struct { key1:value1 key2:value2 ... } ...) -> struct
-======================================================
 Same as struct except values of the same key are appended into a list.
 
 (subset list pos [count]) -> list
@@ -1906,12 +2132,12 @@ Same as struct except values of the same key are appended into a list.
 (subtract x1 x2 ... xn) -> z
 ============================
 
-(switch [cond1 exp1] ... [condn expn] defaultexp) -> value
+(switch [cond1 exp1 ... condn expn] [defaultexp]) -> value
 ==========================================================
-Evaluates conditions until one returns non-Nil, then evaluates the corresponding expression
+Evaluates conditions until one returns non-Nil, then evaluates and returns the corresponding expression.
 
-(sysAddEncounterEvent delay target encounterID gate)
-====================================================
+(sysAddEncounterEvent delay target encounterID gateObj|pos)
+===========================================================
 delay in ticks
 
 (sysAddEncounterEventAtDist delay target encounterID distance)
@@ -1932,8 +2158,8 @@ delay in ticks
 (sysAddTypeRangeEvent type event options)
 =========================================
 options:
-   - ``'center``            Fire event when target gets close to this point
-   - ``'radius``            Within this radius (light-seconds)
+'center            Fire event when target gets close to this point
+'radius            Within this radius (light-seconds)
    - ``'criteria``          Objects that will trigger. If Nil, player triggers
 
 (sysAddTypeRecurringTimerEvent interval type event)
@@ -1964,14 +2190,14 @@ interval in ticks
 (sysCancelTypeTimerEvent type event) -> True/Nil
 ================================================
 
-(sysCreateEffect effectID anchorObj pos [rotation]) -> True/Nil
-===============================================================
+(sysCreateEffect effectID anchorObj pos [rotation] [params]) -> True/Nil
+========================================================================
 
 (sysCreateEncounter unid [options]) -> True/Nil
 ===============================================
 options:
-   - ``'distance``      Encounter distance (light-seconds), if gate is Nil
-   - ``'gate``          Gate to appear at (if Nil, use distance)
+'distance      Encounter distance (light-seconds), if gate is Nil
+'gate          Gate to appear at (if Nil, use distance)
    - ``'target``        Target of encounter
 
 (sysCreateFlotsam item|unid pos sovereignID) -> obj
@@ -1990,15 +2216,15 @@ options:
 ======================================================================================
 pos is either a position vector or a space object (gate, station, ship)
 options:
-   - ``'controller``
-   - ``'eventHandler``
-   - ``'target`` (for ship tables)
+'controller
+'eventHandler
+'target (for ship tables)
 controller:
-                     standard
-   - ``'auton``            auton
-   - ``'ferian``           Ferian
-   - ``'fleet``            fleet member
-   - ``'fleetcommand``     fleet squad leader
+standard
+'auton            auton
+'ferian           Ferian
+'fleet            fleet member
+'fleetcommand     fleet squad leader
    - ``'gaianprocessor``   Gaian processor
 
 (sysCreateShipwreck unid pos sovereignID) -> shipwreck
@@ -2017,8 +2243,8 @@ pos is either a position vector or a space object
 (sysCreateWeaponFire weaponID objSource pos dir speed objTarget [options] [bonus%]) -> obj
 ==========================================================================================
 options:
-   - ``'detonateNow``
-   - ``'fireEffect``
+'detonateNow
+'fireEffect
    - ``'soundEffect``
 
 (sysDescendObject objID pos) -> obj
@@ -2027,52 +2253,53 @@ options:
 (sysFindObject source criteria) -> list of objects
 ==================================================
 criteria is a string that must specify one or more of the following categories:
-   - ``b``           Include beams
-   - ``G``           Include ONLY stargates
-   - ``G:xyz;``      Include ONLY stargate with ID 'xyz'
-   - ``k``           Include markers
-   - ``m``           Include missiles
-   - ``s``           Include ships
-   - ``t``           Include stations (including planets)
-   - ``T``           Include structure-scale stations
-   - ``t:xyz;``      Same as "t +xyz;"
-   - ``T:xyz;``      Same as "T +xyz;"
-   - ``z``           Include the player
+*           Include all categories
+b           Include beams
+G           Include ONLY stargates
+G:xyz;      Include ONLY stargate with ID 'xyz'
+k           Include markers
+m           Include missiles
+s           Include ships
+t           Include stations (including planets)
+T           Include structure-scale stations
+t:xyz;      Same as "t +xyz;"
+T:xyz;      Same as "T +xyz;"
+z           Include the player
 and may contain any number of the following options:
-   - ``A``           Active objects only (i.e., objects that can attack)
-   - ``D:xyz;``      Only objects with data 'xyz'
-   - ``E``           Enemies of the source only
-   - ``F``           Friends of the source only
-   - ``H``           Only objects whose base = source
-   - ``I:angle;``    Only objects that intersect line from source
-   - ``J``           Same sovereign as source
-   - ``J:unid;``     Sovereign unid = unid
-   - ``K``           Killed objects only (i.e., objects that cannot attack)
-   - ``L:x-y;``      Objects of level x to y.
-   - ``M``           Manufactured objects only (i.e., no planets or asteroids)
-   - ``N``           Return only the nearest object to the source
-   - ``N:nn;``       Return only objects within nn light-seconds
-   - ``O:docked;``   Ships that are currently docked at source
-   - ``O:escort;``   Ships ordered to escort source
-   - ``O:guard;``    Ships ordered to guard source
-   - ``P``           Only objects that can be detected (perceived) by source
-   - ``R``           Return only the farthest object from the source
-   - ``R:nn;``       Return only objects greater than nn light-seconds away
-   - ``S:sort;``     Sort order ('d' = distance ascending; 'D' = distance descending
-   - ``V``           Include virtual objects
-   - ``X``           Only objects whose target is the source
-   - ``Y``           Only objects angry at (or enemies of) the source
-   - ``Z``           Exclude the player
-   - ``+xyz;``       Exclude objects without the given attribute
-   -xyz;       Exclude objects with the given attribute
-   - ``=n``          Only objects of level n. You can also use >, <, >=, and <=.
-   - ``+/-data:xyz;``        Include only/exclude objects with data 'xyz'
-   - ``+/-isPlanet:true;``   Include only/exclude planets
-   - ``+/-property:xyz;``    Include only/exclude objects with property 'xyz'
-   - ``+/-unid:xyz;``        Include only/exclude objects with UNID 'xyz'
+A           Active objects only (i.e., objects that can attack)
+D:xyz;      Only objects with data 'xyz'
+E           Enemies of the source only
+F           Friends of the source only
+H           Only objects whose base = source
+I:angle;    Only objects that intersect line from source
+J           Same sovereign as source
+J:unid;     Sovereign unid = unid
+K           Killed objects only (i.e., objects that cannot attack)
+L:x-y;      Objects of level x to y.
+M           Manufactured objects only (i.e., no planets or asteroids)
+N           Return only the nearest object to the source
+N:nn;       Return only objects within nn light-seconds
+O:docked;   Ships that are currently docked at source
+O:escort;   Ships ordered to escort source
+O:guard;    Ships ordered to guard source
+P           Only objects that can be detected (perceived) by source
+R           Return only the farthest object from the source
+R:nn;       Return only objects greater than nn light-seconds away
+S:sort;     Sort order ('d' = distance ascending; 'D' = distance descending
+V           Include virtual objects
+X           Only objects whose target is the source
+Y           Only objects angry at (or enemies of) the source
+Z           Exclude the player
++xyz;       Only objects with attribute 'xyz'
+-xyz;       Exclude objects with attribute 'xyz'
+=n;         Only objects of level n. You can also replace = with >, <, >=, or <=,
+but they need to be escaped in XML.
++/-data:xyz;        Include only/exclude objects with data 'xyz'
++/-isPlanet:true;   Include only/exclude planets
++/-property:xyz;    Include only/exclude objects with property 'xyz'
++/-unid:xyz;        Include only/exclude objects with UNID 'xyz'
 Order doesn't matter as long as multi-character items end with semicolons.
-If the source is nil, the center of the system is used for position,
-and other criteria related to the source are ignored.
+If the source is nil, the center of the system is used for position, and other criteria related to the source are ignored.
 
 (sysFindObjectAtPos source criteria pos [destPos]) -> list of objects
 =====================================================================
@@ -2082,6 +2309,9 @@ and other criteria related to the source are ignored.
 
 (sysGetEnvironment pos) -> environmentUNID
 ==========================================
+
+(sysGetItemBuyPrice [nodeID] item [typeCriteria]) -> price (or Nil)
+===================================================================
 
 (sysGetLevel [nodeID]) -> level
 ===============================
@@ -2098,27 +2328,36 @@ and other criteria related to the source are ignored.
 (sysGetNode) -> nodeID
 ======================
 
-(sysGetNodes) -> list of nodeIDs
-================================
+(sysGetNodes [criteria]) -> list of nodeIDs
+===========================================
+criteria:
+knownOnly:True  Only nodes known to player
+maxDist:n       Only nodes n or fewer gates away.
+minDist:n       Only nodes n or more gates away.
 
 (sysGetObjectByName [source] name) -> obj
 =========================================
 
+(sysGetPOV) -> obj
+==================
+
 (sysGetProperty [nodeID] property) -> value
 ===========================================
 property:
-   - ``'level``             The level of the system
-   - ``'name``              The name of the system
+'lastVisitOn       Tick on which player last visited
+'lastVisitSeconds  Game seconds since player last visited
+'level             The level of the system
+'name              The name of the system
    - ``'pos``               Node position on map (x y)
 
 (sysGetRandomLocation criteria [options]) -> location or Nil
 ============================================================
 options:
-   - ``'objType``           Type (UNID) of object to place (optional)
-   - ``'remove``            If True, remove location
+'objType           Type (UNID) of object to place (optional)
+'remove            If True, remove location
 location:
-   - ``'attribs``           The attributes for the location
-   - ``'orbit``             The orbital parameters
+'attribs           The attributes for the location
+'orbit             The orbital parameters
    - ``'pos``               The location position
 
 (sysGetStargateDestination [nodeID] gateID) -> (nodeID gateID)
@@ -2126,6 +2365,15 @@ location:
 
 (sysGetStargateDestinationNode [nodeID] gateID) -> nodeID
 =========================================================
+
+(sysGetStargateProperty [nodeID] gateID property) -> value
+==========================================================
+property:
+'destGateID: Destination gate ID
+'destID: Destination node
+'gateID: ID of this gate
+'nodeID: NodeID of this gate
+'uncharted: True if uncharted
 
 (sysGetStargates [nodeID]) -> list of gateIDs
 =============================================
@@ -2150,7 +2398,7 @@ options
 (sysHitTest source pos [options]) -> obj or Nil
 ===============================================
 options
-   - ``'excludeWorlds``
+'excludeWorlds
    - ``'sourceOnly``
 
 (sysIncData [nodeID] attrib increment) -> new value
@@ -2168,9 +2416,9 @@ options
 (sysOrbitPos orbit [options]) -> vector
 =======================================
 Options parameter is a struct with the following fields:
-   - ``'angleOffset:n``              +/- n degrees along orbit arc
-   - ``'arcOffset:n``                +/- n light-seconds along orbit arc
-   - ``'radiusOffset:n``             +/- n light-seconds radius
+'angleOffset:n              +/- n degrees along orbit arc
+'arcOffset:n                +/- n light-seconds along orbit arc
+'radiusOffset:n             +/- n light-seconds radius
 For arcOffset and radiusOffset, n may also be a list with the followingformats:
    (list 'gaussian min max)
 
@@ -2186,26 +2434,26 @@ For arcOffset and radiusOffset, n may also be a list with the followingformats:
 (sysSetEnvironment unid shape options) -> True/Nil
 ==================================================
 shape
-   - ``'arc``
-      Creates an arc along an orbit. Options must include the
-      following fields:
-         - ``'orbit``: This is the orbit to use. The arc will be
-            centered on the current orbit position (e.g., the
-            planet location).
-         - ``'length``: The length of the arc (in degrees).
-         - ``'width``: The width at the center of the arc (in light-
-            seconds).
-   - ``'orbital``
-      Creates a random environment along the orbit. Options
-      must include the following fields:
-         - ``'orbit``: This is the orbit to use.
-         - ``'width``: The average width of the ring, in light-
-            seconds.
-   - ``'square``
-      Creates a square patch. Options must include the
-         following fields:
-         - ``'center``: The center position of the patch.
-         - ``'height``: The height of the patch (in light-seconds).
+'arc
+Creates an arc along an orbit. Options must include the
+following fields:
+'orbit: This is the orbit to use. The arc will be
+centered on the current orbit position (e.g., the
+planet location).
+'length: The length of the arc (in degrees).
+'width: The width at the center of the arc (in light-
+seconds).
+'orbital
+Creates a random environment along the orbit. Options
+must include the following fields:
+'orbit: This is the orbit to use.
+'width: The average width of the ring, in light-
+seconds.
+'square
+Creates a square patch. Options must include the
+following fields:
+'center: The center position of the patch.
+'height: The height of the patch (in light-seconds).
          - ``'width``: The width of the patch (in light-seconds).
 
 (sysSetKNown [nodeID] [True/Nil]) -> True/Nil
@@ -2240,8 +2488,11 @@ property:
 (sysVectorAngle pos1 pos2) -> angle of pos1 relative to pos2
 ============================================================
 
-(sysVectorDistance vector [vector]) -> distance in light-seconds
-================================================================
+(sysVectorDistance vector [vector]) -> distance in light-seconds (int32)
+========================================================================
+
+(sysVectorDistanceExact vector [vector]) -> distance in light-seconds or speed as a fraction of c (real)
+========================================================================================================
 
 (sysVectorDivide vector scalar) -> vector
 =========================================
@@ -2274,6 +2525,9 @@ filter defines the set of objects to be away from
 (sysVectorSubtract vector vector) -> vector
 ===========================================
 
+(tan x ['degrees]) -> z
+=======================
+
 (typAddRecurringTimerEvent unid interval event)
 ===============================================
 interval in ticks
@@ -2291,44 +2545,50 @@ delay in ticks
 (typDynamicUNID uniqueName) -> UNID
 ===================================
 
-(typeof item) -> type
+(typeOf item) -> type
 =====================
-type
-   error
-   function
-   int32
-   list
-   nil
-   primitive
-   real
-   string
-   struct
-   true
+type:
+'error
+'function
+'int32
+'list
+'nil
+'primitive
+'real
+'string
+'struct
+   - ``'true``
 
 (typFind criteria) -> list of UNIDs
 ===================================
 criteria
-   - ``a``                  AdventureDesc
-   - ``b``                  ItemTable
-   - ``c``                  EffectType
-   - ``d``                  DockScreen
-   - ``e``                  SpaceEnvironmentType
-   - ``f``                  OverlayType
-   - ``h``                  ShipTable
-   - ``i``                  ItemType
-   - ``m``                  Image
-   - ``n``                  MissionType
-   - ``p``                  Power
-   - ``q``                  SystemTable
-   - ``s``                  ShipClass
-   - ``t``                  StationType
-   - ``u``                  Sound
-   - ``v``                  Sovereign
-   - ``x``                  Type (generic)
-   - ``y``                  SystemType
-   - ``z``                  SystemMap
-   - ``$``                  EconomyType
-   - ``+/-{attrib}``        Require/exclude types with given attribute
+*                  Include all Types
+a                  AdventureDesc
+b                  ItemTable
+c                  EffectType
+d                  DockScreen
+e                  SpaceEnvironmentType
+f                  OverlayType
+h                  ShipTable
+i                  ItemType
+m                  Image
+n                  MissionType
+p                  Power
+q                  SystemTable
+s                  ShipClass
+t                  StationType
+T                  StationType (structure-scale)
+u                  Sound
+v                  Sovereign
+x                  Type (generic)
+y                  SystemType
+z                  SystemMap
+$                  EconomyType
+L:x-y              Only Types of level x to y
+V                  Include virtual types
++/-{attrib}        Require/exclude types with given attribute
++/-event:xyz;      Require/exclude types with given event
++/-isEnemyOf:xyz;  Require/exclude types which are enemy of sovereign
    - ``=n;``                Level comparisons (also supports < etc.)
 
 (typFireEvent unid event [data]) -> result of event
@@ -2342,68 +2602,188 @@ criteria
 
 (typGetDataField unid field) -> data
 ====================================
+field (all):
+'entity           entity name of this type
+'extensionUNID    extension which defined this type
+'name             class name of the type
+'unid             UNID of this type
+'version          extension API version
+field (armor):
+'adjustedHP
+'balance
+'damageAdj
+'effectiveHP
+'hp
+'hpBonus
+'installCost
+'regen
+'repairCost
+'shieldInterference
+field (drives):
+'maxSpeed
+'power
+'thrust
+field (reactors):
+'fuelCapacity
+'fuelCriteria
+'fuelEfficiency
+'power
+field (shields):
+'adjustedHp
+'balance
+'damageAdj
+'effectiveHp
+'hp
+'hpBonus
+'power
+'regen
+'weaponSuppress
+field (items):
+'averageCount
+'category
+'cost
+'description
+'deviceSlots
+'frequency
+'fuelCapacity
+'imageDesc
+'installCost
+'level
+'mass
+'shortName
+'slotCategory
+'treasureValue
+'unknownType
+'useKey
+field (player ships):
+'dockServicesScreen  UNID of dock services screen
+'playerDesc          Description for player
+'shipConfigScreen    UNID of ship config screen
+'shipStatusScreen    UNID of ship status screen
+'startingSystem      Starting node
+field (ships):
+'armorCount     Number of armor segments
+'armorHP        HP of first armor segment
+'armorItems
+'balanceType    Integer 0 to 11 representing: Unknown Minion Standard Elite Boss NonCombatant TooWeak TooStrong ArmorTooWeak ArmorTooStrong WeaponsTooWeak WeaponsTooStrong
+'cargoSpace
+'combatStrength
+'damage
+'defenseStrength
+'deviceSlots
+'deviceSlotsNonWeapons
+'deviceSlotsWeapons
+'deviceItems
+'dodgeRate
+'driveImage
+'drivePowerUse
+'explosionType
+'fireAccuracy
+'fireRangeAdj
+'fireRateAdj
+'genericName
+'hullMass
+'installDeviceMaxLevel
+'launcher
+'launcherUNID
+'level
+'maneuver
+'manufacturer
+'mass
+'maxArmorMass
+'maxCargoSpace
+'maxRotation
+'maxSpeed
+'maxStructuralHP
+'primaryArmor
+'primaryArmorUNID
+'primaryWeapon
+'primaryWeaponRange
+'primaryWeaponRangeAdj
+'primaryWeaponUNID
+'score
+'size
+'shield
+'shieldsUNID
+'thrust
+'thrustToWeight
+'treasureValue
+'wreckChance
+field (stations):
+'abandonedDockScreen
+'armorClass
+'armorLevel
+'balance
+'canAttack
+'category
+'defenderStrength
+'dockScreen
+'explosionType
+'fireRateAdj
+'hitsToDestroy
+'installDeviceMaxLevel
+'hp
+'level
+'locationCriteria
+'maxLightRadius
+'name
+'regen                 hp repaired per 180 ticks
+'satelliteStrength
+'size
+'treasureBalance       100 = appropriate for defenses
+'treasureValue
+'weaponStrength        100 = level weapon @ 1/4 fire rate
+field (missions):
+'level
+'maxLevel
+'minLevel
 
 (typGetProperty unid property) -> value
 =======================================
 property (all):
-   - ``'apiVersion``
-   - ``'class``
-   - ``'extension``
-property (player ships):
-   - ``'dockServicesScreen``
-   - ``'shipStatusScreen``
-   - ``'startingSystem``
+'apiVersion
+'attributes       List of type attributes
+'class            Design type (e.g. ItemType etc.)
+'extension        UNID of extension where type is defined
+'mapDescription   Type description used for map labels
+'merged           True if type inherits from another type
+'namePattern
+'obsoleteVersion  Type is obsolete at this API version
+property (sovereign):
+'name
+'playerThreatLevel     0 to 4 representing: None minorPiracy minorRaiding major existential
+'plural
+'shipsDestroyedByPlayer
+'stationsDestroyedByPlayer
 property (ships):
-   - ``'armorCount``
-   - ``'armorHP``
-   - ``'armorItems``
-   - ``'balanceType``
-   - ``'cargoSpace``
-   - ``'combatStrength``
-   - ``'damage``
-   - ``'defaultSovereign``
-   - ``'defenseStrength``
-   - ``'deviceSlots``
-   - ``'deviceSlotsNonWeapons``
-   - ``'deviceSlotsWeapons``
-   - ``'deviceItems``
-   - ``'dodgeRate``
-   - ``'driveImage``
-   - ``'explosionType``
-   - ``'fireAccuracy``
-   - ``'fireRangeAdj``
-   - ``'fireRateAdj``
-   - ``'genericName``
-   - ``'hp``
-   - ``'hullMass``
-   - ``'installDeviceMaxLevel``
-   - ``'launcher``
-   - ``'launcherUNID``
-   - ``'level``
-   - ``'maneuver``
-   - ``'manufacturer``
-   - ``'mass``
-   - ``'maxArmorMass``
-   - ``'maxCargoSpace``
-   - ``'maxRotation``
-   - ``'maxSpeed``
-   - ``'name``
-   - ``'primaryArmor``
-   - ``'primaryArmorUNID``
-   - ``'primaryWeapon``
-   - ``'primaryWeaponRange``
-   - ``'primaryWeaponRangeAdj``
-   - ``'primaryWeaponUNID``
-   - ``'regen``
-   - ``'score``
-   - ``'size``
-   - ``'shield``
-   - ``'shieldsUNID``
-   - ``'thrust``
-   - ``'thrustToWeight``
-   - ``'thrusterPower``
-   - ``'treasureValue``
-   - ``'wreckChance``
+'currency
+'currencyName
+'defaultSovereign
+'drivePowerUse
+'fuelCapacity
+'fuelCapacityExact
+'fuelCriteria
+'fuelEfficiency
+'fuelEfficiencyBonus
+'hasTradeDesc
+'hasVariants
+'hullValue
+'maxArmorMass
+'maxSpeed
+'maxSpeedAtMaxArmor
+'maxSpeedAtMinArmor
+'maxSpeedByArmorMass
+'power
+'stdArmorMass
+'thrust
+'thrustRatio
+'thrustToWeight
+'thrusterPower
+'wreckStructuralHP
+property (stations):
+'sovereign
+'sovereignName
+NOTE: All data fields (accessed via typGetDataField) are also valid properties.
 
 (typGetStaticData unid attrib) -> data
 ======================================
@@ -2441,6 +2821,23 @@ property (ships):
 (uiGetMusicState) -> ('playing filename position length)
 ========================================================
 
+(uiIsKeyPressed key) -> True/Nil
+================================
+Key is a string, all alphanumeric keys as well as the following are supported:
+'up
+'down
+'left
+'right
+'ctrl
+'space
+'shift
+'esc
+'lmb
+'rmb
+
+(uiKeyLabel command) -> text
+============================
+
 (uiPlayMusic filename [pos]) -> True/Nil
 ========================================
 
@@ -2453,14 +2850,26 @@ property (ships):
 (uiStopMusic)
 =============
 
+(unvEntity entity) -> unid
+==========================
+
+(unvEntity unid) -> entity
+==========================
+
 (unvFindObject [nodeID] criteria) -> list of entries
 ====================================================
 criteria
-   - ``s``                  ShipClass
-   - ``t``                  StationType
-   - ``+/-{attrib}``        Require/exclude types with given attribute
-   - ``+/-unid:{unid}``     Require/exclude types of given unid
-   - ``=n;``                Level comparisons (also supports < etc.)
+*                  Include all types
+s                  ShipClass
+t                  StationType
+T                  StationType (structure-scale)
+A                  Active objects only
+K                  Killed objects only
+L:x-y;             Objects of level x to y
+V                  Include virtual objects
++/-{attrib}        Require/exclude types with given attribute
++/-unid:{unid}     Require/exclude types of given unid
+=n;                Level comparisons (also supports < etc.)
 entry
    ({objID} {type} {nodeID} {objName} {objNameFlags})
 
@@ -2470,7 +2879,7 @@ entry
 (unvGetElapsedGameTime [startTick] endTick format) -> result
 ============================================================
 format
-   - ``display:``           Elapsed time in display format.
+display:           Elapsed time in display format.
    - ``seconds:``           Elapsed time in game seconds.
 
 (unvGetExtensionData scope attrib) -> data
@@ -2485,8 +2894,8 @@ format
 (unvSetExtensionData scope attrib data) -> True/Nil
 ===================================================
 scope
-   - ``'local``
-   - ``'serviceExtension``
+'local
+'serviceExtension
    - ``'serviceUser``
 
 (unvSetObjectKnown [nodeID] criteria [True/Nil]) -> True/Nil
@@ -2563,4 +2972,3 @@ scope
 
 (xmlSetText xml text [index]) -> True/Nil
 =========================================
-_FL#2

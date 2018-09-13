@@ -1,6 +1,6 @@
 sed 's/^..\/..\/.... ..\:..\:...//' ../../../Debug.log > temp.txt
-sed -n '/^_FL#0/,/^_FL#1/p' temp.txt > function_list.txt
-sed -n '/^_FL#1/,/^_FL#2/p' temp.txt > function_list.rst
+sed '/^_FL#0/,/^_FL#1/!d;//d' temp.txt > function_list.txt
+sed '/^_FL#1/,/^_FL#2/!d;//d' temp.txt > function_list.rst
 rm temp.txt
 
 # Extra substitutions for cases which TLisp regex does not support.

@@ -1,32 +1,38 @@
-_FL#0
 *************
 Function List
 *************
 
 (!= x1 x2 ... xn) -> True if any arguments are not equal
 (* x1 x2 ... xn) -> z
-(+ x1 x2 ... xn) -> z
+(+ x1 [x2 ... xn]) -> sum (int32 or real)
 (- x1 x2 ... xn) -> z
  (- x) -> -x
-(/ x y) -> z
-(< x1 x2 ... xn) -> True if x1 < x2 < ... < xn
-(<= x1 x2 ... xn) -> True if x1 <= x2 <= ... <= xn
-(= x1 x2 ... xn) -> True if all arguments are equal
-(> x1 x2 ... xn) -> True if x1 > x2 > ... > xn
-(>= x1 x2 ... xn) -> True if x1 >= x2 >= ... >= xn
-(@ list index) -> item index from list
-(abs x) -> z
-(add x1 x2 ... xn) -> z
-(and exp1 exp2 ... expn) -> True/Nil
+(/ x y) -> x / y (real)
+(< [x1 x2 ... xn]) -> True if x1 < x2 < ... < xn
+(<= [x1 x2 ... xn]) -> True if x1 <= x2 <= ... <= xn
+(= [x1 x2 ... xn]) -> True if all arguments are equal
+(> [x1 x2 ... xn]) -> True if x1 > x2 > ... > xn
+(>= [x1 x2 ... xn]) -> True if x1 >= x2 >= ... >= xn
+(@ list index) -> item index from list (0-based)
+(@ struct key) -> value corresponding to key from struct
+(abs x) -> absolute value (int32 or real)
+(acos x ['degrees]) -> inverse cosine (real)
+(add x1 [x2 ... xn]) -> sum (after converting arguments to int32)
+(and [exp1 exp2 ... expn]) -> True/Nil
 
 Returns Nil if any argument is Nil, otherwise returns last argument
-(append a b [...]) -> lists are concatenated
-(apply exp arg1 arg2 ... argn list) -> Result
+(append [list1 list2 ...]) -> concatenated list
+(apply function [arg1 arg2 ... argn] argList) -> Result of function with arguments arg1... followed by contents of argList
 (armGetRepairCost type) -> Cost to repair 1 hit point
 (armGetRepairTech type) -> Tech level required to repair
-(block localsList exp1 exp2 ... expn) -> value of expn
-(cat s1 s2 ... sn) -> string
-(ceil x) -> y
+(asin x ['degrees]) -> inverse sine (real)
+(atan y [x] ['degrees]) -> inverse tangent (real)
+(block [localsList exp1 exp2 ... expn]) -> value of expn
+
+Evaluates a series of expressions and returns the value of the last one.
+LocalsList is a list of local variables and/or lists consisting of a local variable and the initial value to assign it.If an expression evaluates to an error, returns that error and doesn't evaluate the rest.
+(cat [string1 string2 ... stringn]) -> concatenated string
+(ceil x) -> x rounded up, i.e. towards positive infinity (real)
 (cnvDrawImage x y imageDesc [screen] [ID]) -> True/Nil
 (cnvDrawLine xFrom yFrom xTo yTo width color [screen] [ID]) -> True/Nil
 (cnvDrawRect x y width height color [screen] [ID]) -> True/Nil
@@ -52,34 +58,74 @@ alignment:
    'left
    'center
    'right
-(convertTo type value) -> result
-(count list) -> number of items
+(convertTo dataType value) -> result
+
+dataType: 'error|'int32|'list|'nil|'real|'string|'true
+(cos x ['degrees]) -> cosine (real)
+(count list|string|struct) -> number of items or characters
+(dbgGet property) -> value
+
+property:
+
+   'debugMode
+   'showBounds
+   'showLineOfFire
+   'showNavPaths
+
+(dbgIsActive) -> True if in debug mode, else Nil
 (dbgLog [string]*) -> True if in debug mode, else Nil
 (dbgOutput [string]*) -> True if in debug mode, else Nil
-(divide x y) -> z
+(dbgSet property value) -> True/Nil
+
+property:
+
+   'showBounds True/Nil
+   'showLineOfFire True/Nil
+   'showNavPaths True/Nil
+
+(divide x y) -> x / y after converting arguments to int32, rounded toward 0
 (double x) -> x as a double
 (ecoExchange amount fromCurrency toCurrency) -> amount
 (enum list itemVar exp) -> value
 
-Iterate itemVar over list evaluating exp
+Iterate itemVar over list evaluating exp. Returns the last value of exp.
 (enumwhile list condition itemVar exp) -> value
 
-Iterate itemVar over list evaluating exp while condition is True
-(eq x1 x2 ... xn) -> True if all arguments are equal
-(errblock localsList exp1 exp2 ... expn expErr) -> value of expn or expErr if error occurs
+Iterate itemVar over list evaluating exp while condition is True. Returns the last value of exp.
+(eq [x1 x2 ... xn]) -> True if all arguments are equal
+(errblock localsList [exp1 exp2 ... expn] expErr) -> value of expn or expErr if error occurs
+
+Like block, except it evaluates and returns the last expression only if one of the other expressions evaluates to an error.
+LocalsList must contain at least one variable. If the first variable is not assigned within localsList, it will be set
+to the error while evaluating expErr.
 (error msg) -> error
+(eval exp) -> result
+
+Evaluates the expression. If it's a string, result is the value of the corresponding symbol.
+If it's a quoted expression, the expression is evaluated.
+If it's a list, each item is evaluated, then it's evaluated as a function call.
+(exp x) -> e^x (real)
 (filter list var boolean-exp) -> filtered list
-(find source target ['ascending|'descending] [keyIndex]) -> position of target in source (0-based)
-(floor x) -> y
+
+Iterates var over list, evaluating boolean-exp. Returns a list containing the items for which boolean-exp is non-Nil.
+(find string target) -> position of target in string (0-based)
+(find source-list target ['ascending|'descending] [keyIndex]) -> position of target in source-list (0-based)
+
+The 'ascending or 'descending argument makes the function more efficient if the list is long and sorted in the specified direction.
+Specifying an integer keyIndex causes it to compare that item of each list within source-list with the target instead.
+
+(floor x) -> x rounded down, i.e. towards negative infinity (real)
 (fmtCompose text [data]) -> string
 (fmtCurrency currency [amount]) -> string
-(fmtNoun name nameFlags count formatFlags) -> string
+(fmtNoun namePattern [nameFlags] count formatFlags) -> string
 (fmtNumber [type] value) -> string
 
 type:
 
    'integer
    'power
+   'real
+   'regenRate
    'speed
 (fmtPower powerInKWs) -> string
 (fmtVerb verb pluralize) -> string
@@ -94,12 +140,14 @@ options:
 (gamSetCrawlImage imageUNID) -> True/Nil
 (gamSetCrawlSoundtrack soundtrackUNID) -> True/Nil
 (gamSetCrawlText text) -> True/Nil
-(geq a b) -> True if a >= b
+(geq [x1 x2 ... xn]) -> True if x1 >= x2 >= ... >= xn
 (getAPIVersion) -> version
-(gr a b) -> True if a > b
-(help) -> all functions
-(help partial-name) -> all functions starting with name
-(help function-name) -> help on function
+(gr [x1 x2 ... xn]) -> True if x1 > x2 > ... > xn
+(help) -> this help
+(help '*) -> all functions
+(help 'partial-string) -> all functions starting with partial-string
+(help 'function-name) -> help on function-name
+
 (if condition exp1 [exp2]) -> exp1 if condition True, otherwise exp2
 (int x) -> x as an integer
 (objTranslate obj textID [data] [default]) -> text (or Nil)
@@ -134,47 +182,110 @@ criteria as itmGetTypes
 (itmGetLevel item|type) -> level
 (itmGetMass item|type) -> mass of single item in kg
 (itmGetMaxAppearing item|type) -> max number that appear randomly
-(itmGetName item|type flags) -> name of item
+(itmGetName item|type [flags]) -> name of item
 
 flags
 
-   0x001 capitalize
-   0x002 pluralize
-   0x004 prefix with 'the' or 'a'
-   0x008 prefix with count (or 'a')
-   0x010 prefix with count
-   0x020 no modifiers
-   0x040 prefix with 'the' or 'this' or 'these'
-   0x080 short form of name
-   0x100 actual name
+   0x0001 'capitalize      capitalize first letter
+   0x0002 'plural          pluralize name
+   0x0004 'article         prefix with 'the' or 'a'
+   0x0008 'count           prefix with count or singular article
+   0x0010 'countOnly       prefix with count or nothing
+   0x0020 'noModifiers     no modifiers ('damaged' etc)
+   0x0040 'demonstrative   prefix with 'the' or 'this' or 'these'
+   0x0080 'short           use short name
+   0x0100 'actual          actual name (not unidentified name)
+   0x0200 'noEvent         do not fire GetName event
+   0x0400 'titleCapitalize capitalize as a title
+   0x0800 'installedState  prefix with 'installed' if necessary
+   0x1000 'countAlways     always prefix with count
+  0x40000 'noDeterminer    no prefix, but pluralize if necessary
+  0x80000 'noQuotes        replace double-quotes with single-quotes
+ 0x100000 'escapeQuotes    use for dock screens
 (itmGetPrice item|type [currency]) -> price of a single item
 (itmGetProperty item|type property) -> value
 
-property
+property (instance)
 
-   'blindingImmune
-   'canBeDisabled
-   'category
+   'canBeUsed
    'charges
-   'components
-   'currency
    'damaged
    'description
+   'disrupted
+   'hasUseScreen
+   'installed
+   'level
+   'reference
+   'rootName
+   'used
+
+property (device)
+
+   'canBeDamaged
+   'canBeDisabled
+   'canBeDisrupted
+   'external
+   'power
+
+property (weapon)
+
+   'ammoTypes
+   'averageDamage       Average damage per shot
+   'balance
+   'balanceDamage
+   'balanceCost
+   'balanceExcludeCost
+   'damage              Average damage per 180 ticks
+   'damagePerProjectile
+   'damageWMD180        Average WMD damage per 180 ticks
+   'effectiveRange
+   'fireArc
+   'fireDelay           Number of ticks between shots
+   'fireRate
+   'linkedFireOptions
+   'maxDamage           Maximum damage per shot
+   'minDamage           Minimum damage per shot
+   'multiShot
+   'omnidirectional
+   'repeating
+   'stdCost
+
+property (armor)
+
+   'blindingImmune
+   'completeHP
+   'damageAdj
    'deviceDamageImmune
    'deviceDisruptImmune
    'disintegrationImmune
-   'disrupted
    'EMPImmune
    'hp
-   'installed
-   'known
-   'maxCharges
+   'hpBonus
    'maxHP
-   'omnidirectional
    'radiationImmune
    'repairCost
    'repairLevel
    'shatterImmune
+   'stdHP
+
+property (all)
+
+   'category
+   'componentPrice
+   'components
+   'currency
+   'currencyName
+   'description
+   'frequency
+   'known
+   'level
+   'maxCharges
+   'maxLevel
+   'minLevel
+   'massBonusPerCharge
+   'valueBonusPerCharge
+   'weaponTypes
+
 (itmGetStaticData item attrib) -> data
 (itmGetType item) -> itemUNID
 (itmGetTypeData item|type attrib) -> data
@@ -223,7 +334,9 @@ options
    'ignoreInstalled
 (itmIsInstalled item) -> True/Nil
 (itmIsKnown item|type) -> True/Nil
-(itmMatches item|type criteria) -> True/Nilcriteria as itmGetTypes
+(itmMatches item|type criteria) -> True/Nil
+
+criteria as itmGetTypes
 (itmSetCount item count) -> item
 (itmSetData item attrib data [count]) -> item
 (itmSetEnhanced item mods) -> item
@@ -236,21 +349,22 @@ property
    'damaged [True|Nil]
    'disrupted [True|Nil|ticks]
    'incCharges charges
-   'installed [True|Nil]
+   'installed [True|Nil]   'level level
 (itmSetReference item) -> True/Nil
 (itmSetTypeData item attrib data) -> True/Nil
 (join list [separator]) -> string
 (join list 'oxfordComma) -> string
 (lambda args-list exp) -> lambda function
-(leq a b) -> True if a <= b
+(leq [x1 x2 ... xn]) -> True if x1 <= x2 <= ... <= xn
 (list i1 i2 ... in) -> list
 (lnkAppend list item) -> list
 (lnkRemove list index) -> list
 (lnkRemoveNil list) -> list
 (lnkReplace list index item) -> list
+(log x [base]) -> z
 (lookup source target ['ascending|'descending] [keyIndex]) -> found entry
 (loop condition exp) -> evaluate exp until condition is Nil
-(ls a b) -> True if a < b
+(ls [x1 x2 ... xn]) -> True if x1 < x2 < ... < xn
 (make 'sequence count) -> list from 1 to count
 (make 'sequence start end [inc]) -> list from start to end
 (map list ['excludeNil|'original|'reduceMax|'reduceMin|'reduceAverage|'reduceSum] var exp) -> list
@@ -278,9 +392,12 @@ criteria
 
    *                  Include all missions states
    a                  Include active player missions
+   c                  Include completed missions (not necessarily debriefed)
    o                  Include open missions
    r                  Include already debriefed (recorded) missions
    u                  Include non-player missions
+   D                  Only missions debriefed by source
+   P                  Return only the mission with highest priority
    S                  Only missions owned by source
    +/-{attrib}        Require/exclude missions with given attribute
    +/-ownerID:{id}    Require/exclude missions with given owner
@@ -297,6 +414,7 @@ property
    'canBeDeleted      Mission can be deleted by player
    'debrieferID       ID of the object that will debrief the player
    'forceUndockAfterDebrief  Force undock after showing debrief screen
+   'hasDebrief        Mission has a debrief phase
    'id                Mission object ID
    'isActive          Is an active player mission
    'isCompleted       Is a completed mission (player or non-player)
@@ -308,12 +426,17 @@ property
    'isRecorded        Mission has been completed and debriefed
    'isSuccess         Mission has succeeded
    'isUnavailable     Mission is unavailable to player
+   'maxAppearing      Max number of this type that can exist
    'name              The name of the mission
    'nodeID            ID of the mission's owner system
    'ownerID           ID of the mission's owner object
+   'priority          Mission priority
    'summary           A summary description of the mission
+   'totalAccepted     Count of this type accepted by player
+   'totalExisting     Count of this type currently existing in universe
    'unid              Mission type UNID
 (msnGetStaticData missionObj attrib) -> data
+(msnGetTypeData missionObj attrib) -> data
 (msnIncData missionObj attrib [increment]) -> new value
 (msnRegisterForEvents missionObj obj)
 (msnReward missionObj [data])
@@ -330,6 +453,7 @@ property
    'isIntroShown True|Nil
    'name newName
    'summary newSummary
+(msnSetTypeData missionObj attrib data)
 (msnSetUnavailable missionObj)
 (msnSuccess missionObj [data])
 (msnTranslate missionObj textID [data] [default]) -> text (or Nil)
@@ -344,19 +468,21 @@ connectType:
 
    'hinge
    'rod
+   'spine
 
 options:
 
    'pos1: position relative to obj1
    'pos2: position relative to obj2
 
-(objAddItem obj item|type [count]) -> True/Nil
+(objAddItem obj item|type [count]) -> item
 (objAddItemEnhancement obj item enhancementType [lifetime]) -> enhancementID
 (objAddOverlay obj overlayType [lifetime]) -> overlayID
 (objAddOverlay obj overlayType pos rotation [lifetime]) -> overlayID
 (objAddRandomItems obj table count) -> True/Nil
 (objAddSellOrder obj criteria priceAdj) -> True/Nil
 (objAddSubordinate obj subordinate) -> True/Nil
+(objAddTradeOrder obj service criteria priceAdj) -> True/Nil
 (objCalcBestTarget obj [objList]) -> targetObj (or Nil)
 (objCanAttack obj) -> True/Nil
 (objCanDetectTarget obj target) -> True/Nil
@@ -376,6 +502,7 @@ resultCode
    'reactorOverloaded
    'reactorTooWeak
    'replacementRequired
+   'tooMuchCargo
 (objChangeEquipmentStatus obj equipment command [duration] [options]) -> True/Nil
 
 equipment
@@ -384,10 +511,13 @@ equipment
    'GalacticMap
    'FriendlyFireLock
    'LRS
+   'MiningComputer
+   'ProtectWingmen
    'SRS
    'SRSEnhancer
    'SystemMap
    'TargetingComputer
+   'TradingComputer
 
 command
 
@@ -413,6 +543,7 @@ msg
    'FormUp
    'QueryAttackStatus
    'Wait
+(objCreateReflection missile [pos] [angle]) -> reflection
 (objCredit obj [currency] amount) -> new balance
 (objDamage obj weaponType objSource [pos] [options]) -> result
 
@@ -439,6 +570,8 @@ criteria as objGetItems
 (objFireItemEvent obj item event [data]) -> result of event
 (objFireItemInvoke obj item) -> True/Nil
 (objFireOverlayEvent obj overlayID event [data]) -> result of event
+(objFirePowerInvoke obj power [target] ['noInvokeCheck]) -> result of event
+(objFireWeapon obj weapon target [fireDelay] [checkFireDelay]) -> True/Nil
 (objFixParalysis obj) -> True/Nil
 (objGateTo obj node entrypoint [effectID]) -> True/Nil
 (objGetArmorCriticality obj item|armorSegment) -> criticalityType
@@ -455,7 +588,19 @@ options:
 
    'noDonations
 (objGetCargoSpaceLeft obj) -> space left in kg
+(objGetCharacterData obj attrib) -> data
 (objGetCombatPower obj) -> 0-100
+(objGetCondition obj [condition]) -> True/Nil
+
+condition:
+
+   'blind
+   'disarmed
+   'lrsBlind
+   'paralyzed
+   'radioactive
+   'spinning
+   'timeStopped
 (objGetDamageType obj) -> damage type
 (objGetData obj attrib) -> data
 (objGetDataField obj field) -> data
@@ -476,10 +621,13 @@ equipment
    'GalacticMap
    'FriendlyFireLock
    'LRS
+   'MiningComputer
+   'ProtectWingmen
    'SRS
    'SRSEnhancer
    'SystemMap
    'TargetingComputer
+   'TradingComputer
 
 status
 
@@ -492,19 +640,28 @@ status
 (objGetInstalledItemDesc obj item) -> 'installed as forward armor'
 (objGetItemProperty obj item property) -> value
 
-property
+property (install/remove)
 
+   'installDevicePrice   Price to install the given device
+   'installDeviceStatus  {canInstall, price, descID, upgradeOnly}
+   'installItemStatus    {canInstall, price, descID, upgradeOnly}
+   'removeDevicePrice    Price to remove the given device
+   'removeItemStatus     {canRemove, price, descID, upgradeOnly}
+
+property (device)
+
+   'capacitor
    'enabled
-   'fireArc
-   'hp
-   'installDevicePrice
-   'installItemStatus
    'linkedFireOptions
-   'maxHP
    'pos
-   'removeDevicePrice
-   'removeDeviceStatus
    'secondary
+   'temperature
+
+property (armor)
+
+   'completeSet     True if part of a complete set
+   'hp              Current hit points
+   'primeSegment    True if first segment in a set
 
 All properties for itmGetProperty are also valid.
 (objGetItems obj criteria) -> list of items
@@ -523,15 +680,15 @@ criteria as itmGetTypes plus
 
 flags
 
-   0x001 capitalize    capitalize first letter
-   0x002 plural        pluralize name
-   0x004 article       prefix with 'the' or 'a'
-   0x008 count         prefix with count or singular article
-   0x010 countOnly     prefix with count or nothing
-   0x020 noModifiers   no modifiers ('damaged' etc)
-   0x040 demonstrative prefix with 'the' or 'this' or 'these'
-   0x080 short         use short name
-   0x100 actual        actual name (not unidentified name)
+   0x001 'capitalize    capitalize first letter
+   0x002 'plural        pluralize name
+   0x004 'article       prefix with 'the' or 'a'
+   0x008 'count         prefix with count or singular article
+   0x010 'countOnly     prefix with count or nothing
+   0x020 'noModifiers   no modifiers ('damaged' etc)
+   0x040 'demonstrative prefix with 'the' or 'this' or 'these'
+   0x080 'short         use short name
+   0x100 'actual        actual name (not unidentified name)
 (objGetNamedItems obj name) -> list of items
 (objGetNearestStargate obj) -> obj
 (objGetObjByID objID) -> obj
@@ -563,13 +720,14 @@ property (all)
    'category -> 'beam | 'effect | 'marker | 'missile | 'ship | 'station
    'commsKey
    'currency -> currency type UNID
+   'currencyName
    'cyberDefenseLevel
+   'damageDesc -> { shieldLevel:n armorIntegrity:n HullIntegrity:n }
    'destiny
    'dockingPorts -> list of structs with the keys:
-
-   objID: ID of docked object, if any
-   pos: port position
-   status: 'empty | 'inUse
+       objID: ID of docked object, if any
+       pos: port position
+       status: 'empty | 'inUse
 
    'hasDockingPorts
    'id
@@ -579,6 +737,7 @@ property (all)
    'known
    'level
    'mass -> hull mass in tons
+   'namePattern
    'paintLayer -> 'background | 'space | 'stations | 'ships | 'effects | 'overhang
    'playerMissionsGiven
    'radioactive
@@ -599,7 +758,7 @@ property (ships)
    'blindingImmune
    'cargoSpace -> in tons
    'character
-   'characterClass
+   'characterClass   (player ship only)
    'deviceDamageImmune
    'deviceDisruptImmune
    'disintegrationImmune
@@ -616,16 +775,21 @@ property (ships)
    'fuelLeft -> in He3 fuel rods
    'fuelLeftExact -> 2500 = 1 He3 fuel rod
    'healerLeft
+   'hp
+   'hullPrice -> in object's default currency
    'interiorHP
+   'maxHp
    'maxInteriorHP
    'maxFuel -> in He3 fuel rods
    'maxFuelExact -> 2500 = 1 He3 fuel rod
    'maxSpeed -> in % c
    'openDockingPortCount
    'operatingSpeed -> 'emergency | 'full | 'half | 'quarter
+   'playerBlacklisted
    'playerWingman
    'power -> max reactor output in kW
    'powerUse -> current power draw in kW
+   'price -> total price in default currency
    'radiationImmune
    'rotation -> current facing in degrees, counterclockwise from right
    'rotationSpeed -> in degrees per tick, clockwise positive
@@ -633,6 +797,7 @@ property (ships)
    'selectedMissile
    'selectedWeapon
    'shatterImmune
+   'showMapLabel
    'thrust -> in GN
    'thrustToWeight -> acceleration, 1 = 500 m/s^2 (ships stats show this / 1000)
 
@@ -645,6 +810,7 @@ property (stations)
    'destNodeID
    'destStargateID
    'dockingPortCount
+   'explored -> True if the player has docked with the station
    'hp
    'ignoreFriendlyFire
    'immutable
@@ -654,11 +820,15 @@ property (stations)
    'orbit
    'parallax
    'playerBlacklisted
+   'rotation
+   'rotationSpeed
    'shipConstructionEnabled
    'shipReinforcementEnabled
    'showMapLabel
    'stargateID
    'structuralHP
+   'subordinates
+   'superior
 
 property (missiles)
 
@@ -686,7 +856,17 @@ NOTE: All type properties (accessed via typGetProperty) are also valid object pr
 (objGetVel obj) -> velVector
 (objGetVisibleDamage obj) -> damage %
 (objHasAttribute obj attrib) -> True/Nil
-(objHasItem obj item [count]) -> number of items (or Nil)
+(objHasItem obj item [count] [options]) -> number of items (or Nil)
+
+options:
+
+   'ignoreCharges
+   'ignoreData
+   'ignoreDisruption
+   'ignoreEnhancements
+   'ignoreInstalled
+
+(objHasTradeService obj service) -> True/Nil
 (objIncData obj attrib [increment]) -> new value
 (objIncOverlayData obj overlayID attrib [increment]) -> new value
 (objIncVel obj velVector) -> velVector
@@ -713,12 +893,14 @@ Chance to execute code is: 90 + 10 * (aiLevel - cyberDefenseLevel)
 (objRecordBuyItem buyerObj sellerObj item [currency] price) -> True/Nil
 (objRegisterForEvents target obj) -> True/Nil
 (objRegisterForSystemEvents target range) -> True/Nil
-(objRemoveItem obj item [count]) -> True/Nil
+(objRemoveItem obj item [count] [options]) -> True/Nil
 (objRemoveItemEnhancement obj item enhancementID) -> True/Nil
 (objRemoveOverlay obj overlayID) -> True/Nil
 (objRepairArmor ship item|armorSegment [hpToRepair]) -> hp repaired
 (objResume obj [gateObj]) -> True/Nil
 (objSendMessage obj sender text) -> True/Nil
+(objSendMessageTranslate obj sender textID [data]) -> True/Nil
+(objSetCharacterData obj attrib data) -> True/Nil
 (objSetData obj attrib data) -> True/Nil
 (objSetDeviceActivationDelay obj deviceItem [delay]) -> True/Nil
 (objSetEventHandler obj unid) -> True/Nil
@@ -774,18 +956,21 @@ property (ships)
    'commsKey key
    'known True|Nil
    'operatingSpeed 'full|'half|'quarter|'emergency
+   'playerBlacklisted True|Nil
    'playerWingman True|Nil
    'rotation angle
    'selectedMissile type|item
    'selectedWeapon type|item
+   'showMapLabel True|Nil
    'sovereign type
 
 property (stations)
 
    'angry True|Nil|ticks
    'barrier True|Nil
-   'ignoreFriendlyFire True|Nil
+   'explored True|Nil
    'hp hitPoints
+   'ignoreFriendlyFire True|Nil
    'immutable True|Nil
    'known True|Nil
    'maxHP hitPoints
@@ -796,6 +981,7 @@ property (stations)
    'playerBlacklisted True|Nil
    'shipConstructionEnabled True|Nil
    'shipReinforcementEnabled True|Nil
+   'showMapLabel True|Nil
    'sovereign type
    'structuralHP hitPoints
 (objSetShowAsDestination obj [options]) -> True/Nil
@@ -823,6 +1009,7 @@ options:
 
    'noOrderTransfer
    'oldShipWaits
+   'transferEquipment
 
 (plyCharge player [currency] charge) -> credits left
 (plyComposeString player string [arg1 arg2 ... argn]) -> text
@@ -931,6 +1118,7 @@ property
 
    'height
    'width
+(rollChance percentChance [rolls]) -> True/Nil
 (rollDice count sides [bonus]) -> value
 (round ['stochastic] x) -> y
 (scrAddAction screen actionID pos label [key] [special] code) -> True/Nil
@@ -947,6 +1135,12 @@ filter can be lambda function or item criteria
 (scrGetItem screen) -> item
 (scrGetListCursor screen) -> cursor
 (scrGetListEntry screen) -> entry
+(scrGetProperty screen property) -> value
+
+property
+
+   'counter   'description   'inFirstOnInit   'input
+(scrGetReturnData screen attrib) -> data
 (scrGetScreen gScreen) -> screenDesc
 
 screenDesc:
@@ -973,9 +1167,11 @@ screenDesc:
 (scrSetInputText screen text) -> True/Nil
 (scrSetListCursor screen cursor) -> True/Nil
 (scrSetListFilter screen filter) -> True/Nil
+(scrSetReturnData screen attrib data) -> True/Nil
 (scrShowAction screen actionID shown) -> True/Nil
+(scrShowItemUseScreen screen item) -> True/Nil
 (scrShowPane screen pane) -> True/Nil
-(scrShowScreen screenGlobal screen [pane] [data]) -> True/Nil
+(scrShowScreen screen screen [pane] [data]) -> True/Nil
 (scrTranslate screen textID [data]) -> text or Nil
 (seededRandom seed from to)
 (seededRandom seed list)
@@ -993,6 +1189,7 @@ resultCode
    0        OK
    1        Too much cargo to remove cargo hold
    2        Device not installed
+   3        Replace only
    string   custom fail reason
 (shpConsumeFuel ship fuel [useType]) -> fuelLeft
 
@@ -1012,7 +1209,7 @@ useType:
 (shpGetDockObj ship) -> dockObj
 (shpGetFuelLeft ship) -> fuel left
 (shpGetFuelNeeded ship item) -> items needed
-(shpGetImageDesc class [rotationAngle]) -> imageDesc
+(shpGetImageDesc class [options|rotationAngle]) -> imageDesc
 (shpGetItemDeviceName ship item) -> device name of item (or -1)
 (shpGetMaxSpeed ship) -> max speed in % of lightspeed
 (shpGetOrder obj) -> order
@@ -1073,7 +1270,7 @@ order:
    'waitForUndock  obj [time]        Wait for target to undock
    'wander                           Wander, avoiding enemies
 (shpOrderImmediate ship order [target] [count]) -> True/Nil
-(shpRechargeShield ship hpToRecharge) -> True/Nil
+(shpRechargeShield ship [hpToRecharge]) -> shield hp
 (shpRefuelFromItem ship item) -> True/Nil
 (shpRemoveDevice ship item) -> item
 (shpRepairItem ship item) -> True/Nil
@@ -1109,6 +1306,7 @@ setting:
 (shpSetCommandCode ship code) -> True/Nil
 (shpSetController ship controller) -> True/Nil
 (shuffle list) -> shuffled list
+(sin x ['degrees]) -> z
 (sort list ['ascending|'descending] [keyIndex]) -> sorted list
 (sovGetDisposition sovereignID targetSovereignID) -> disposition of sovereign to target
 
@@ -1143,21 +1341,24 @@ disposition:
 (staSetShowMapLabel station True/Nil)
 (strCapitalize string) -> string
 (strFind string target) -> pos of target in string (0-based)
-(struct key1 value1 key2 value2 ...) -> struct
-(struct (key1 value1) (key2 value2) ..) -> struct
-(struct { key1:value1 key2:value2 ... } ...) -> struct
-(struct key1 value1 key2 value2 ...) -> struct
-(struct (key1 value1) (key2 value2) ..) -> struct
-(struct { key1:value1 key2:value2 ... } ...) -> struct
+(struct key1 value1 [ key2 value2 ...]) -> struct
+(struct (key1 value1) [ (key2 value2) ...]) -> struct
+(struct struct1 [struct2 ...]) -> struct
+{ key1:value1 [key2:value2 ...] } -> struct
+
+Creates a data structure. Keys must be strings, but this is assumed when using {} syntax. Use (@ struct key) to access data.
+(structAppend key1 value1 [ key2 value2 ...]) -> struct
+(structAppend (key1 value1) [ (key2 value2) ...]) -> struct
+(structAppend struct1 [struct2 ...]) -> struct
 
 Same as struct except values of the same key are appended into a list.
 (subset list pos [count]) -> list
 (subst string arg1 arg2 ... argn) -> string
 (subtract x1 x2 ... xn) -> z
-(switch [cond1 exp1] ... [condn expn] defaultexp) -> value
+(switch [cond1 exp1 ... condn expn] [defaultexp]) -> value
 
-Evaluates conditions until one returns non-Nil, then evaluates the corresponding expression
-(sysAddEncounterEvent delay target encounterID gate)
+Evaluates conditions until one returns non-Nil, then evaluates and returns the corresponding expression.
+(sysAddEncounterEvent delay target encounterID gateObj|pos)
 
 delay in ticks
 (sysAddEncounterEventAtDist delay target encounterID distance)
@@ -1188,7 +1389,7 @@ interval in ticks
 (sysCalcTravelTime distance speed) -> time in ticks
 (sysCancelTimerEvent obj event) -> True/Nil
 (sysCancelTypeTimerEvent type event) -> True/Nil
-(sysCreateEffect effectID anchorObj pos [rotation]) -> True/Nil
+(sysCreateEffect effectID anchorObj pos [rotation] [params]) -> True/Nil
 (sysCreateEncounter unid [options]) -> True/Nil
 
 options:
@@ -1236,6 +1437,7 @@ options:
 
 criteria is a string that must specify one or more of the following categories:
 
+   *           Include all categories
    b           Include beams
    G           Include ONLY stargates
    G:xyz;      Include ONLY stargate with ID 'xyz'
@@ -1274,9 +1476,10 @@ and may contain any number of the following options:
    X           Only objects whose target is the source
    Y           Only objects angry at (or enemies of) the source
    Z           Exclude the player
-   +xyz;       Exclude objects without the given attribute
-   -xyz;       Exclude objects with the given attribute
-   =n          Only objects of level n. You can also use >, <, >=, and <=.
+   +xyz;       Only objects with attribute 'xyz'
+   -xyz;       Exclude objects with attribute 'xyz'
+   =n;         Only objects of level n. You can also replace = with >, <, >=, or <=,
+				but they need to be escaped in XML.
 
    +/-data:xyz;        Include only/exclude objects with data 'xyz'
    +/-isPlanet:true;   Include only/exclude planets
@@ -1284,24 +1487,32 @@ and may contain any number of the following options:
    +/-unid:xyz;        Include only/exclude objects with UNID 'xyz'
 
 Order doesn't matter as long as multi-character items end with semicolons.
-If the source is nil, the center of the system is used for position,
-and other criteria related to the source are ignored.
-
-
+If the source is nil, the center of the system is used for position, and other criteria related to the source are ignored.
 (sysFindObjectAtPos source criteria pos [destPos]) -> list of objects
 (sysGetData [nodeID] attrib) -> data
 (sysGetEnvironment pos) -> environmentUNID
+(sysGetItemBuyPrice [nodeID] item [typeCriteria]) -> price (or Nil)
 (sysGetLevel [nodeID]) -> level
 (sysGetLightIntensity pos) -> intensity (0-100)
 (sysGetName [nodeID]) -> name
 (sysGetNavPathPoint sovereignID objFrom objTo %path) -> vector
 (sysGetNode) -> nodeID
-(sysGetNodes) -> list of nodeIDs
+(sysGetNodes [criteria]) -> list of nodeIDs
+
+criteria:
+
+   knownOnly:True  Only nodes known to player
+   maxDist:n       Only nodes n or fewer gates away.
+   minDist:n       Only nodes n or more gates away.
+
 (sysGetObjectByName [source] name) -> obj
+(sysGetPOV) -> obj
 (sysGetProperty [nodeID] property) -> value
 
 property:
 
+   'lastVisitOn       Tick on which player last visited
+   'lastVisitSeconds  Game seconds since player last visited
    'level             The level of the system
    'name              The name of the system
    'pos               Node position on map (x y)
@@ -1319,6 +1530,16 @@ location:
    'pos               The location position
 (sysGetStargateDestination [nodeID] gateID) -> (nodeID gateID)
 (sysGetStargateDestinationNode [nodeID] gateID) -> nodeID
+(sysGetStargateProperty [nodeID] gateID property) -> value
+
+property:
+
+   'destGateID: Destination gate ID
+   'destID: Destination node
+   'gateID: ID of this gate
+   'nodeID: NodeID of this gate
+   'uncharted: True if uncharted
+
 (sysGetStargates [nodeID]) -> list of gateIDs
 (sysGetSystemType [nodeID]) -> systemUNID
 (sysGetTopologyDistance fromID toID) -> distance (or Nil)
@@ -1397,7 +1618,8 @@ property:
 (sysVectorAdd vector vector) -> vector
 (sysVectorAngle vector) -> angle of vector
 (sysVectorAngle pos1 pos2) -> angle of pos1 relative to pos2
-(sysVectorDistance vector [vector]) -> distance in light-seconds
+(sysVectorDistance vector [vector]) -> distance in light-seconds (int32)
+(sysVectorDistanceExact vector [vector]) -> distance in light-seconds or speed as a fraction of c (real)
 (sysVectorDivide vector scalar) -> vector
 (sysVectorMultiply vector scalar) -> vector
 (sysVectorPixelOffset center x y) -> vector
@@ -1416,6 +1638,7 @@ minSeparation is the min distance from other objects (in light-seconds)
 filter defines the set of objects to be away from
 (sysVectorSpeed velVector) -> % of light speed
 (sysVectorSubtract vector vector) -> vector
+(tan x ['degrees]) -> z
 (typAddRecurringTimerEvent unid interval event)
 
 interval in ticks
@@ -1425,24 +1648,25 @@ delay in ticks
 (typCancelTimerEvent unid event) -> True/Nil
 (typCreate unid XML) -> True/Nil
 (typDynamicUNID uniqueName) -> UNID
-(typeof item) -> type
+(typeOf item) -> type
 
-type
+type:
 
-   error
-   function
-   int32
-   list
-   nil
-   primitive
-   real
-   string
-   struct
-   true
+   'error
+   'function
+   'int32
+   'list
+   'nil
+   'primitive
+   'real
+   'string
+   'struct
+   'true
 (typFind criteria) -> list of UNIDs
 
 criteria
 
+   *                  Include all Types
    a                  AdventureDesc
    b                  ItemTable
    c                  EffectType
@@ -1457,42 +1681,107 @@ criteria
    q                  SystemTable
    s                  ShipClass
    t                  StationType
+   T                  StationType (structure-scale)
    u                  Sound
    v                  Sovereign
    x                  Type (generic)
    y                  SystemType
    z                  SystemMap
    $                  EconomyType
+
+   L:x-y              Only Types of level x to y
+   V                  Include virtual types
    +/-{attrib}        Require/exclude types with given attribute
+   +/-event:xyz;      Require/exclude types with given event
+   +/-isEnemyOf:xyz;  Require/exclude types which are enemy of sovereign
    =n;                Level comparisons (also supports < etc.)
 (typFireEvent unid event [data]) -> result of event
 (typFireObjEvent unid obj event) -> result of event
 (typGetData unid attrib) -> data
 (typGetDataField unid field) -> data
-(typGetProperty unid property) -> value
 
-property (all):
+field (all):
 
-   'apiVersion
-   'class
-   'extension
+   'entity           entity name of this type
+   'extensionUNID    extension which defined this type
+   'name             class name of the type
+   'unid             UNID of this type
+   'version          extension API version
 
-property (player ships):
+field (armor):
 
-   'dockServicesScreen
-   'shipStatusScreen
-   'startingSystem
+   'adjustedHP
+   'balance
+   'damageAdj
+   'effectiveHP
+   'hp
+   'hpBonus
+   'installCost
+   'regen
+   'repairCost
+   'shieldInterference
 
-property (ships):
+field (drives):
 
-   'armorCount
-   'armorHP
+   'maxSpeed
+   'power
+   'thrust
+
+field (reactors):
+
+   'fuelCapacity
+   'fuelCriteria
+   'fuelEfficiency
+   'power
+
+field (shields):
+
+   'adjustedHp
+   'balance
+   'damageAdj
+   'effectiveHp
+   'hp
+   'hpBonus
+   'power
+   'regen
+   'weaponSuppress
+
+field (items):
+
+   'averageCount
+   'category
+   'cost
+   'description
+   'deviceSlots
+   'frequency
+   'fuelCapacity
+   'imageDesc
+   'installCost
+   'level
+   'mass
+   'shortName
+   'slotCategory
+   'treasureValue
+   'unknownType
+   'useKey
+
+field (player ships):
+
+   'dockServicesScreen  UNID of dock services screen
+   'playerDesc          Description for player
+   'shipConfigScreen    UNID of ship config screen
+   'shipStatusScreen    UNID of ship status screen
+   'startingSystem      Starting node
+
+field (ships):
+
+   'armorCount     Number of armor segments
+   'armorHP        HP of first armor segment
    'armorItems
-   'balanceType
+   'balanceType    Integer 0 to 11 representing: Unknown Minion Standard Elite Boss NonCombatant TooWeak TooStrong ArmorTooWeak ArmorTooStrong WeaponsTooWeak WeaponsTooStrong
    'cargoSpace
    'combatStrength
    'damage
-   'defaultSovereign
    'defenseStrength
    'deviceSlots
    'deviceSlotsNonWeapons
@@ -1500,12 +1789,12 @@ property (ships):
    'deviceItems
    'dodgeRate
    'driveImage
+   'drivePowerUse
    'explosionType
    'fireAccuracy
    'fireRangeAdj
    'fireRateAdj
    'genericName
-   'hp
    'hullMass
    'installDeviceMaxLevel
    'launcher
@@ -1518,24 +1807,109 @@ property (ships):
    'maxCargoSpace
    'maxRotation
    'maxSpeed
-   'name
+   'maxStructuralHP
    'primaryArmor
    'primaryArmorUNID
    'primaryWeapon
    'primaryWeaponRange
    'primaryWeaponRangeAdj
    'primaryWeaponUNID
-   'regen
    'score
    'size
    'shield
    'shieldsUNID
    'thrust
    'thrustToWeight
-   'thrusterPower
    'treasureValue
    'wreckChance
 
+field (stations):
+
+   'abandonedDockScreen
+   'armorClass
+   'armorLevel
+   'balance
+   'canAttack
+   'category
+   'defenderStrength
+   'dockScreen
+   'explosionType
+   'fireRateAdj
+   'hitsToDestroy
+   'installDeviceMaxLevel
+   'hp
+   'level
+   'locationCriteria
+   'maxLightRadius
+   'name
+   'regen                 hp repaired per 180 ticks
+   'satelliteStrength
+   'size
+   'treasureBalance       100 = appropriate for defenses
+   'treasureValue
+   'weaponStrength        100 = level weapon @ 1/4 fire rate
+
+field (missions):
+
+   'level
+   'maxLevel
+   'minLevel
+
+
+(typGetProperty unid property) -> value
+
+property (all):
+
+   'apiVersion
+   'attributes       List of type attributes
+   'class            Design type (e.g. ItemType etc.)
+   'extension        UNID of extension where type is defined
+   'mapDescription   Type description used for map labels
+   'merged           True if type inherits from another type
+   'namePattern
+   'obsoleteVersion  Type is obsolete at this API version
+
+property (sovereign):
+
+   'name
+   'playerThreatLevel     0 to 4 representing: None minorPiracy minorRaiding major existential
+   'plural
+   'shipsDestroyedByPlayer
+   'stationsDestroyedByPlayer
+
+property (ships):
+
+   'currency
+   'currencyName
+   'defaultSovereign
+   'drivePowerUse
+   'fuelCapacity
+   'fuelCapacityExact
+   'fuelCriteria
+   'fuelEfficiency
+   'fuelEfficiencyBonus
+   'hasTradeDesc
+   'hasVariants
+   'hullValue
+   'maxArmorMass
+   'maxSpeed
+   'maxSpeedAtMaxArmor
+   'maxSpeedAtMinArmor
+   'maxSpeedByArmorMass
+   'power
+   'stdArmorMass
+   'thrust
+   'thrustRatio
+   'thrustToWeight
+   'thrusterPower
+   'wreckStructuralHP
+
+property (stations):
+
+   'sovereign
+   'sovereignName
+
+NOTE: All data fields (accessed via typGetDataField) are also valid properties.
 (typGetStaticData unid attrib) -> data
 (typGetXML unid) -> xmlElement
 (typHasAttribute unid attrib) -> True/Nil
@@ -1548,20 +1922,45 @@ property (ships):
 (uiCanPlayMusic filename) -> True/Nil
 (uiGetMusicCatalog) -> list of files
 (uiGetMusicState) -> ('playing filename position length)
+(uiIsKeyPressed key) -> True/Nil
+
+Key is a string, all alphanumeric keys as well as the following are supported:
+
+   'up
+   'down
+   'left
+   'right
+   'ctrl
+   'space
+   'shift
+   'esc
+   'lmb
+   'rmb
+
+(uiKeyLabel command) -> text
 (uiPlayMusic filename [pos]) -> True/Nil
 (uiQueueSoundtrack soundtrackUNID [options]) -> True/Nil
 (uiSetSoundtrackMode mode [soundtrackUNID]) -> True/Nil
 (uiStopMusic)
+(unvEntity entity) -> unid
+(unvEntity unid) -> entity
 (unvFindObject [nodeID] criteria) -> list of entries
 
 criteria
 
+   *                  Include all types
    s                  ShipClass
    t                  StationType
-   +/-{attrib}        Require/exclude types with given attribute
+   T                  StationType (structure-scale)
 
+   A                  Active objects only
+   K                  Killed objects only
+   L:x-y;             Objects of level x to y
+   V                  Include virtual objects
+   +/-{attrib}        Require/exclude types with given attribute
    +/-unid:{unid}     Require/exclude types of given unid
    =n;                Level comparisons (also supports < etc.)
+
 entry
 
    ({objID} {type} {nodeID} {objName} {objNameFlags})
@@ -1615,6 +2014,7 @@ armGetHitPoints DEPRECATED: Use (itmGetProperty item 'maxHP) instead.
 armGetName DEPRECATED: Use itmGetName instead.
 armIsRadiationImmune DEPRECATED: Use itmGetProperty instead.
 envHasAttribute DEPRECATED: Use typHasAttribute instead
+fncHelp (fncHelp symbol) -> help on function symbol (works on deprecated functions)
 item DEPRECATED: Alias of @
 itmAtCursor DEPRECATED
 itmGetCharges DEPRECATED: Use (itmGetProperty item 'charges) instead.
@@ -1696,4 +2096,3 @@ typGetGlobalData DEPRECATED: Use typGetData instead.
 typIncGlobalData DEPRECATED: Use typIncData instead.
 typSetGlobalData DEPRECATED: Use typSetData instead.
 unvFindObj DEPRECATED: Use unvFindObject instead.
-_FL#1
