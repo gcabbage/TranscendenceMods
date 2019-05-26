@@ -45,7 +45,6 @@
 	<!ENTITY msCorpBioSecInspection			"0xDDDE010D">
 
 	<!ENTITY tbCorpPrivDataThieves			"0x008100E8">
-	<!ENTITY unidRumorFramework				"0xDDDEF100">
 	]>
 
 <TranscendenceExtension UNID="&unidExtension;"
@@ -58,7 +57,6 @@
 
 	<Library unid="&unidRPGLibrary;"/>
 	<Library unid="&unidHumanSpaceLibrary;"/>
-	<Library unid="&unidRumorFramework;"/>
 
 	<Module filename="CCHabitatMissions.xml"/>
 	<Module filename="ChocBioSec.xml"/>
