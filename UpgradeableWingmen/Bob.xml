@@ -63,6 +63,7 @@
 					)
 			</GetGlobalDockScreen>
 		</Events>
+
 		<Language>
 			<Text id="AtWreck">
 				(list
@@ -140,32 +141,27 @@
 
 
 	<ShipClass UNID="&scIAVBob;"
-			manufacturer=		"Revolution Designs"
+			manufacturer=		"(Various)"
 			class=				"medium IAV"
 			type=				"armed shuttle"
 			defaultSovereign=	"&svCommonwealth;"
 
-			size=				"42"
-			mass=				"50"
-			cargoSpace=			"10"
-			thrustRatio=		"6.5"
-			maxSpeed=			"16"
+			attributes=			"commonwealth, genericClass, iav"
+			inherit=			"&scIAVMedium;"
+			character=			"&chBob;"
+			eventHandler=		"&chBob;"
 
-			maxArmor=			"4000"
-			maxCargoSpace=		"50"
-			maxDevices=			"4"
-			maxReactorPower=	"1000"
-			maxWeapons=			"2"
-
-			attributes=			""
-
-			inherit=			"&baStdWingmanBase;"
+			leavesWreck=		"50"
 			>
 
-		<Armor>
-			<ArmorSection start="270" span="180" armorID="&itHeavyTitaniumPlate;" />
-			<ArmorSection start="90"  span="180" armorID="&itHeavyTitaniumPlate;" />
-		</Armor>
+		<Names noArticle="true" personalName="true">Bob</Names>
+
+		<!-- Configuration -->
+
+		<Armor
+			armorID=			"&itHeavyTitaniumPlate;"
+			count=				"2"
+			/>
 
 		<Devices>
 			<Table>
@@ -176,19 +172,7 @@
 			<Device deviceID="&it15MWReactor;"/>
 		</Devices>
 
-		<Maneuver
-			maxRotationRate=	"5.0"
-			rotationAccel=		"0.5"
-			/>
-
-		<Names noArticle="true" personalName="true">Bob</Names>
-
-		<Image imageID="&rsIAVMedium;" imageWidth="64" imageHeight="64"/>
-
-		<Effects>
-			<Effect type="thrustMain"		posAngle="168"	posRadius="30"	posZ="0"	rotation="180"/>
-			<Effect type="thrustMain"		posAngle="-168"	posRadius="30"	posZ="0"	rotation="180"/>
-		</Effects>
+		<!-- AI and Behavior -->
 
 		<AISettings
 			fireRateAdj=		"20"
@@ -199,10 +183,17 @@
 			combatStyle=		"advanced"
 			/>
 
+	</ShipClass>
+
+<!-- BEHAVIOR -->
+
+	<Type unid="&chBob;"
+			inherit=	"&baStdWingmanBase;">
+
 		<Events>
 			<GetGlobalAchievements>
 				(block (
-					(status (typGetData &scIAVBob; 'status))
+					(status (typGetData &chBob; 'status))
 					theList
 					)
 
@@ -226,6 +217,11 @@
 					theList
 					)
 			</GetGlobalAchievements>
+
+			<OrderCreateShip>
+				(sysCreateShip &scIAVBob; (@ gData 'pos) &svCommonwealth;)
+			</OrderCreateShip>
 		</Events>
-	</ShipClass>
+	</Type>
+
 </TranscendenceModule>

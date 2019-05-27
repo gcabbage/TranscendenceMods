@@ -8,216 +8,170 @@
 			>
 		<OnScreenInit>
 			(block (
-				; Find near-by wingmen
-				(wingmanList
-					(filter
-						(sysFindObject gSource "As N:120; D:homeSystem;")
-						theShip
-						(objGetProperty theShip 'playerWingman)
-						)
-					)
+				; Find nearby wingmen
+				(shipList (sysFindObject gSource "sAN:120; +property:playerWingman; +property:character;"))
+				(shipIDList (map shipList shipObj (objGetID shipObj)))
 				)
-				; Can't deal with an empty list yet
-				(if (not wingmanList) (scrExitDock gScreen))
 
-				(scrSetData gScreen 'wingmanList wingmanList)
-				(scrSetData gScreen 'selIndex 0)
-				(scrSetData gScreen 'selObj (@ wingmanList 0))
+				(scrSetData gScreen 'shipIDList shipIDList)
 				)
 		</OnScreenInit>
-		<Display>
-			<Text id="leftCol"	left="0" right="0" top="280" bottom="0" align="left" font="Medium" color="#daebff"/>
-			<Text id="rightCol"	left="0" right="0" top="280" bottom="0" align="right" font="Medium" color="#daebff"/>
 
-			<Text id="leftUpper"	left="0" right="0" top="20" bottom="0" align="left" font="Medium" color="#daebff"/>
-			<Text id="rightUpper"	left="0" right="0" top="20" bottom="0" align="right" font="Medium" color="#daebff"/>
+		<Display type="carouselSelector"
+				style="shipList"
+				initialItem="=(scrSetListCursor gScreen (scrGetData gScreen 'cursor))"
+				>
+			<OnDisplayInit>
+				(map (scrGetData gScreen 'shipIDList) shipID
+					(block (
+						(shipObj (objGetObjByID shipID))
+						(shipClass (objGetType shipObj))
+						)
+						{
+						title: (objGetName shipObj)
+						icon: (shpGetImageDesc shipClass { rotation:0 })
 
-			<Image left="0" right="0" top="100" height="100" align="center" valign="center" transparent="true">
-				(shpGetImageDesc (scrGetData gScreen 'selObj))
-			</Image>
+						largeIcon: (shpGetImageDesc shipClass { type:'schematic })
+						details: 
+							(or (objFireEvent shipObj 'GetShipDetails { })
+								(rpgGetShipDetails shipObj { })
+								)
+
+						shipObj: shipObj
+						}
+						)
+					)
+			</OnDisplayInit>
 		</Display>
 
 		<Panes>
 			<Default name="Wingmen">
 				<OnPaneInit>
+					(switch
+						;	No selection
+						(not (scrGetListEntry gScreen))
+							(block ()
+								(scrSetDescTranslate gScreen 'descNoShipsForSale)
+								(scrShowAction gScreen 'actionArmor Nil)
+								(scrShowAction gScreen 'actionWeapons Nil)
+								(scrShowAction gScreen 'actionLauncher Nil)
+								(scrShowAction gScreen 'actionDevice Nil)
+								)
+
+					;	Ship selected
 					(block (
-						(wingmanList (scrGetData gScreen 'wingmanList))
-						(selIndex (scrGetData gScreen 'selIndex))
-						(theShip (scrGetData gScreen 'selObj))
+							(theEntry (scrGetListEntry gScreen))
+							(selObj (@ theEntry 'shipObj))
+							(theShip (@ theEntry 'shipObj))
+							actionStatus
+							)
 
-						; Equipment
-						(armorItem (shpGetArmor theShip 0))
-						(armorCount (shpGetArmorCount theShip))
-						(armorText (if armorItem (itmGetName armorItem 0x080) "None"))
-
-						(shieldItem (@ (objGetItems theShip "sI") 0))
-						(shieldText (if shieldItem (itmGetName shieldItem 0x00) "None"))
-
-						(otherItems (objGetItems theShip "btI"))
-						(otherText (if otherItems
-							(join (map otherItems theItem (itmGetName theItem 0x00)) "\n")
-							"None"
-							))
-
-						(primaryItems (objGetItems theShip "pI"))
-						(primaryText (if primaryItems
-							(join (map primaryItems theItem (itmGetName theItem 0x00)) "\n")
-							"None"
-							))
-						(secondaryItems (objGetItems theShip "lI"))
-						(secondaryText (if secondaryItems
-							(join (map secondaryItems theItem (itmGetName theItem 0x00)) "\n")
-							"None"
-							))
-						actionStatus
-						)
-
-						; Set the left column of stats
-						(scrSetDisplayText gScreen 'leftUpper
-							(cat
-								"{/rtf "
-									"{/f:MediumBold;/c:#79828c; Armor (" armorCount " segments)} \n"
-									armorText
-									"\n\n"
-									"{/f:MediumBold;/c:#79828c; Shields} \n"
-									shieldText
-									"\n\n"
-									"{/f:MediumBold;/c:#79828c; Other} \n"
-									otherText
-								"}"
+							; Set the description
+							(scrSetDesc gScreen
+								(objGetName theShip) " flies a " (objGetName theShip 'generic)
+								". You met in " (sysGetName (objGetData theShip 'homeSystem))
 								)
+
+							; Armor
+							(setq actionStatus (rpgCalcDockServiceReplaceAction gSource gPlayerShip (shpGetArmor theShip 0) {
+									category: 'armor
+									criteria: "aU"
+									}))
+							(scrShowAction gScreen 'actionArmor (@ actionStatus 'visible))
+							(scrEnableAction gScreen 'actionArmor (@ actionStatus 'enabled))
+							(scrSetActionDesc gScreen 'actionArmor (@ actionStatus 'desc))
+
+							; Primary weapon
+							(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
+									category: 'weapon
+									criteria: "pUN"
+									}))
+							(scrShowAction gScreen 'actionWeapons (@ actionStatus 'visible))
+							(scrEnableAction gScreen 'actionWeapons (@ actionStatus 'enabled))
+							(scrSetActionDesc gScreen 'actionWeapons (@ actionStatus 'desc))
+
+							; Launcher
+							(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
+									category: 'launcher
+									criteria: "lUN"
+									}))
+							(scrShowAction gScreen 'actionLauncher (@ actionStatus 'visible))
+							(scrEnableAction gScreen 'actionLauncher (@ actionStatus 'enabled))
+							(scrSetActionDesc gScreen 'actionLauncher (@ actionStatus 'desc))
+
+							; Other
+							(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
+									category: 'other
+									criteria: "d~wUN"
+									}))
+							(scrShowAction gScreen 'actionDevice (@ actionStatus 'visible))
+							(scrEnableAction gScreen 'actionDevice (@ actionStatus 'enabled))
+							(scrSetActionDesc gScreen 'actionDevice (@ actionStatus 'desc))
 							)
-						; Set the right column of stats
-						(scrSetDisplayText gScreen 'rightUpper
-							(cat
-								"{/rtf "
-									"{/f:MediumBold;/c:#79828c; Weapons} \n"
-									primaryText
-									"\n\n"
-									"{/f:MediumBold;/c:#79828c; Launcher} \n"
-									secondaryText
-								"}"
-								)
-							)
-
-						; Use the standard ship stats display for general info
-						(rpgSetShipStatsDisplay theShip {})
-
-						; Set the description
-						(scrSetDesc gScreen
-							(objGetName theShip) " flies a " (objGetProperty theShip 'genericName)
-							". You met in " (sysGetName (objGetData theShip 'homeSystem))
-							)
-
-						; Initialize actions
-						(scrShowAction gScreen 'actionNextShip (ls selIndex (- (count wingmanList) 1)))
-						(scrShowAction gScreen 'actionPrevShip (gr selIndex 0))
-
-						(setq actionStatus (rpgCalcDockServiceReplaceAction gSource gPlayerShip armorItem {
-								category: 'armor
-								criteria: "aU"
-								}))
-						(scrShowAction gScreen 'actionArmor (@ actionStatus 'visible))
-						(scrEnableAction gScreen 'actionArmor (@ actionStatus 'enabled))
-						(scrSetActionDesc gScreen 'actionArmor (@ actionStatus 'desc))
-
-						; Primary weapon
-						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
-								category: 'weapon
-								criteria: "pUN"
-								}))
-						(scrShowAction gScreen 'actionWeapons (@ actionStatus 'visible))
-						(scrEnableAction gScreen 'actionWeapons (@ actionStatus 'enabled))
-						(scrSetActionDesc gScreen 'actionWeapons (@ actionStatus 'desc))
-
-						; Launcher
-						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
-								category: 'launcher
-								criteria: "lUN"
-								}))
-						(scrShowAction gScreen 'actionLauncher (@ actionStatus 'visible))
-						(scrEnableAction gScreen 'actionLauncher (@ actionStatus 'enabled))
-						(scrSetActionDesc gScreen 'actionLauncher (@ actionStatus 'desc))
-
-						; Other
-						(setq actionStatus (rpgCalcDockServiceInstallAction gSource gPlayerShip {
-								category: 'other
-								criteria: "d~wUN"
-								}))
-						(scrShowAction gScreen 'actionDevice (@ actionStatus 'visible))
-						(scrEnableAction gScreen 'actionDevice (@ actionStatus 'enabled))
-						(scrSetActionDesc gScreen 'actionDevice (@ actionStatus 'desc))
-
 						)
 				</OnPaneInit>
 
 				<Actions>
 					<Action id="actionArmor">
-						(scrShowScreen gScreen "&dsWingmanUpgradeArmor;" {
-							checkMilitaryID: (@ gData 'checkMilitaryID)
-							shipObj: (scrGetData gScreen 'selObj)
-							category: 'armor
-							criteria: "aU"
-							replaceItem: (shpGetArmor (scrGetData gScreen 'selObj) 0)
-							})
+						(block (
+							(theEntry (scrGetListEntry gScreen))
+							(shipObj (@ theEntry 'shipObj))
+							)
+							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
+							(scrShowScreen gScreen "&dsWingmanUpgradeArmor;" {
+								checkMilitaryID: (@ gData 'checkMilitaryID)
+								shipObj: shipObj
+								category: 'armor
+								criteria: "aU"
+								replaceItem: (shpGetArmor shipObj 0)
+								})
+							)
 					</Action>
 					<Action id="actionWeapons">
-						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
-							checkMilitaryID: (@ gData 'checkMilitaryID)
-						 	shipObj: (scrGetData gScreen 'selObj)
-							category: 'weapon
-							criteria: "pUN"
-							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "pI") 0)
-							})
+						(block (
+							(theEntry (scrGetListEntry gScreen))
+							(shipObj (@ theEntry 'shipObj))
+							)
+							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
+							(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+								checkMilitaryID: (@ gData 'checkMilitaryID)
+								shipObj: shipObj
+								category: 'weapon
+								criteria: "pUN"
+								replaceItem: (@ (objGetItems shipObj "pI") 0)
+								})
+							)
 					</Action>
 					<Action id="actionLauncher">
-						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
-							checkMilitaryID: (@ gData 'checkMilitaryID)
-						 	shipObj: (scrGetData gScreen 'selObj)
-							category: 'launcher
-							criteria: "lUN"
-							replaceItem: (@ (objGetItems (scrGetData gScreen 'selObj) "lI") 0)
-							})
+						(block (
+							(theEntry (scrGetListEntry gScreen))
+							(shipObj (@ theEntry 'shipObj))
+							)
+							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
+							(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+								checkMilitaryID: (@ gData 'checkMilitaryID)
+								shipObj: shipObj
+								category: 'launcher
+								criteria: "lUN"
+								replaceItem: (@ (objGetItems shipObj "lI") 0)
+								})
+							)
 					</Action>
 					<Action id="actionDevice">
-						(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
-							checkMilitaryID: (@ gData 'checkMilitaryID)
-						 	shipObj: (scrGetData gScreen 'selObj)
-							category: 'device
-							criteria: "d~wUN"
-							})
-					</Action>
-					<Action id="actionNextShip" minor="True">
 						(block (
-							(wingmanList (scrGetData gScreen 'wingmanList))
-							(selIndex (scrGetData gScreen 'selIndex))
+							(theEntry (scrGetListEntry gScreen))
+							(shipObj (@ theEntry 'shipObj))
 							)
-							(if (ls selIndex (- (count wingmanList) 1))
-								(block Nil
-									(setq selIndex (+ selIndex 1))
-									(scrSetData gScreen 'selIndex selIndex)
-									(scrSetData gScreen 'selObj (@ wingmanList selIndex))
-									(scrShowPane gScreen "Default")
-									)
-								)
-							)
-					</Action>
-					<Action id="actionPrevShip" minor="True">
-						(block (
-							(wingmanList (scrGetData gScreen 'wingmanList))
-							(selIndex (scrGetData gScreen 'selIndex))
-							)
-							(if (gr selIndex 0)
-								(block Nil
-									(setq selIndex (- selIndex 1))
-									(scrSetData gScreen 'selIndex selIndex)
-									(scrSetData gScreen 'selObj (@ wingmanList selIndex))
-									(scrShowPane gScreen "Default")
-									)
-								)
+							(scrSetData gScreen 'cursor (scrGetListCursor gScreen))
+							(scrShowScreen gScreen "&dsWingmanUpgradeDevice;" {
+								checkMilitaryID: (@ gData 'checkMilitaryID)
+								shipObj: shipObj
+								category: 'device
+								criteria: "d~wUN"
+								})
 							)
 					</Action>
-					<Action id="actionDone">
+					<Action id="actionDone" cancel="1">
 						(scrExitScreen gScreen)
 					</Action>
 				</Actions>
@@ -225,96 +179,29 @@
 		</Panes>
 
 		<Language>
-			<Text id="actionNextShip">"&gt;[RightArrow] Next Wingman"</Text>
-			<Text id="actionPrevShip">"&lt;[LeftArrow] Previous Wingman"</Text>
 			<Text id="actionArmor">"Upgrade [A]rmor"</Text>
 			<Text id="actionWeapons">"Upgrade [W]eapon"</Text>
 			<Text id="actionLauncher">"Upgrade [L]auncher"</Text>
 			<Text id="actionDevice">"Upgrade [E]quipment"</Text>
 		</Language>
 
-		<StaticData>
-			<Data id="actionLink">
-				{
-					"&scCSCAntarctica;/Main":				("Default"	2	True)
-					"&stBattleArena;/Main":					("Default"	2	True)
-					"&stBlackMarketRigelAurelius;/Main":	("Default"	4	Nil)
-					"&stBlackMarketStation;/Main":			("Default"	4	Nil)
-					"&stBlackMarketShipyard;/Main":			("Default"	3	Nil)
-					"&stKorolovShipping;/Dispatch":			("Default"	3	True)
-					"&stKorolovAtCharon;/Dispatch":			("Default"	2	True)
-					"&stCommonwealthColony;/Main":			("Default"	2	True)
-					"&stCommonwealthColonyArmed;/Main":		("Default"	2	True)
-					"&stCommonwealthSettlement;/Main":		("Default"	2	True)
-					"&dsDryDock;":							("Default"	1	True)
-					"&stAgriculturalStation;/Main":			("Default"	3	True)
-					"&scCSCTaskForce;/Main":				("Default"	3	True)
-					"&scCSCHospital;/Main":					("Default"	3	True)
-					"&dsCommonwealthStation;":				("Default"	3	True)
-					"&stCommonwealthFortress;/Main":		("Default"	3	True)
-					"&stMiningColony;/Main":				("Default"	3	True)
-					"&stAdventurerOutfitters;/Main":		("Default"	2	True)
-					"&stArmorDealer;/Main":					("Default"	2	True)
-					"&stMakayevFactory;/Main":				("Default"	3	True)
-					"&stTaikonVentures;/Main":				("Default"	2	True)
-					"&stWondrousDevices;/Main":				("Default"	2	True)
-					"&dsArmsDealerSpecial;":				("Default"	2	True)
-					"&stPointJuno;/Main":					("Default"	2	True)
-					"&stRasiermesserFactory;/Main":			("Default"	4	True)
-					"&stRingerShipyard;/Main":				("Default"	2	Nil)
-					"&dsStKatsArcology;":					("Default"	5	True)
-					"0x00810055":							("Default"	4	True)	; Corporate Metropolis
-					"0x009101B4/Main":						("Default"	3	True)	; stAPDTulou
-					"0x009101DC/Main":						("Default"	2	True)	; stAPDSpaceCommandBase
-					"0x009101B8":							("Default"	3	True)	; dsAPDConstellation
-					"0x009101C1":							("Default"	2	True)	; dsAPDExplorer
-					"0x009101BB":							("Default"	3	True)	; dsAPDMonastery
-					"0x009101BE":							("Default"	3	True)	; dsAPDOutpost
-					"0x00910296":							("Default"	3	True)	; dsCDM
-					"0x00910481":							("Default"	3	True)	; dsCommonwealthTradingPost
-					"0x009104A1":							("Default"	2	True)	; dsPolyarnyShipyards
-					"0x009101E7/Main":						("Default"	3	True)	; stEDMetropolis
-					"0x00910209/Main":						("Default"	2	True)	; stEDResearchLab
-					"0x009101E5":							("Default"	3	True)	; dsEDCommune
-					"0x009101F1":							("Default"	2	True)	; dsEDCruiser
-					"0x009101EE":							("Default"	3	True)	; dsEDSettlement
-					"0x009101EB":							("Default"	3	True)	; dsEDZamok
-					"0x00910221":							("Default"	2	True)	; dsNAUAtlasBase
-					"0x0091021B":							("Default"	3	True)	; dsNAUAutofac
-					"0x00910215":							("Default"	3	True)	; dsNAUEnclave
-					"0x00910218":							("Default"	3	True)	; dsNAUMetropolis
-					"0x0091021E":							("Default"	3	True)	; dsNAUTradingPost
-					"0x009104C1":							("Default"	2	True)	; dsRingersOldHabitat
-					"0x00910250":							("Default"	2	True)	; dsUASDreadnought
-					"0x0091024C":							("Default"	3	True)	; dsUASFortress
-					"0x0091024A":							("Default"	4	True)	; dsUASMetropolis
-					"0x00910248":							("Default"	3	True)	; dsUASMiningColony
-					"0x0091024E":							("Default"	3	True)	; dsUASSettlement
-					}
-			</Data>
-		</StaticData>
-
 		<Events>
 			<OnGlobalPaneInit>
-				(block (
-					(myAction (@ (typGetStaticData &dsWingmanList; 'actionLink) aScreen))
-					)
-					(switch
-						(not myAction)
-							Nil
+				(switch
+					(!= aScreenUNID &dsRPGDockServices;)
+						Nil
 
-						(!= (@ myAction 0) aPane)
-							Nil
+					(!= aPane "Default")
+						Nil
 
-						(filter (sysFindObject gSource "As N:120; D:homeSystem;") theShip (objGetProperty theShip 'playerWingman))
-							(scrAddAction
-								gScreen
-								'wingmanAction
-								(@ myAction 1)
-								"[V]iew Wingmen"
-								(scrShowScreen gScreen "&dsWingmanList;" {checkMilitaryID: (@ myAction 2)})
-								)
-						)
+					(sysFindObject gSource "sAN:120; +property:playerWingman; +property:character;")
+						(scrAddAction
+							gScreen
+							'wingmanAction
+							4
+							"[V]iew Wingmen"
+							(scrShowScreen gScreen "&dsWingmanList;")
+							)
 					)
 			</OnGlobalPaneInit>
 		</Events>
