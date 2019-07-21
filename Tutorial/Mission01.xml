@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<TranscendenceModule>
+
+	<!-- Tutorial Mission 01 - Destroy Station =================================
+
+	This demonstrates a simple destroy station mission based on the Commonwealth
+	Habitat mission msDestroyThreatToSlums
+
+	EXTRA DATA
+
+		enemy:		Enemy sovereign
+		reward:		Reward (in credits) for completing mission
+		targetID:	ID of station to destroy
+
+	======================================================================== -->
+
+	<MissionType UNID="&msTutorial01;"
+			name=						"Tutorial 01"
+			attributes=					"commonwealth, commonwealthPub"
+
+			level=						"1-5"
+			maxAppearing=				"3"
+
+			destroyOnDecline=			"true"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					; Find the nearest enemy station (excluding uncharted and special quest targets)
+					(targetObj (sysFindObject aOwnerObj "TAENN:450 +populated; -uncharted; -questTarget;"))
+					)
+
+					(switch
+
+						; If we couldn't find a target then call msnDestroy to abort
+						; creation of this mission
+
+						(not targetObj)
+							(msnDestroy gSource)
+
+						; Otherwise we can create a mission
+
+						(block Nil
+
+							; Remember the target
+							(msnSetData gSource 'targetID (objGetID targetObj))
+							(msnSetData gSource 'enemy (objGetProperty targetObj 'sovereign))
+
+							; Set reward
+							(msnSetData gSource 'reward 300)
+
+							; Register for events so we know when the target is destroyed
+							(msnRegisterForEvents gSource targetObj)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnAccepted>
+				; Make sure the target is known to the player
+				(objSetKnown (objGetObjByID (msnGetData gSource 'targetID)))
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'targetID)))
+			</OnSetPlayerTarget>
+
+			<OnObjDestroyed>
+				(switch
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'targetID))
+						(msnSuccess gSource)
+					)
+			</OnObjDestroyed>
+
+			<OnReward>
+				(rpgMissionRewardPayment (msnGetData gSource 'reward))
+			</OnReward>
+		</Events>
+
+		<Language>
+
+			<!-- Code Points -->
+
+			<Text id="Summary">
+				(msnTranslate gSource 'descSummary {
+					targetName: (objGetName (objGetObjByID (msnGetData gSource 'targetID)) 'article)
+					systemName: (sysGetName)
+					reward: (fmtCurrency 'credit (msnGetData gSource 'reward))
+					})
+			</Text>
+
+			<Text id="Intro">
+				(msnTranslate gSource 'textIntro {
+					enemy: (sovGetName (msnGetData gSource 'enemy) 'short)
+					})
+			</Text>
+
+			<Text id="Briefing">
+				(msnTranslate gSource 'textBriefing {
+					targetName: (objGetName (objGetObjByID (msnGetData gSource 'targetID)) 'article)
+					payment: (fmtCurrency 'credit (msnGetData gSource 'reward))
+					})
+			</Text>
+
+			<Text id="SuccessDebrief">
+				(msnTranslate gSource 'textSuccessDebrief {
+					payment: (fmtCurrency 'credit (msnGetData gSource 'reward))
+					})
+			</Text>
+
+			<!-- Text -->
+
+			<Text id="Name">
+
+				Destroy Station
+
+			</Text>
+			<Text id="descSummary">
+
+				You have been hired to destroy %targetName%.
+
+				System: %systemName%\n
+				Payment: %reward%
+
+			</Text>
+			<Text id="textIntro">
+
+				You spend 5 credits on drinks. A drunk stationer next to you is
+
+				"My partner worked on a freighter which was hit by the %enemy%.
+				They had no mercy&mdash;they killed everyone..."
+
+			</Text>
+			<Text id="textBriefing">
+
+				"Hey - you're a merc aren't you? I'll pay you %payment% to kill
+				those bastards! Do we have a deal?"
+
+			</Text>
+			<String id="AcceptLabel">"[S]ure, I could do with the cash."</String>
+			<String id="DeclineLabel">"[N]o thanks, just give me a drink."</String>
+			<Text id="AcceptReply">
+
+				"Thanks! I knew I could count on you. I'll program the target
+				into your ship's computer. Just follow the arrow on your screen
+				and you'll get there. Good luck!"
+
+			</Text>
+			<Text id="DeclineReply">
+
+				The stationer stares into space and says no more.
+
+			</Text>
+			<Text id="InProgress">
+
+				The stationer is still at the bar drinking:
+
+				"Have you killed them yet? Get back out there make it right!"
+
+			</Text>
+			<Text id="textSuccessDebrief">
+
+				The stationer is waiting for you in the docking bay.
+
+				"It's done&mdash;I hope they suffered. I've deposited %payment%
+				to your account as promised."
+
+			</Text>
+		</Language>
+	</MissionType>
+
+</TranscendenceModule>

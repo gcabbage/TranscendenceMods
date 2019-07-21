@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<TranscendenceModule>
+
+	<!-- Tutorial Mission 02 - Delivery ========================================
+
+	This demonstrates a simple delivery mission, the player is given a dataROM
+	to take to a random friendly station
+
+	EXTRA DATA
+
+		destID:		ID of the destination station
+		message:	The dataROM item (used to check the player has delivered it)
+
+	======================================================================== -->
+
+	<MissionType UNID="&msTutorial02;"
+			name=						"Tutorial 02"
+			attributes=					"commonwealth, commonwealthPub, deliveryMission"
+
+			level=						"1-5"
+			maxAppearing=				"3"
+
+			destroyOnDecline=			"true"
+			noDebrief=					"true"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					; Get a list of suitable friendly stations
+					; Note - the occupation attribute only works for the older
+					; Centauri Occupation. Raisu has been rewritten as a mission
+					; so we need to check if traffic has been disabled
+					(targetObj (random (filter
+					 	(sysFindObject aOwnerObj "TAFR:100 +commonwealth; +populated; -uncharted; -occupation;")
+						theObj
+						(not (objFireEvent theObj 'GetTrafficStatus { }))
+						)))
+					)
+
+					(switch
+						; If we don't have a suitable target then destroy the mission
+						(not targetObj)
+							(msnDestroy gSource)
+
+						(block Nil
+							; Remember the destination station
+							(msnSetData gSource 'destID (objGetID targetObj))
+
+							; Register for events so we know if the target is destroyed.
+							(msnRegisterForEvents gSource targetObj)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnAccepted>
+				(block (
+					(destObj (objGetObjByID (msnGetData gSource 'destID)))
+					; Create a dataROM with the message
+					(theRom
+					 	(itmSetData
+							(itmCreate &itDataROM; 1)
+							'Text
+							(msnTranslate gSource 'textMessage)
+							)
+						)
+					)
+					; Remember the item so we can check that the player delivers it
+					(msnSetData gSource 'message theRom)
+					(objAddItem gPlayerShip theRom)
+
+					; Make sure the destination is known to the player
+					(objSetKnown destObj)
+					)
+			</OnAccepted>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'destID)) 'dock)
+			</OnSetPlayerTarget>
+
+			<OnObjDestroyed>
+				(switch
+					; If the destination is destroyed before we deliver the
+					; message then fail the mission
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'destID))
+						(msnFailure gSource)
+					)
+			</OnObjDestroyed>
+
+			<OnDeliveryMissionCompleted>
+				(block (
+					(theRom (msnGetData gSource 'message))
+					)
+
+					(switch
+						; If the player has the ROM then remove it and succeed
+						; the mission.
+						(objHasItem gPlayerShip theRom)
+							(block Nil
+								(objRemoveItem gPlayerShip theRom)
+								(msnSuccess gSource)
+								(msnTranslate gSource 'textSuccessDebrief)
+								)
+
+						; Otherwise if the player has lost it then mark the
+						; mission as failed.
+						(block Nil
+							(msnFailure gSource)
+							(msnTranslate gSource 'textFailureDebrief)
+							)
+						)
+					)
+			</OnDeliveryMissionCompleted>
+		</Events>
+
+		<Language>
+
+			<!-- Code Points -->
+
+			<Text id="Summary">
+				(msnTranslate gSource 'descSummary {
+					targetName: (objGetName (objGetObjByID (msnGetData gSource 'destID)) 'article)
+					systemName: (sysGetName)
+					reward: (fmtCurrency 'credit (msnGetData gSource 'reward))
+					})
+			</Text>
+
+			<Text id="Intro">
+				{
+					descID: 'textIntro
+					data: {
+						targetName: (objGetName (objGetObjByID (msnGetData gSource 'destID)))
+						}
+					}
+			</Text>
+
+			<Text id="InProgress">
+				{
+				 	descID: 'textInProgress
+					data: {
+						targetName: (objGetName (objGetObjByID (msnGetData gSource 'destID)))
+						}
+					}
+			</Text>
+
+			<!-- Text -->
+
+			<Text id="Name">
+
+				Message delivery
+
+			</Text>
+			<Text id="descSummary">
+
+				Deliver a message ROM to %targetName%.
+
+				System: %systemName%\n
+				Payment: %reward%
+
+			</Text>
+			<Text id="textIntro">
+
+				You spend 5 credits on drinks while talking to a repair
+				technician from %targetName%:
+
+				"I was sent here to help fix the damage from the last pirate
+				attack. It was supposed to take two days&mdash;but I've been
+				stuck here for weeks."
+
+			</Text>
+			<Text id="Briefing">
+
+				"Hey, you travel a lot with that ship of yours. Would you be
+				able to deliever a message to my family?"
+
+			</Text>
+			<String id="AcceptLabel">"[Y]es, I will help."</String>
+			<String id="DeclineLabel">"[N]o, I don't have time."</String>
+			<Text id="AcceptReply">
+
+				"Thanks! I always prefer to send a physical message, it's much
+				more personal than beaming something over the system net."
+
+			</Text>
+			<Text id="DeclineReply">
+
+				"I guess I'd better let you get back to your important work.
+				Can't waste your whole day drinking here."
+
+			</Text>
+			<Text id="textInProgress">
+
+				The technician from %targetName% is still here.
+
+				"Hey - did you deliver that message yet?"
+
+			</Text>
+			<Text id="textMessage">
+
+				MESSAGE BEGINS
+
+				Arrived safely. Work busy.
+
+				MESSAGE ENDS
+
+			</Text>
+			<Text id="textSuccessDebrief">
+
+				"This is it? We don't hear anything for weeks and then some four
+				word message that could be for anyone!"
+
+			</Text>
+			<Text id="textFailureDebrief">
+
+				As you dock a reminder appears on your mission computer. You
+				agreed to deliver a message to this station. However, you appear
+				to have misplaced it so you delete the entry.
+
+			</Text>
+		</Language>
+	</MissionType>
+</TranscendenceModule>

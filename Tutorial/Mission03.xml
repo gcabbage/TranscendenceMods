@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<TranscendenceModule>
+
+	<!-- Tutorial Mission 03 - Escort Ship =====================================
+
+	This demonstrates a simple escort mission
+
+	EXTRA DATA
+
+		gateID:		ID of the destination stargate
+		shipID:		ID of the ship to escort
+		lastMsg:	The tick when we last sent a message to the player
+
+	======================================================================== -->
+
+	<MissionType UNID="&msTutorial03;"
+			name=						"Tutorial 03"
+			attributes=					"commonwealth, commonwealthPub"
+
+			level=						"1-5"
+			maxAppearing=				"3"
+
+			destroyOnDecline=			"true"
+			noDebrief=					"true"
+			>
+
+		<Events>
+			<OnCreate>
+				(block (
+					; Find a random stargate
+					(gateObj (random (sysFindObject aOwnerObj "G -uncharted;")))
+
+					; Pick a random ship - we want one of the private craft with
+					; orders to gate on threat rather than a defender
+					(shipObj (random (sysFindObject aOwnerObj "sZAO:gateOnThreat;")))
+					)
+
+					(switch
+
+						; We need both ship and destination, otherwise no mission
+
+						(not (or gateObj shipObj))
+							(msnDestroy gSource)
+
+
+						(block Nil
+							; Remember the objects
+							(msnSetData gSource 'gateID (objGetID gateObj))
+							(msnSetData gSource 'shipID (objGetID shipObj))
+
+							; Register for events so we know if the ship is destroyed.
+							(msnRegisterForEvents gSource shipObj)
+							)
+						)
+					)
+			</OnCreate>
+
+			<OnAcceptedUndock>
+				(block (
+					(gateObj (objGetObjByID (msnGetData gSource 'gateID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					)
+
+					; Order the ship to leave
+					(shpCancelOrders shipObj)
+					(shpOrder shipObj 'gate gateObj)
+
+					; Send a message to the player
+					(objSendMessage gPlayerShip shipObj
+						(msnTranslate gSource (cat "msgBeginEscort:" (random 1 2)))
+						)
+					(objSetIdentified shipObj)
+
+					; Make sure the destination is known to the player
+					(objSetKnown gateObj)
+					)
+			</OnAcceptedUndock>
+
+			<OnSetPlayerTarget>
+				(rpgSetTarget gSource aReason (objGetObjByID (msnGetData gSource 'shipID)) 'escort)
+			</OnSetPlayerTarget>
+
+			<OnObjDestroyed>
+				(switch
+					; If the ship was destroyed before we started the mission
+					; then just cancel the mission
+					(and (msnGetProperty gSource 'isOpen)
+							(= (objGetID aObjDestroyed) (msnGetData gSource 'shipID)))
+						(msnDestroy gSource)
+
+					; Ignore objects which are "destroyed" by entering a gate
+					(= aDestroyReason 'enteredStargate)
+						Nil
+
+					; Otherwise if the ship is destroyed the mission is a failure
+					(= (objGetID aObjDestroyed) (msnGetData gSource 'shipID))
+						(msnFailure gSource)
+					)
+			</OnObjDestroyed>
+
+			<OnObjEnteredGate>
+				(switch
+					; Ship has reached gate, so mission is successful
+					(= (objGetID aObj) (msnGetData gSource 'shipID))
+						(msnSuccess gSource)
+					)
+			</OnObjEnteredGate>
+
+			<OnUpdate>
+				(block (
+					(gateObj (objGetObjByID (msnGetData gSource 'gateID)))
+					(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+					enemyObj
+					)
+
+					(switch
+						; Leave at least 10 seconds between each message
+						(gr (+ (msnGetData gSource 'lastMsg) 300) (unvGetTick))
+							Nil
+
+						; If an enemy is attacking us then start panicing
+						(setq enemyObj (sysFindObject shipObj "sTAEPXN"))
+							(block (
+								(sov (objGetProperty enemyObj 'sovereign))
+								)
+								(objSendMessage gPlayerShip shipObj
+									(msnTranslate gSource (cat "msgAttack:" (random 1 4)) {
+										ship: (objGetName enemyObj)
+										articleShip: (objGetName enemyObj 'article)
+										enemy: (sovGetName sov '(demonym plural))
+										})
+									)
+								(msnSetData gSource 'lastMsg (unvGetTick))
+								)
+
+						; If we can see an enemy the we are worried
+						(setq enemyObj (sysFindObject shipObj "sTAEPN"))
+							(block (
+								(sov (objGetProperty enemyObj 'sovereign))
+								)
+								(objSendMessage gPlayerShip shipObj
+									(msnTranslate gSource (cat "msgEnemy:" (random 1 4)) {
+										enemy: (sovGetName sov '(demonym plural))
+										})
+									)
+								(msnSetData gSource 'lastMsg (unvGetTick))
+								)
+
+						; If we're close to the gate then say
+						(ls (objGetDistance shipObj gateObj) 50)
+							(block Nil
+								(objSendMessage gPlayerShip shipObj
+									(msnTranslate gSource (cat "msgGate:" (random 1 2)) {})
+									)
+								(msnSetData gSource 'lastMsg (unvGetTick))
+								)
+							)
+						)
+					)
+			</OnUpdate>
+		</Events>
+
+		<Language>
+
+			<!-- Code Points -->
+
+			<Text id="Summary">
+				(msnTranslate gSource 'descSummary {
+					shipName: (objGetName (objGetObjByID (msnGetData gSource 'shipID)) 'article)
+					gateName: (objGetName (objGetObjByID (msnGetData gSource 'gateID)))
+					systemName: (sysGetName)
+					reward: (fmtCurrency 'credit (msnGetData gSource 'reward))
+					})
+			</Text>
+
+			<Text id="Intro">
+				{
+					descID: 'textIntro
+					data: {
+						shipName: (objGetName (objGetObjByID (msnGetData gSource 'shipID)) 'article)
+						gateName: (objGetName (objGetObjByID (msnGetData gSource 'gateID)))
+						}
+					}
+			</Text>
+
+			<Text id="Briefing">
+				{
+					descID: 'textBriefing
+					data: {
+						shipName: (objGetName (objGetObjByID (msnGetData gSource 'shipID)) 'article)
+						gateName: (objGetName (objGetObjByID (msnGetData gSource 'gateID)))
+						}
+					}
+			</Text>
+
+			<!-- Text -->
+
+			<Text id="Name">
+
+				Escort ship
+
+			</Text>
+			<Text id="descSummary">
+
+				You have agreed to escort %shipName% to %gateName%.
+
+				System: %systemName%\n
+				Payment: %reward%
+
+			</Text>
+			<Text id="textIntro">
+
+				You spend 5 credits on drinks. You end up talking to the novice
+				pilot of %shipName%.
+
+				"I'm supposed to be heading out of the system for the first time
+				today. But I hear there are more pirates and raiders than usual."
+
+			</Text>
+			<Text id="textBriefing">
+
+				"You look like you have some experience. Would you mind
+				escorting me to the %gateName%?"
+
+			</Text>
+			<String id="AcceptLabel">"[S]ure, I can help you out."</String>
+			<String id="DeclineLabel">"[N]ot today, I've got more important things to do."</String>
+			<Text id="AcceptReply">
+
+				The pilot is relieved to have your help:
+
+				"Thanks! It's a long way so it'll be good to have the company."
+
+			</Text>
+			<Text id="DeclineReply">
+
+				The young pilot is nervous, but tries to appear calm:
+
+				"I'm sure it's nothing to worry about. I'll be able to handle
+				a few raiders in their broken down ships."
+
+			</Text>
+			<Text id="InProgress">
+
+				You sit at the bar and wonder if that novice pilot made it out
+				of the system.
+
+			</Text>
+
+			<Text id="msgBeginEscort:1">Thanks for the escort, %name%.</Text>
+			<Text id="msgBeginEscort:2">OK - lets head out!</Text>
+
+			<Text id="msgAttack:1">Help! %ArticleShip% is attacking!</Text>
+			<Text id="msgAttack:2">Kack! %Enemy% are attacking me!</Text>
+			<Text id="msgAttack:3">Is that %ship% targetting me? Help!</Text>
+			<Text id="msgAttack:4">Please help! I've got %enemy% all over!</Text>
+
+			<Text id="msgEnemy:1">Are those %enemy% a problem?</Text>
+			<Text id="msgEnemy:2">Do we need to avoid those %enemy%?</Text>
+			<Text id="msgEnemy:3">Should I be worried about those %enemy%?</Text>
+			<Text id="msgEnemy:4">Can you handle those %enemy%?</Text>
+
+			<Text id="msgGate:1">I can see the gate.</Text>
+			<Text id="msgGate:2">Thanks for the escort, %name%</Text>
+
+		</Language>
+	</MissionType>
+</TranscendenceModule>

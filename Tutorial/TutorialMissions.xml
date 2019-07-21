@@ -1,0 +1,84 @@
+<?xml version="1.0" ?>
+
+<!DOCTYPE TranscendenceExtension
+	[
+	<!ENTITY unidExtension					"0xDDDEF000">
+	<!ENTITY msTutorial01					"0xDDDEF001">
+	<!ENTITY msTutorial02					"0xDDDEF002">
+	<!ENTITY msTutorial03					"0xDDDEF003">
+
+	<!ENTITY msTutorial11					"0xDDDEF011">
+	]>
+
+<TranscendenceExtension UNID="&unidExtension;"
+		name=		"Mission Tutorial"
+		release=	"1"
+		version=	"1.0.0"
+		apiVersion=	"45"
+		>
+	<Library unid="&unidHumanSpaceLibrary;"/>
+
+	<!-- Basic missions -->
+	<Module filename="Mission01.xml"/>
+	<Module filename="Mission02.xml"/>
+	<Module filename="Mission03.xml"/>
+
+	<!-- Advanced missions -->
+	<Module filename="Mission11.xml"/>
+
+
+
+	<!-- Commonwealth Pub - included so we can remove maxPerStation limit -->
+
+	<DockScreen UNID="&dsCommonwealthPub;"
+			nestedScreen=	"true"
+			inherit=		"&dsDockScreenBase;"
+			>
+		<Panes>
+			<Default descID="descWelcome">
+				<Actions>
+					<Action id="actionBar" default="1">
+						(if (geq (plyGetCredits gPlayer) 5)
+							(block Nil
+								(plyCharge gPlayer 5)
+								(rpgMissionAssignment {
+									missionCriteria: (cat "n +commonwealthPub; =" (sysGetLevel) ";")
+									noMissionTextID: 'descNoRumors
+									actionDoneID: 'actionLeave
+									})
+								)
+							(scrShowPane gScreen "NoMoney")
+							)
+					</Action>
+
+					<Action id="actionLeave" cancel="1">
+						<Exit/>
+					</Action>
+				</Actions>
+			</Default>
+
+			<NoMoney descID="descNoMoney">
+				<Actions>
+					<Action id="actionLeave" default="1" cancel="1">
+						<Exit/>
+					</Action>
+				</Actions>
+			</NoMoney>
+		</Panes>
+
+		<Language>
+			<Text id="actionBar">[S]it at the Bar</Text>
+			<Text id="descWelcome">
+				You are in a large and crowded spacer bar.
+			</Text>
+			<Text id="descNoMoney">
+				You hang around for a while, but you have no money to buy drinks.
+			</Text>
+			<Text id="descNoRumors">
+				You spend 5 credits on drinks; everyone else around you seems to
+				be having a good time.
+			</Text>
+		</Language>
+	</DockScreen>
+
+</TranscendenceExtension>
