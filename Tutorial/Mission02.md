@@ -120,3 +120,8 @@ For simple missions like this this event should call either `msnSuccess` or
 `msnFailure`. However, for more complex cases you will need to clear (or change)
 the `destID` mission data - otherwise the engine will keep attempting to show
 the same dock screen.
+
+Further Work
+------------
+Here are a few ideas for improving this mission:
+* Add some enemies for the player to fight.

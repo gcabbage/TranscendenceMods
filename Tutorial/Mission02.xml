@@ -33,7 +33,7 @@
 					; Centauri Occupation. Raisu has been rewritten as a mission
 					; so we need to check if traffic has been disabled
 					(targetObj (random (filter
-					 	(sysFindObject aOwnerObj "TAFR:100 +commonwealth; +populated; -uncharted; -occupation;")
+						(sysFindObject aOwnerObj "TAFR:100 +commonwealth; +populated; -uncharted; -occupation;")
 						theObj
 						(not (objFireEvent theObj 'GetTrafficStatus { }))
 						)))
@@ -60,7 +60,7 @@
 					(destObj (objGetObjByID (msnGetData gSource 'destID)))
 					; Create a dataROM with the message
 					(theRom
-					 	(itmSetData
+						(itmSetData
 							(itmCreate &itDataROM; 1)
 							'Text
 							(msnTranslate gSource 'textMessage)
@@ -138,7 +138,7 @@
 
 			<Text id="InProgress">
 				{
-				 	descID: 'textInProgress
+					descID: 'textInProgress
 					data: {
 						targetName: (objGetName (objGetObjByID (msnGetData gSource 'destID)))
 						}
