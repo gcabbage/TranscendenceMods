@@ -100,3 +100,65 @@ therefore we need to check why the ship was destroyed and ignore the gate case.
 		)
 </OnObjEnteredGate>
 ```
+
+#### OnUpdate
+
+The `OnUpdate` event is called every 30 ticks (1 second) for all active missions.
+That is the time from when the player accepts the mission to when the mission
+is completed (success or failure). In this example we will use the `OnUpdate`
+event to send messages to the player:
+
+```xml
+<OnUpdate>
+	(block (
+		(gateObj (objGetObjByID (msnGetData gSource 'gateID)))
+		(shipObj (objGetObjByID (msnGetData gSource 'shipID)))
+		enemyObj
+		)
+
+		(switch
+			; Leave at least 10 seconds between each message
+			(gr (+ (msnGetData gSource 'lastMsg) 300) (unvGetTick))
+				Nil
+
+			; If an enemy is attacking us then start panicking
+			(setq enemyObj (sysFindObject shipObj "sTAEPXN"))
+				(block (
+					(sov (objGetProperty enemyObj 'sovereign))
+					)
+					(objSendMessage gPlayerShip shipObj
+						(msnTranslate gSource (cat "msgAttack:" (random 1 4)) {
+							ship: (objGetName enemyObj)
+							articleShip: (objGetName enemyObj 'article)
+							enemy: (sovGetName sov '(demonym plural))
+							})
+						)
+					(msnSetData gSource 'lastMsg (unvGetTick))
+					)
+
+			; If we can see an enemy the we are worried
+			(setq enemyObj (sysFindObject shipObj "sTAEPN"))
+				(block (
+					(sov (objGetProperty enemyObj 'sovereign))
+					)
+					(objSendMessage gPlayerShip shipObj
+						(msnTranslate gSource (cat "msgEnemy:" (random 1 4)) {
+							enemy: (sovGetName sov '(demonym plural))
+							})
+						)
+					(msnSetData gSource 'lastMsg (unvGetTick))
+					)
+
+			; If we're close to the gate then say
+			(ls (objGetDistance shipObj gateObj) 50)
+				(block Nil
+					(objSendMessage gPlayerShip shipObj
+						(msnTranslate gSource (cat "msgGate:" (random 1 2)) {})
+						)
+					(msnSetData gSource 'lastMsg (unvGetTick))
+					)
+				)
+			)
+		)
+</OnUpdate>
+```

@@ -119,7 +119,7 @@
 						(gr (+ (msnGetData gSource 'lastMsg) 300) (unvGetTick))
 							Nil
 
-						; If an enemy is attacking us then start panicing
+						; If an enemy is attacking us then start panicking
 						(setq enemyObj (sysFindObject shipObj "sTAEPXN"))
 							(block (
 								(sov (objGetProperty enemyObj 'sovereign))

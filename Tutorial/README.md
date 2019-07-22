@@ -16,7 +16,8 @@ This demonstrates the use of the special `deliveryMission` attribute and the
 player is given a dataROM to take to a random friendly station.
 
 ### 3 - [Escort Ship](Mission03.md)
-
+This is a basic escort mission - the player will escort one ship from the
+Starton to a random stargate.
 
 Advanced Missions
 -----------------
